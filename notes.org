@@ -1,0 +1,185 @@
+* Overview
+consists of two layers:
+ - server to server federation
+ - client to server protocol
+
+representation of users, with properties:
+  - inbox :: messages from the world
+  - outbox :: send messages out
+
+these endpoints are listed in the activitystreams description:
+#+BEGIN_SRC json
+{"@context": "https://www.w3.org/ns/activitystreams",
+  "type": "Person",
+  "id": "https://social.example/alyssa/",
+  "preferredUsername": "alyssa",
+  "summary": "Lisp enthusiast",
+  "inbox": "https://social.example/alyssa/inbox/",
+  "outbox": "https://social.example/alyssa/outbox/"
+}
+#+END_SRC
+
+#+BEGIN_SRC txt
+         read latest                     send messages
+          messages                       to actor from 
+                                             server
+actor    <---GET---      [inbox]         <---POST---    rest of the world
+
+actor    ---POST--->     [outbox]         ---GET--->    rest of the world
+        post messages                   retreive messages
+          to world                      produced by server
+#+END_SRC
+- example usecase:
+    - alyssa's client posts a message to her outbox on her server
+       - NOTE: as a message is not an activity, her server wraps it in a create object
+    - server looks up ben's activitystreams actor and posts object to inbox
+    - ....
+    - alysa's client gets her inbox, and recieves ben's message (has also been wrapped in create)
+- another usecase:
+    - alyssa wants to like ben's post
+    - alyssa's client posts to outbox {type: like, to=["ben"]; actor: alyssa; object: "id of ben's post"}
+       - NOTE: as a like is an activity, no need to wrap in create
+- to send a public/followers message, include followers & public
+* Tasks
+** Look up specific components for each endpoint
+** Look into microblog.pub to see how it implements things
+* Parts I need to implement
+** Inbox
+*** GET - returns messages from user
+*** POST - adds a message to user 
+** Outbox
+*** GET - returns outbound messages for user
+*** POST - adds outbound message for user
+* DONE Microblog.pub
+  CLOSED: [2021-03-23 Tue 21:28]
+** Files
+*** Core
+**** Activity pub
+***** _meta 
+***** save (box, activity)
+- saves an activity to a box
+- logic is:
+  - retrieve meta information (lookup what _meta does)
+  - if into outbox and is follow, then set follow status of meta information to waiting
+  - else if create activity,
+     - get object being created
+     - retrieve mentions and hashtags
+     - append to metadata
+  - insert into box, raw activity, type, id, and meta information
+***** outbox is blocked
+- looks up in db if there exists a entry
+  - in outbox
+  - with block status
+  - id being the selected id
+  - and in metadata, has not been undone
+***** activity url
+- returns the BASE_URL plus, url_for (outbox_detail, id = item_id)
+***** post to inbox (activity)
+- logic is:
+  - get actor for activity
+  - if activity with remote_id matching activity in inbox, ignore
+  - else
+    - save activity to inbox
+    - if not a delete or update activity
+        - queue task to update cached actor
+    - queue task to process activity
+    - queue task to finish post to inbox
+****** impl-specific logic  
+- the following logic is run before any of the generic processing
+  - if outbox is blocked, return without doing anything
+  - else if
+      - actor is an application type
+      - actor id ends with /relay 
+      - activity type is announce
+      - and there are no creation activities with the same id
+      - and no replies from the remote id of object id of activity
+    - then queue a process reply of object id
+  - else if 
+      - update activity
+      - id is object_id
+    - then queue task to update cached actor
+***** save reply (activity, meta)
+ - get visibility of activity
+ - get published date of activity (or now if not present)
+ - insert activity into replies
+   #+BEGIN_SRC json
+{ "activity": "<json>", "type": activity.type, "remote_id": activity.id, 
+  "meta": {
+     "undo": false, "deleted": false, "public": is_public, 
+     "server": urlparse(id).hostname, "visibility", "actor_id": activity.get_actor().id
+     "published"
+  }
+}   
+   #+END_SRC
+***** post to outbox (activity)
+- if activity is create type, wrap activity in create type
+- obj_id = assign create a random id
+- create uri for obj id 
+- if create activity, 
+    - activity._data.object.id = base_url + url_for outbox + obj_id
+    - if no url field in data for object, then assign object url:
+      base_url + url_for note_by_id + obj_id    
+    - reset object cache for activity
+- save object to outbox
+- queue task to update the cached actor
+- queue task to finish posting to outbox activity
+***** accept follow (activity)
+- retrieve id for actor
+- create accept object, with type follow, id being activity.id, actor being actor_id, send to actor, published now
+- update one_activity by the remote id and set accepted status to true
+- post activity to outbox accepted
+***** handle question reply (create, question)
+- retrieve choice from create.get_object().name
+- if  choice not in c["name"] for c in question.data.get("oneOf", question.any_of)
+   - ignore
+- else
+   - retrieve answer key
+    - if duplicate vote then ignore
+    - else
+       - update create object with question.id, 
+           - increment question replies
+           - increment question_answers.answer_key by 1
+      - also update remote id of create
+         - poll_answer to question.id
+         - answer choice to choice
+         - stream to false?
+         - poll_answer to true
+***** handle replies (create)
+ - retrieve in reply to of create object
+ - if not found, ignore
+ - retrieve remote activity in reply to
+ - get reply from remote create object  (ensure is create)
+ - if local reply to local question
+       - i.e, starts with base url
+       - is a question type
+       - create is local reply
+       - and create is not public
+   - then handle question reply locally
+   - else if private vote to remote question
+     - set sent to true to reply .id in inbox 
+**** inbox
+**** outbox
+**** notifications
+**** tasks
+**** meta
+***** notes
+- tracks object id & separate remote_id in metadata
+- box field represents inbox or outbox
+* TODO Tasks
+** DONE Setup main page with default output
+   CLOSED: [2021-03-23 Tue 21:42]
+** DONE Redirect requests to api to frontend
+   CLOSED: [2021-03-23 Tue 21:42]
+** DONE Work out how to define api
+   CLOSED: [2021-03-23 Tue 23:23]
+** DONE Implement actor endpoint
+   CLOSED: [2021-03-23 Tue 23:31]
+** Look up structure of actor
+*** See mastadon webpage
+** define datatype containing basic components
+** setup caqti with actor object
+** add function to construct actor from db
+** return actor on get of actor page
+** setup webfinger
+*** see mastadon implementation page
+

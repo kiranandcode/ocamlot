@@ -1,0 +1,19 @@
+2021-03-23T10:35:14-00:00 [sihl.core.configuration]: There were some errors while validating the provided configuration:
+Key DATABASE_URL: No value provided
+2021-03-23T10:41:02-00:00 [sihl.service.database]: Failed to connect to DB pool Failed to load driver for <localhost:5696>: Neither caqti-driver-localhost nor the dynamic linker is linked into the application.
+2021-03-23T10:41:37-00:00 [sihl.core.configuration]: There were some errors while validating the provided configuration:
+Key DATABASE_URL: No value provided
+2021-03-23T10:42:12-00:00 [sihl.core.configuration]: There were some errors while validating the provided configuration:
+Key DATABASE_URL: No value provided
+2021-03-23T10:42:35-00:00 [sihl.service.database]: Failed to connect to <postgres://kirang:_@127.0.0.1:5432/dev>: Connection failure: FATAL:  database "dev" does not exist
+
+2021-03-23T10:42:58-00:00 [sihl.service.database]: Failed to connect to <postgres://kirang:_@127.0.0.1:5432/dev>: Connection failure: FATAL:  database "dev" does not exist
+
+2021-03-23T13:16:44-00:00 [sihl.core.configuration]: There were some errors while validating the provided configuration:
+Key DATABASE_URL: No value provided
+2021-03-23T13:19:28-00:00 [opium.server]: Not_found
+2021-03-23T13:19:28-00:00 [opium.server]: Rock__Server_connection.Halt(_)
+2021-03-23T13:24:02-00:00 [opium.server]: Not_found
+2021-03-23T13:24:02-00:00 [opium.server]: Rock__Server_connection.Halt(_)
+2021-03-23T13:24:50-00:00 [opium.server]: Not_found
+2021-03-23T13:24:50-00:00 [opium.server]: Rock__Server_connection.Halt(_)
