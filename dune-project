@@ -26,8 +26,7 @@ A simple single user activitypub federated server instance
  (depends
   (ocaml (>= 4.08.0))
   dune
-  (sihl (>= 0.3.0))
-  (tyxml-ppx (>= 4.4.0))
+  dream
   (caqti-driver-postgresql
    (>= 1.2.1))
   (alcotest-lwt :with-test)

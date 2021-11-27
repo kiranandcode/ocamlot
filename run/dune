@@ -1,3 +1,0 @@
-(executable
- (name run)
- (libraries sihl service routes database command caqti-driver-postgresql))

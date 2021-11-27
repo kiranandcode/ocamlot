@@ -1,0 +1,3 @@
+(library (name lib)
+ (libraries dream caqti-driver-postgresql)
+ (preprocess (pps lwt_ppx)))

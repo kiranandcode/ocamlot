@@ -1,3 +1,4 @@
-(test
- (name test)
- (libraries sihl alcotest alcotest-lwt))
+(tests
+ (names test_user)
+ (libraries caqti caqti-lwt caqti-driver-postgresql lwt alcotest alcotest-lwt)
+  (preprocess (pps lwt_ppx)))
