@@ -1,3 +1,27 @@
+* General Knowledge
+** Setting up postgres
+#+begin_src sh
+  docker run --name postgres \
+    -e POSTGRES_PASSWORD=password \
+    -d postgres
+#+end_src
+** Setting up pgadmin via docker
+#+begin_src sh
+  docker run -i -t --rm \
+                 -p 80:80 \ # map HOST:CONTAINER ports
+                 -e 'PGADMIN_DEFAULT_EMAIL=user@localhost.com' \
+                 -e 'PGADMIN_DEFAULT_PASSWORD=password'
+                 -v  \
+                 -d dpage/pgadmin4
+#+end_src
+** Communicating between containers
+- By default, containers are hooked into the bridge docker subnetwork.
+- Running the following command will list out the containers connected to bridge
+  #+begin_src sh
+    docker network inspect bridge    
+  #+end_src
+- Containers can then access each other by using the IP address assigned to them in the docker subnetwork
+- This is useful for connecting from pgadmin to a postgres
 * Overview
 consists of two layers:
  - server to server federation
@@ -40,9 +64,6 @@ actor    ---POST--->     [outbox]         ---GET--->    rest of the world
     - alyssa's client posts to outbox {type: like, to=["ben"]; actor: alyssa; object: "id of ben's post"}
        - NOTE: as a like is an activity, no need to wrap in create
 - to send a public/followers message, include followers & public
-* Tasks
-** Look up specific components for each endpoint
-** Look into microblog.pub to see how it implements things
 * Parts I need to implement
 ** Inbox
 *** GET - returns messages from user
@@ -182,4 +203,14 @@ actor    ---POST--->     [outbox]         ---GET--->    rest of the world
 ** return actor on get of actor page
 ** setup webfinger
 *** see mastadon implementation page
-
+* End user notes
+** Running tests
+- Update tests url with url and port of postgres 
+- Add test user to database with password password:
+#+begin_src sql
+CREATE USER test PASSWORD 'password';
+#+end_src
+- Create test database:
+#+begin_src sql
+CREATE DATABASE test;
+#+end_src

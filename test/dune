@@ -1,4 +1,4 @@
 (tests
- (names test_user)
- (libraries caqti caqti-lwt caqti-driver-postgresql lwt alcotest alcotest-lwt)
+ (names test_user test_password)
+ (libraries lib database containers caqti caqti-lwt caqti-driver-postgresql lwt alcotest alcotest-lwt)
   (preprocess (pps lwt_ppx)))
