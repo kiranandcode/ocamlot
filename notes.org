@@ -214,3 +214,7 @@ CREATE USER test PASSWORD 'password';
 #+begin_src sql
 CREATE DATABASE test;
 #+end_src
+* Tasks
+** TODO Setup formatting for register page
+*** TODO Work out how bulma setup on libre-refj
+*** TODO Setup styling

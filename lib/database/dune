@@ -1,0 +1,7 @@
+(library (name database)
+ (libraries
+   ;; internal libraries
+   password
+   ;; external libraries
+   containers x509 caqti-lwt caqti-driver-sqlite3 sqlite3
+))

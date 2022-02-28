@@ -1,0 +1,3 @@
+(executable (name server)
+ (preprocess (pps ppx_deriving.show))
+ (libraries auth database html dream jwto caqti caqti-driver-sqlite3))

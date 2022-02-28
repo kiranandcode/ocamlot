@@ -1,0 +1,6 @@
+(rule
+ (targets style.css)
+ (deps style.scss)
+ (action (run sass style.scss:style.css)))
+
+(vendored_dirs bulma)

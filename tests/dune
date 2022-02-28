@@ -1,0 +1,10 @@
+(tests
+ (names test_password test_user)
+ (modules (:standard \ "testing_utils"))
+ (libraries password database caqti-lwt caqti-driver-sqlite3 bos testing_utils alcotest alcotest-lwt)
+ (deps ../resources/schema.sql)
+ (preprocess (pps ppx_deriving.std)))
+
+(library (name testing_utils)
+ (modules testing_utils)
+ (libraries alcotest caqti-driver-sqlite3 alcotest-lwt))
