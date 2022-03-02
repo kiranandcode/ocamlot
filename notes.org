@@ -215,6 +215,16 @@ CREATE USER test PASSWORD 'password';
 CREATE DATABASE test;
 #+end_src
 * Tasks
-** TODO Setup formatting for register page
-*** TODO Work out how bulma setup on libre-refj
-*** TODO Setup styling
+** DONE Setup formatting for register page
+CLOSED: [2022-03-01 Tue 11:42]
+*** DONE Work out how bulma setup on libre-ref
+CLOSED: [2022-03-01 Tue 11:42]
+*** DONE Setup styling
+CLOSED: [2022-03-01 Tue 11:42]
+** DONE Get project building locally
+CLOSED: [2022-03-01 Tue 11:54]
+** DONE Configure toast box on home page
+CLOSED: [2022-03-01 Tue 13:13]
+** TODO Lookup definition of posts table
+** TODO Update schema.sql to have post table
+** TODO 

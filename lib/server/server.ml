@@ -1,4 +1,6 @@
+[@@@warning "-33"]
 open Containers
+
 let (let+) x f = Lwt.bind x f
 
 type t = Dream.middleware
@@ -8,7 +10,7 @@ let handle_get_home req =
 
 let () =
   Dream.initialize_log ~level:`Debug ();
-  Dream.run ~port:4444
+  Dream.run ~port:9998
   @@ Dream.logger
   @@ Dream.sql_pool "sqlite3://:test.db"
   @@ Dream.sql_sessions 
