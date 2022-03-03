@@ -32,7 +32,8 @@ let handle_register_post req =
       Database.User.create_user ~username ~password db in
     let-@! user = result, "Error creating user: " in
     let+ () = Dream.invalidate_session req in
-    let+ () = Dream.set_session_field req "user" user.username in
+    let+ () = Dream.set_session_field req "user"
+                (Database.User.username user) in
     Dream.redirect req "/home"
   | _ ->
     Dream.redirect req "/register"
@@ -62,7 +63,8 @@ let handle_login_post req =
     let-@! user = result, "Internal error while logging in: " in
     let-! user = user, "Could not log in - user not found/password does not match" in
     let+ () = Dream.invalidate_session req in
-    let+ () = Dream.set_session_field req "user" user.username in
+    let+ () = Dream.set_session_field req "user"
+                (Database.User.username user) in
     Dream.redirect req "/home"
   | _ ->
     Dream.redirect req "/login"

@@ -1,5 +1,5 @@
 module Types = Types
-module Html = Brr_int.Html
+
 open Types
 
 let o_cons opt v = match opt with None -> [v] | Some ls -> v :: ls

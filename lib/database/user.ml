@@ -21,7 +21,10 @@ let build_enc (to_cstr, from_cstr)  =
     from_cstr (Cstruct.of_string v) |> Result.map_err (function `Msg str -> str) in
   T.redacted (T.Std.custom ~encode ~decode T.Std.string)
 
-let display_name user = user.display_name |> Option.value ~default:user.username 
+let display_name user =
+  user.display_name
+  |> Option.value ~default:user.username 
+
 
 let pubkey : X509.Public_key.t T.t =
   build_enc X509.Public_key.(encode_pem, decode_pem)
@@ -70,3 +73,10 @@ let login_user ~username ~password (module DB: DB) =
 let lookup_user ~username (module DB: DB) =
   let* user = flatten_error @@ DB.find find_user_request username in
   R.return user
+
+let username user = user.username
+
+let pubkey user =
+  user.pubkey
+  |> X509.Public_key.encode_pem
+  |> Cstruct.to_string

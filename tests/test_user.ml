@@ -39,12 +39,13 @@ check_is_ok user
 
 T.add_test "user's username matches " @@ with_db @@ fun db ->
 let* user = Database.User.create_user ~username:"example-user" ~password:"areallygoodpasswordhere121" db in
-check_string_eq ~expected:"example-user" user.username
+check_string_eq ~expected:"example-user" (Database.User.username user)
 ;;
 
 T.add_test "user's password does not match" @@ with_db @@ fun db ->
 let* user = Database.User.create_user ~username:"example-user" ~password:"areallygoodpasswordhere121" db in
-check_string_neq ~expected:"areallygoodpasswordhere121" user.username
+check_string_neq ~expected:"areallygoodpasswordhere121"
+  (Database.User.username user)
 ;;
 
 T.add_test "user can login" @@ with_db @@ fun db ->

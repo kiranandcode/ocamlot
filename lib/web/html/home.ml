@@ -36,7 +36,9 @@ let build_navbar user req =
          | None -> []
          | Some user ->
            let display_name = Database.User.display_name user in
-           let profile_path = Printf.sprintf "/user/%s" user.username in
+           let profile_path =
+             Printf.sprintf "/user/%s" (Database.User.username user)
+           in
            [B.navbar_item_a ~a:[H.a_href profile_path] [
               H.label ~a:[H.a_class ["title"]] [H.txt display_name]
             ]]
