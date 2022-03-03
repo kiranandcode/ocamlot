@@ -71,6 +71,11 @@ let login_user ~username ~password (module DB: DB) =
               else None)
 
 let lookup_user ~username (module DB: DB) =
+  let* user = flatten_error @@ DB.find_opt find_user_request username in
+  R.return user
+
+
+let lookup_user_exn ~username (module DB: DB) =
   let* user = flatten_error @@ DB.find find_user_request username in
   R.return user
 

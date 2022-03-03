@@ -9,6 +9,14 @@ module Middleware = struct
       | Some _ ->
         Dream.redirect request to_
       | None -> handler request
+
+
+  let enforce_present var ~else_  : Dream.middleware =
+    fun handler request -> 
+      match Dream.session_field request var with
+      | None -> Dream.redirect request else_
+      | Some _ -> handler request
+
 end
 
 let is_not_empty opt = opt |> Option.filter (Fun.negate String.is_empty)
@@ -33,6 +41,6 @@ let with_current_user request f =
   let (let@) x f = request_bind request x f in
   match Dream.session_field request "user" with
   | Some username ->
-    let@ user = Dream.sql request @@ Database.User.lookup_user ~username in
+    let@ user = Dream.sql request @@ Database.User.lookup_user_exn ~username in
     f (Some user)
   | None -> f None

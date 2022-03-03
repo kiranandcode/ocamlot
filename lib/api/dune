@@ -1,2 +1,2 @@
 (library (name api)
- (libraries database config  yojson))
+ (libraries database settings yojson))

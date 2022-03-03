@@ -1,15 +1,17 @@
+open Containers
 module JS = Yojson.Safe
 
+let uri_of_raw (base,path) = Uri.with_path base (String.concat "/" (List.rev path))
 let assoc vls : JS.t = `Assoc vls
 let string str : JS.t = `String str
 let list vls : JS.t = `List vls
-let uri vl : JS.t = `String (Uri.to_string vl)
+let uri vl : JS.t = `String (Uri.to_string (uri_of_raw vl))
 
-let with_path path uri = Uri.with_path uri path
-let with_fragment fragment uri = Uri.with_fragment uri (Some fragment)
+let with_path path (base, paths) = (base, path :: paths)
+let with_fragment fragment (base, paths) = (Uri.with_fragment base (Some fragment), paths)
 
 let api_path config =
-  Config.domain config
+  (Settings.domain config, [])
   |> with_path "api"
 
 

@@ -9,6 +9,7 @@ let handle_get_home req =
   Common.with_current_user req @@ fun user -> Dream.html (Html.Home.build user req)
 
 let () =
+  let config = Settings.create ~domain:"localhost" in
   Dream.initialize_log ~level:`Debug ();
   Dream.run ~port:9998
   @@ Dream.logger
@@ -16,8 +17,10 @@ let () =
   @@ Dream.sql_sessions 
   @@ Dream.router [
     Authentication.route;
+    Dream.scope "/api" [] [
+      Actor.route config;
+    ];
 
-    Actor.route;
 
     Dream.get "/home" @@ handle_get_home;
 
