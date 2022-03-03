@@ -225,7 +225,83 @@ CLOSED: [2022-03-01 Tue 11:42]
 CLOSED: [2022-03-01 Tue 11:54]
 ** DONE Configure toast box on home page
 CLOSED: [2022-03-01 Tue 13:13]
-** TODO Setup actor endpoint
+** DONE Setup actor endpoint
+CLOSED: [2022-03-03 Thu 09:37]
 ** TODO Lookup definition of posts table
+*** posts
+**** id: int
+**** userid: int
+**** what: string
+**** honker: string
+**** xid: string
+**** rid: string
+**** dt: string
+**** url: string
+**** whofore: int
+**** format: text
+*** activities
+**** id : int
+**** data?
+**** inserted at: UTC timestamp 
+**** updated at: UTC timestamp
+**** actor: string
+**** recipients: string list
+*** apps
+**** id
+**** client name : string
+*** bookmarks
+**** id: int
+**** userid: int
+**** activity id: int
+**** inserted at : int
+**** updated at : int
+*** deliveries
+**** id: int
+**** object id: int
+**** user id: int
+*** filters
+**** id: int
+**** user id: int;
+**** filter id: int
+**** phrase string
+**** expires at time zone
+**** whole word: boolean
+**** inserted at: time zone
+**** updated at: time zone
+*** following
+**** id: int
+**** follower id: int
+**** following id: int
+**** state: int
+**** inserted at: int
+**** updated at: int
+*** instances
+**** id: int
+**** host: string
+**** unreachable since: timestamp
+**** inserted at: timestamp
+**** updated at: timestamp
+**** favicon: string
+*** notifications
+**** id: int
+**** user id: int
+**** activity id: int
+**** seen: boolean
+**** inserted at: timestamp
+**** updated at: timestamp
+*** users
+**** id: int
+**** email: string
+**** password: string
+**** name: string
+**** nickname: string
+**** bio  string
+**** inserted at: timetstamp
+**** updated at: timestamp
+**** ap_id: string
+**** avatar: jsonb
+**** follower_address: string
+**** follower_count
+
 ** TODO Update schema.sql to have post table
 

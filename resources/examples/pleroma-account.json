@@ -1,0 +1,48 @@
+{
+   "acct" : "example",
+   "avatar" : "https://localhost/images/avi.png",
+   "avatar_static" : "https://localhost/images/avi.png",
+   "bot" : false,
+   "created_at" : "2022-02-24T06:13:20.000Z",
+   "display_name" : "example",
+   "emojis" : [],
+   "fields" : [],
+   "followers_count" : 0,
+   "following_count" : 0,
+   "fqn" : "example@localhost",
+   "header" : "https://localhost/images/banner.png",
+   "header_static" : "https://localhost/images/banner.png",
+   "id" : "AGnDvguWNzUWZOGo2S",
+   "locked" : false,
+   "note" : "example",
+   "pleroma" : {
+      "accepts_chat_messages" : true,
+      "also_known_as" : [],
+      "ap_id" : "https://localhost/users/example",
+      "background_image" : null,
+      "favicon" : null,
+      "hide_favorites" : true,
+      "hide_followers" : false,
+      "hide_followers_count" : false,
+      "hide_follows" : false,
+      "hide_follows_count" : false,
+      "is_admin" : false,
+      "is_confirmed" : true,
+      "is_moderator" : false,
+      "relationship" : {},
+      "skip_thread_containment" : false,
+      "tags" : []
+   },
+   "source" : {
+      "fields" : [],
+      "note" : "",
+      "pleroma" : {
+         "actor_type" : "Person",
+         "discoverable" : false
+      },
+      "sensitive" : false
+   },
+   "statuses_count" : 1,
+   "url" : "https://localhost/users/example",
+   "username" : "example"
+}
