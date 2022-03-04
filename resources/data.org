@@ -1,0 +1,82 @@
+* Database
+#+begin_src plantuml :theme aws-orange :file er-diagram.png
+skinparam linetype ortho
+entity LocalActor {
+        * id: int
+        ---
+        * username: string
+        * password: string
+        display name: string
+        about: string
+        * public key
+        * private key
+}
+
+entity RemoteActor {
+        * id: int
+        ---
+        * username: string
+        * instance
+        * url: string
+        obj: json
+}
+
+entity Actor {
+        * id: int
+        ---
+        remote id
+        local id
+}
+
+entity Instance {
+        * id: int
+        url: string
+        --
+        last unreachable: timestamp
+}
+
+entity Post {
+        * id: int
+        ---
+        * url: string
+        * by: actor
+}
+
+entity Mentions {
+        * post
+        * actor
+}
+
+entity Likes {
+        * id: int
+        ---
+        * post
+        * actor
+}
+
+entity Follow {
+        * id: int
+        ---
+        * by: actor
+        * target: actor
+        * pending: bool
+        * created at: timestamp
+}
+
+Actor ||--o| LocalActor
+Actor ||--o| RemoteActor
+
+RemoteActor }o--|| Instance
+
+Post }o--|| Actor
+Mentions }o--|| Post
+Mentions }o--|{ Actor
+
+Likes }o--|| Actor
+Likes }o--|| Post
+
+Follow }o--o{ Actor
+#+end_src
+
+#+results:
+[[file:er-diagram.png]]

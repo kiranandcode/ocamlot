@@ -7,25 +7,33 @@ sh <(curl -sL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.
 sudo apt install libc-dev git make gcc argon2 unzip bubblewrap sqlite3 libev-dev libffi-dev libgmp-dev libsqlite3-dev libssl-dev pkg-config
 
 # 3. install sass
-curl -L https://github.com/sass/dart-sass/releases/download/1.49.9/dart-sass-1.49.9-linux-x64.tar.gz ../dart-sass.tar.gz
-tar xzf ../dart-sass.tar.gz
-sudo cp ./dart-sass/sass /usr/local/bin/
-rm -fr ./dart-sass # fr fr no cap
-
+curl -L https://github.com/sass/dart-sass/releases/download/1.49.9/dart-sass-1.49.9-linux-x64.tar.gz /tmp/dart-sass.tar.gz
+(cd /tmp/ && tar xzf ./dart-sass.tar.gz && sudo cp ./dart-sass/sass /usr/local/bin/)
 
 # 4. initialise opam
 opam init
 
 # 5. add 4.12.0 switch
-opam switch create 4.12.0
+opam switch create 4.13.0
 
-# 6. load activitypub server
+# 6. install opam deps
+opam install dune \
+     dream jwto\
+     caqti caqti-driver-sqlite3\
+     alcotest alcotest-lwt \
+     yojson ppx_yojson_conv\
+     ppx_deriving\
+     argon2 sqlite3 x509 ptime bos tyxml \
+     cohttp-lwt-unix \
+     containers 
+
+# 7. download activitypub server
 git clone https://gitlab.com/gopiandcode/activitypub-server.git
-
-# 7. 
 cd ./activitypub-server
 
-# install deps
-opam install dune caqti-driver-sqlite3 caqti jwto dream alcotest alcotest-lwt yojson ppx_yojson_conv ppx_deriving argon2 sqlite3 x509 ptime bos tyxml cohttp-lwt-unix containers brr iter
-eval $(opam env)
+# 8. setup sqlite
+sqlite3 -init ./resources/schema.sql test.db
+chmod u+rw ./_build/default/test.db
 
+# 9. build project
+dune build @all
