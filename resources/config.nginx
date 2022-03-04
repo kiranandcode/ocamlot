@@ -1,0 +1,56 @@
+# Nginx Reverse Proxy Config for OCamlot
+# =======================
+
+# 1. update every instance of sitename.tld with <yoursite>.<tld>
+
+# 2. update /path/to/cert/file with the path to your certificate file (usually has a .crt extension)
+
+# 3 . update /path/to/private/key with the path to your certificate private key (usually has a .key/.pem extension)
+
+# ========================
+
+
+# upgrade http to https
+server {
+    server_name    sitename.tld;
+
+    listen         80;
+    listen         [::]:80;
+
+    location / {
+      return         301 https://$server_name$request_uri;
+    }
+}
+
+server {
+	server_name sitename.tld;
+
+	listen 443 ssl http2;
+	listen [::]:443 ssl http2;
+
+        ssl_certificate /path/to/cert/file;
+        ssl_certificate_key /path/to/private/key;
+
+
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_buffers 16 8k;
+        gzip_http_version 1.1;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript application/activity+json application/atom+xml;
+
+        client_max_body_size 16m;
+
+
+
+        location / {
+                 proxy_http_version 1.1;
+                 proxy_set_header Upgrade $http_upgrade;
+                 proxy_set_header Connection "upgrade";
+                 proxy_set_header Host $http_host;
+                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+                 proxy_pass http://127.0.0.1:4000;
+      }
+
+}

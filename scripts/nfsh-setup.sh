@@ -34,3 +34,8 @@ opam install caqti-driver-sqlite3 caqti jwto dream alcotest alcotest-lwt yojson 
 # curl https://codeload.github.com/P-H-C/phc-winner-argon2/tar.gz/20190702?dummy=/ -o argon2.tar.gz
 # gmake
 # cp ./*.so ~/libs/
+
+# install sass (needs an option to have a non-root install directory)
+npm -g install sass
+
+# run code

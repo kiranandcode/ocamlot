@@ -9,13 +9,11 @@ let handle_get_home req =
   Common.with_current_user req @@ fun user -> Dream.html (Html.Home.build user req)
 
 let () =
-  let config = Settings.create ~domain:"localhost" in
+  let config = Settings.create ~domain:"ocamlot.xyz" in
   Dream.initialize_log ~level:`Debug ();
   Dream.run
-    ~key_file:"/home/kirang/ssl/ocamlot_xyz.key"
-    ~certificate_file:"/home/kirang/ssl/ocamlot_xyz.crt"
-    ~tls:true
-    ~port:9998
+    ~tls:false
+    ~port:4000
   @@ Dream.logger
   @@ Dream.sql_pool "sqlite3://:test.db"
   @@ Dream.sql_sessions 
