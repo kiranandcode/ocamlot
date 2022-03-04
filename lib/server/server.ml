@@ -13,7 +13,7 @@ let () =
   Dream.initialize_log ~level:`Debug ();
   Dream.run
     ~key_file:"/home/kirang/ssl/ocamlot_xyz.key"
-    ~certificate_file:"/home/kirang/ssl/ocamlot_xyz/ocamlot_xyz.crt"
+    ~certificate_file:"/home/kirang/ssl/ocamlot_xyz.crt"
     ~tls:true
     ~port:9998
   @@ Dream.logger
