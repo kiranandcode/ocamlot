@@ -11,7 +11,11 @@ let handle_get_home req =
 let () =
   let config = Settings.create ~domain:"localhost" in
   Dream.initialize_log ~level:`Debug ();
-  Dream.run ~port:9998
+  Dream.run
+    ~key_file:"/home/kirang/ssl/ocamlot_xyz.key"
+    ~certificate_file:"/home/kirang/ssl/ocamlot_xyz/ocamlot_xyz.crt"
+    ~tls:true
+    ~port:9998
   @@ Dream.logger
   @@ Dream.sql_pool "sqlite3://:test.db"
   @@ Dream.sql_sessions 
