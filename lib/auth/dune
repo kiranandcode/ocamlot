@@ -1,6 +1,6 @@
 (library (name auth)
  (modules (:standard \ "main"))
- (libraries x509 cohttp lwt yojson))
+ (libraries http_date calendar ptime containers dream x509 cohttp cohttp-lwt cohttp-lwt-unix lwt yojson))
 
 (executable (name main)
  (modules "main")

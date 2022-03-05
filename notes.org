@@ -227,7 +227,8 @@ CLOSED: [2022-03-01 Tue 11:54]
 CLOSED: [2022-03-01 Tue 13:13]
 ** DONE Setup actor endpoint
 CLOSED: [2022-03-03 Thu 09:37]
-** TODO Lookup definition of posts table
+** DONE Lookup definition of posts table
+CLOSED: [2022-03-05 Sat 11:16]
 *** posts
 **** id: int
 **** userid: int
@@ -303,5 +304,13 @@ CLOSED: [2022-03-03 Thu 09:37]
 **** follower_address: string
 **** follower_count
 
-** TODO Update schema.sql to have post table
+** DONE Update schema.sql to have post table
+CLOSED: [2022-03-05 Sat 11:16]
+
+** TODO write function to validate signatures
+*** TODO open join mastadon blog post on followers
+*** TODO write basic function to validate functions
+*** TODO read micropub.blog encoding
+** TODO Write endpoint for following
+** TODO Lookup how to do background tasks
 

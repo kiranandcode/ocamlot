@@ -1,12 +1,10 @@
 [@@@warning "-33"]
 open Containers
 
-let (let+) x f = Lwt.bind x f
-
-type t = Dream.middleware
-
 let handle_get_home req =
   Common.with_current_user req @@ fun user -> Dream.html (Html.Home.build user req)
+
+
 
 let () =
   let config = Settings.create ~domain:"ocamlot.xyz" in
