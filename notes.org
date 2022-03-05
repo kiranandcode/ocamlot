@@ -307,10 +307,28 @@ CLOSED: [2022-03-05 Sat 11:16]
 ** DONE Update schema.sql to have post table
 CLOSED: [2022-03-05 Sat 11:16]
 
-** TODO write function to validate signatures
-*** TODO open join mastadon blog post on followers
-*** TODO write basic function to validate functions
-*** TODO read micropub.blog encoding
-** TODO Write endpoint for following
-** TODO Lookup how to do background tasks
-
+** DONE write function to validate signatures
+CLOSED: [2022-03-05 Sat 16:42]
+*** DONE open join mastadon blog post on followers
+CLOSED: [2022-03-05 Sat 16:42]
+*** DONE write basic function to validate functions
+CLOSED: [2022-03-05 Sat 16:42]
+*** DONE read micropub.blog encoding
+CLOSED: [2022-03-05 Sat 16:42]
+** DONE Lookup how to do background tasks
+CLOSED: [2022-03-05 Sat 16:42]
+** TODO Setup webfinger endpoint
+*** TODO look up web finger spec
+*** TODO look up how pleroma responds 
+** TODO Update user endpoint to return JSON response if application type is json, json+ld
+** TODO Verify that actor returned has parity with pleroma  
+** TODO add inbox endpoint
+*** print recived json, try signing, fail
+** TODO Use signing functions to manually send follow request to atestaccount
+*** TODO read joinmastadon blogpost for follow specification
+** TODO Write frontend for following
+*** on post, send follow to worker
+*** parse username @ host
+*** webfinger to remote to find remote user
+*** construct follow request
+*** post to server using signed 
