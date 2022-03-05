@@ -1,0 +1,43 @@
+* Idiot's guide to writing an Activitypub server
+Diversity is our strength! and a diversity of implementations will
+only serve to strengthen the Fediverse.
+
+Unfortunately, it seems like there is a lot of "folk" knowledge
+involved in implementing an actual working Activitypub server, and the
+formal specifications are too generic to admit a straightforward
+implementation.
+
+It is the aim of this document to provide a simple and
+straightforward, step by step[fn:1], language agnostic guide to
+building and setting up a bare bones Activitypub server. By the end of
+this guide you should have a basic server ready to go, and can then
+begin specialising your implementation as you wish.
+
+This implementation language of choice for this guide will be OCaml -
+naturally, this means you will at least need to be able to read OCaml
+code to make heads or tails of the snippets, but a benefit of this
+choice is that, as OCaml has a fairly small ecosystem (no python-style
+batteries-included magic frameworks here) with fairly WYSIWYG code, if
+I can implement an Activitypub server in OCaml, then you can certainly
+implement it in your own language of choice.
+
+** Prerequisites
+Before we get started, here are a few things you should have set up locally to get working
+
+** Guide
+
+*** Step 1: Setup a login
+
+*** Step 2:
+
+*** Next steps:
+
+* Extra resources
+
+https://github.com/dariusk/gathio/blob/master/FEDERATION.md
+
+* Footnotes
+
+[fn:1] when I say step by step here, I mean not that we will cover
+_every_ individual step in minute detail, but rather that each step
+should be easy to follow/look up online etc.

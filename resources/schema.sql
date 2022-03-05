@@ -1,8 +1,6 @@
 PRAGMA foreign_keys = ON;
 
 -- dream configuration
-create table auth (authid integer primary key, userid integer, hash text, expiry text);
-
 CREATE TABLE dream_session (
   id TEXT PRIMARY KEY,
   label TEXT NOT NULL,
@@ -25,10 +23,10 @@ CREATE index idxLocalUser_username on LocalUser(username);
 -- table for remote instances
 CREATE TABLE RemoteInstance (
    id INTEGER PRIMARY KEY,             -- internal id used for keeping track of remote instances
-   url  string NOT NULL,               -- url of instance
+   url TEXT NOT NULL UNIQUE,        -- url of instance
    last_unreachable  TEXT              -- timestamp of the last time the instance was unreachable, null if never unreachable
 );
-
+CREATE index idxRemoteInstance_url on RemoteInstance(url);
 
 -- table for remote users
 CREATE TABLE RemoteUser (
@@ -36,8 +34,7 @@ CREATE TABLE RemoteUser (
    username TEXT UNIQUE NOT NULL,      -- username
    instance_id INTEGER NOT NULL,       -- instance of user
    display_name TEXT,                  -- display name - if null then username
-   url  TEXT,                          -- url of actor, if not present, then username @ instance_id.url
-   raw_data  TEXT,                      -- raw json object of user
+   url  TEXT UNIQUE NOT NULL,          -- url of actor (obtained via webfinger if needed)
    FOREIGN KEY (instance_id)
        REFERENCES RemoteInstance (id)
        ON UPDATE RESTRICT
@@ -60,10 +57,10 @@ CREATE TABLE Actor (
 );
 
 -- table for posts
-CREATE TABLE Post (
+CREATE TABLE Posts (
    id INTEGER PRIMARY KEY,           -- internal post id, not exposed
    public_id STRING,                 -- if post is by an local user, then assign a public id for the url
-   url STRING NOT NULL,              -- url of the post, if local, then /api/posts/<public_id>
+   url STRING NOT NULL UNIQUE,              -- url of the post, if local, then /api/posts/<public_id>
    author_id INTEGER,                -- author of the post
 
    raw_data TEXT,                    -- if by an external user, then keep raw json of the post
@@ -77,7 +74,7 @@ CREATE index idxPost_public_id on Post(public_id);
 -- table for mentions
 CREATE TABLE Mentions (
    public_id STRING,                 -- if mention is by a local user, then assign a public id for the url (TODO, do we need this?)
-   url STRING NOT NULL,              -- url of the mention, if local, then /api/mentions/<public_id>
+   url STRING NOT NULL UNIQUE,              -- url of the mention, if local, then /api/mentions/<public_id>
    raw_data TEXT,                    -- if by an external user, then keep raw json of the mention
 
    post_id INTEGER NOT NULL,        -- post doing the mentioning
@@ -124,11 +121,11 @@ CREATE index idxLikes_public_id on Likes(public_id);
 
 -- table for follows 
 CREATE TABLE Follows (
-   id INTEGER PRIMARY KEY,          -- internal like id, not exposed
-   public_id STRING,                -- if follow by a local user, then assign a public id for the like object
-   url STRING,                      -- url of the follow object, if local then /api/follows/<public_id>
-   raw_data TEXT,                  -- if by an external user, then keep the raw json of the like object
-
+   id INTEGER PRIMARY KEY,               -- internal like id, not exposed
+   public_id STRING,                     -- if follow by a local user, then assign a public id for the like object
+   url STRING,                           -- url of the follow object, if local then /api/follows/<public_id>
+   raw_data TEXT,                        -- if by an external user, then keep the raw json of the like object
+   pending BOOLEAN,                      -- whether the follow request is pending
    author_id INTEGER NOT NULL,           -- id of the author of the follow
    target_id INTEGER NOT NULL,           -- id of the actor being followed
 

@@ -3,5 +3,9 @@
    ;; internal libraries
    password
    ;; external libraries
-   containers x509 caqti-lwt caqti-driver-sqlite3 sqlite3
+   containers
+   ;; crypto
+   x509
+   ;; database
+   caqti-lwt caqti-driver-sqlite3 sqlite3 caqti-type-calendar
 ))
