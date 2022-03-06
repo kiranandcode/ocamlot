@@ -10,6 +10,12 @@ let encrypt (privkey: X509.Private_key.t) str =
                  |> Result.get_exn
                  |> Cstruct.to_string)
 
+let time_now () =
+  CalendarLib.Calendar.now ()
+  |> CalendarLib.Calendar.to_unixfloat
+  |> Ptime.of_float_s
+  |> Option.get_exn_or "invalid date"  
+
 let req_headers headers  =
   Cohttp.Header.to_list headers
   |> StringMap.of_list
@@ -47,7 +53,7 @@ let parse_signature signature =
   |> List.map (Pair.map_snd drop_quotes)
   |> StringMap.of_list
 
-let verify signed_string signature pubkey =
+let verify ~signed_string ~signature pubkey =
   let result =  X509.Public_key.verify `SHA256 ~scheme:`RSA_PKCS1
     ~signature:(Cstruct.of_string signature)
     pubkey
@@ -58,92 +64,85 @@ let verify signed_string signature pubkey =
     Dream.log "error while verifying: %s" e;
     false
 
-let verify_request resolve_public_key (req: Dream.request) =
+let verify_request ~resolve_public_key (req: Dream.request) =
   let (let+) x f = match x with None -> Lwt.return (Ok false) | Some v -> f v in
   let (let*) x f = Lwt_result.bind x f in
   let (let@) x f = Lwt.bind x f in
   let meth = Dream.method_ req |> Dream.method_to_string |> String.lowercase_ascii in
   let[@warning "-26-depracated"] path =
     Dream.path req |> String.concat "/" |> fun result -> "/" ^ result in
-  Dream.log "verifying request";
-  let headers = Dream.all_headers req |> List.map (Pair.map_fst String.lowercase_ascii) |> StringMap.of_list in
-  Dream.log "headers is %a" (StringMap.pp ~pp_arrow:(fun fmt () -> Format.pp_print_string fmt " -> ") String.pp String.pp) headers;
+  let headers =
+    Dream.all_headers req
+    |> List.map (Pair.map_fst String.lowercase_ascii)
+    |> StringMap.of_list in
   let+ signature = Dream.header req "Signature" in
-  Dream.log "signature is %s" signature;
-  let hsig = parse_signature signature in
-  Dream.log "hsig is %a" (StringMap.pp ~pp_arrow:(fun fmt () -> Format.pp_print_string fmt " -> ") String.pp String.pp) hsig;
+  let signed_headers = parse_signature signature in
 
   (* 1. build signed string *)
   let@ body = Dream.body req in
-  Dream.log "body is %s" body;
   let body_digest = body_digest body in
-  Dream.log "body digest is %s" body_digest;
-  Option.iter (Dream.log "header body digest is %s") (StringMap.find_opt "digest" headers);
   (* signed headers *)
-  let+ signed_headers = StringMap.find_opt "headers" hsig in
-  Dream.log "signed headers is %s" signed_headers;
+  let+ headers_in_signed_string = StringMap.find_opt "headers" signed_headers in
   (* signed string *)
-  let signed_string = build_signed_string ~signed_headers ~meth ~path ~headers ~body_digest in
-
-  Dream.log "signed string is:\n%s" signed_string;
+  let signed_string =
+    build_signed_string ~signed_headers:headers_in_signed_string
+      ~meth ~path ~headers ~body_digest in
 
   (* 2. retrieve signature *)
-  let+ signature = StringMap.find_opt "signature" hsig in
-  Dream.log "signature was:\n%s" signed_string;
+  let+ signature = StringMap.find_opt "signature" signed_headers in
   let+ signature = Base64.decode signature |> Result.to_opt in
-
-  Dream.log "decoded signature was:\n%s" signed_string;
-
   (* 3. retrieve public key *)
-  let+ key_id = StringMap.find_opt "keyId" hsig in
+  let+ key_id = StringMap.find_opt "keyId" signed_headers in
   let* public_key = resolve_public_key key_id in
-  Dream.log "public key:\n%s" (X509.Public_key.encode_pem public_key |> Cstruct.to_string);
-
-  Dream.log "was able to decode the public key";
 
   (* verify signature against signed string with public key *)
-  Lwt_result.return @@ verify signed_string signature public_key
+  Lwt_result.return @@ verify ~signed_string ~signature public_key
+
+let build_signed_headers ~priv_key ~key_id
+      ~headers ~body_str ~current_time
+      ~method_ ~uri =
+  let signed_headers = "(request-target) content-length host date digest" in
+  let body_str_len = String.length body_str |> Int.to_string in
+  let body_digest = body_digest body_str in
+  let date = Http_date.to_utc_string current_time in
+  let host = uri
+             |> Uri.host
+             |> Option.get_exn_or "no host for request" in
+
+  let signature_string =
+    let to_be_signed =
+      build_signed_string
+        ~signed_headers
+        ~meth:(method_ |> String.lowercase_ascii)
+        ~path:(Uri.path uri)
+        ~headers:(StringMap.add "content-length" body_str_len @@
+                  StringMap.add "date" date @@
+                  StringMap.add "host" host @@
+                  headers)
+        ~body_digest in
+
+    let signed_string = encrypt priv_key to_be_signed |> Result.get_exn in
+    Printf.sprintf {|keyId="%s",algorithm="rsa-sha256",headers="%s",signature="%s"|}
+      key_id signed_headers signed_string in
+  List.fold_left (fun map (k,v) -> StringMap.add k v map) headers
+    ["Digest", body_digest;
+     "Date", date;
+     "Host", host;
+     "Signature", signature_string]
+  |> StringMap.to_list
 
 let sign_headers ~priv_key ~key_id
       ~(body: Cohttp_lwt.Body.t)
       ~(headers: Cohttp.Header.t) ~uri ~method_ =
   let (let@) x f = Lwt.bind x f in
 
-  let signed_headers = "(request-target) user-agent host date digest content-type" in
-
-  let add_header key vl headers = Cohttp.Header.add headers key vl in
-
-  let@ body_digest = 
-    let@ body_str = Cohttp_lwt.Body.to_string body in
-    Lwt.return (body_digest body_str) in
-
-  let date = Http_date.to_utc_string (CalendarLib.Calendar.now ()
-                                      |> CalendarLib.Calendar.to_unixfloat
-                                      |> Ptime.of_float_s
-                                      |> Option.get_exn_or "invalid date") in
-  let host = uri
-             |> Uri.host
-             |> Option.get_exn_or "no host for request" in
-
-
-  let signature_string =
-    let to_be_signed =
-      build_signed_string
-        ~signed_headers
-        ~meth:(Cohttp.Code.string_of_method method_ |> String.lowercase_ascii)
-        ~path:(Uri.path uri)
-        ~headers:(req_headers headers)
-        ~body_digest in
-
-    let signed_string = encrypt priv_key to_be_signed |> Result.get_exn in
-    Printf.sprintf {|keyId="%s",algorithm="rsa-sha256",headers="%s",signature="%s"|}
-      key_id signed_headers signed_string in
+  let@ body_str = Cohttp_lwt.Body.to_string body in
+  let current_time = time_now () in
 
   let headers =
-    headers
-    |> add_header "Digest" body_digest
-    |> add_header "Date" date
-    |> add_header "Host" host
-    |> add_header "Signature" signature_string in
-
+    List.fold_left
+      (fun header (key,vl) -> Cohttp.Header.add header key vl) headers
+    (build_signed_headers ~priv_key ~key_id
+       ~headers:(req_headers headers) ~body_str ~current_time
+       ~method_:(Cohttp.Code.string_of_method method_) ~uri) in
   Lwt.return headers

@@ -67,7 +67,7 @@ let lookup_request url : (X509.Public_key.t, 'a) result Lwt.t =
 
 let handle_inbox_post req =
   Dream.log "POST to %s/inbox" (Dream.param req "username");
-  let* verification = Auth.verify_request lookup_request req in
+  let* verification = Auth.verify_request ~resolve_public_key:lookup_request req in
   begin match verification with
   | Ok status -> Dream.log "verification status was %b" status
   | Error e -> Dream.log "error while verifying: %s" e
