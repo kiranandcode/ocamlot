@@ -18,7 +18,7 @@ inotifywait -m . -r --exclude "_build/*" |
         if [[ ! "$events" =~ .*(MODIFY|CLOSE_NOWRITE|OPEN|ISDIR|ACCESS).* ]]; then
 
 
-            if [[ ! "$filename" =~ ^\.#  ]] && [[ ! "$directory" = "./.git/" ]] && [[ ! "$filename" =~ ^# ]]; then
+            if [[ ! "$filename" =~ ^\.#  ]] && [[ ! "$filename" = "test.db" ]] && [[ ! "$filename" = "test.db-journal" ]] && [[ ! "$directory" = "./.git/" ]] && [[ ! "$filename" =~ ^# ]]; then
                 echo "$directory" "$events" "$filename"
 
 

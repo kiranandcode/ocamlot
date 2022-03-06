@@ -35,9 +35,9 @@ let build_navbar user req =
          begin match user with
          | None -> []
          | Some user ->
-           let display_name = Database.User.display_name user in
+           let display_name = Database.LocalUser.display_name user in
            let profile_path =
-             Printf.sprintf "/user/%s" (Database.User.username user)
+             Printf.sprintf "/user/%s" (Database.LocalUser.username user)
            in
            [B.navbar_item_a ~a:[H.a_href profile_path] [
               H.label ~a:[H.a_class ["title"]] [H.txt display_name]
@@ -98,7 +98,7 @@ let build_post req =
   ]
 
 
-let body (user: Database.User.t option) req =
+let body (user: Database.LocalUser.t option) req =
   H.body ~a:[H.a_class ["has-navbar-fixed-top"]] @@ List.concat [
     [build_navbar user req];
     Option.map (fun _ -> [build_post req]) user

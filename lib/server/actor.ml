@@ -2,7 +2,7 @@
 let with_user req then_ =
   let (let+) x f = Common.request_bind req x f in
   let username = Dream.param req "username" in
-  let+ user = Dream.sql req (Database.User.lookup_user ~username) in
+  let+ user = Dream.sql req (Database.LocalUser.lookup_user ~username) in
   match user with
   | None -> Dream.respond ~status:`Not_Found "Not found"
   | Some user -> then_ user
@@ -10,7 +10,7 @@ let with_user req then_ =
 
 let handle_actor_get config req =
   with_user req begin fun user ->
-    Dream.json (Yojson.Safe.to_string (Api.User.to_json config user))
+    Dream.json (Yojson.Safe.to_string (Activitypub.User.to_json config user))
   end
 
 

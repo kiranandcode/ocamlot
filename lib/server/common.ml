@@ -41,6 +41,6 @@ let with_current_user request f =
   let (let@) x f = request_bind request x f in
   match Dream.session_field request "user" with
   | Some username ->
-    let@ user = Dream.sql request @@ Database.User.lookup_user_exn ~username in
+    let@ user = Dream.sql request @@ Database.LocalUser.lookup_user_exn ~username in
     f (Some user)
   | None -> f None

@@ -29,11 +29,11 @@ let handle_register_post req =
     let passwords = List.filter (function "password", _ -> true | _ -> false ) elts in
     let-? () = passwords |> List.for_all (fun (_, vl) -> String.(vl = password)), "Passwords do not match"  in
     let+ result = Dream.sql req @@ fun db ->
-      Database.User.create_user ~username ~password db in
+      Database.LocalUser.create_user ~username ~password db in
     let-@! user = result, "Error creating user: " in
     let+ () = Dream.invalidate_session req in
     let+ () = Dream.set_session_field req "user"
-                (Database.User.username user) in
+                (Database.LocalUser.username user) in
     Dream.redirect req "/home"
   | _ ->
     Dream.redirect req "/register"
@@ -59,12 +59,12 @@ let handle_login_post req =
   | `Ok elts ->
     let-! username = List.assoc_opt ~eq:String.equal "username" elts |> is_not_empty, "Username can not be empty" in
     let-! password = List.assoc_opt ~eq:String.equal "password" elts |> is_not_empty, "Password can not be empty" in
-    let+ result = Dream.sql req @@ fun db -> Database.User.login_user ~username ~password db in
+    let+ result = Dream.sql req @@ fun db -> Database.LocalUser.login_user ~username ~password db in
     let-@! user = result, "Internal error while logging in: " in
     let-! user = user, "Could not log in - user not found/password does not match" in
     let+ () = Dream.invalidate_session req in
     let+ () = Dream.set_session_field req "user"
-                (Database.User.username user) in
+                (Database.LocalUser.username user) in
     Dream.redirect req "/home"
   | _ ->
     Dream.redirect req "/login"

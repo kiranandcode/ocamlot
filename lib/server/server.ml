@@ -1,5 +1,5 @@
 [@@@warning "-33"]
-open Containers
+
 
 let handle_get_home req =
   Common.with_current_user req @@ fun user -> Dream.html (Html.Home.build user req)
@@ -7,15 +7,17 @@ let handle_get_home req =
 
 
 let () =
-  let config = Settings.create ~domain:"ocamlot.nfshost.com" in
+  let config = Configuration.Params.create ~domain:"ocamlot.nfshost.com" in
   Dream.run ~tls:false ~port:4000
   @@ Dream.logger
-  @@ Dream.sql_pool "sqlite3://:test.db"
+  @@ Dream.sql_pool "sqlite3://:/home/kirang/Documents/code/ocaml/activitypub-server/test.db"
   @@ Dream.sql_sessions 
   @@ Dream.router [
+    Webfinger.route config;
+    
     Authentication.route;
 
-    Dream.scope "/api" [] [
+    Dream.scope "/" [] [
       Actor.route config;
     ];
 

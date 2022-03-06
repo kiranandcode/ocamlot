@@ -317,11 +317,14 @@ CLOSED: [2022-03-05 Sat 16:42]
 CLOSED: [2022-03-05 Sat 16:42]
 ** DONE Lookup how to do background tasks
 CLOSED: [2022-03-05 Sat 16:42]
-** TODO update tests to use in memory database
-
-** TODO Setup webfinger endpoint
-*** TODO look up web finger spec
-*** TODO look up how pleroma responds 
+** DONE update tests to use in memory database
+CLOSED: [2022-03-06 Sun 04:57]
+** DONE Setup webfinger endpoint
+CLOSED: [2022-03-06 Sun 08:03]
+*** DONE look up web finger spec
+CLOSED: [2022-03-06 Sun 06:12]
+*** DONE look up how pleroma responds 
+CLOSED: [2022-03-06 Sun 06:12]
 ** TODO Update user endpoint to return JSON response if application type is json, json+ld
 ** TODO Verify that actor returned has parity with pleroma  
 ** TODO add inbox endpoint
