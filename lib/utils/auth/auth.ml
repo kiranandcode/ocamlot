@@ -58,7 +58,7 @@ let verify_request resolve_public_key (req: Dream.request) =
   let[@warning "-26-depracated"] path =
     Dream.path req |> String.concat "/" |> fun result -> "/" ^ result in
   Dream.log "verifying request";
-  let headers = Dream.all_headers req |> StringMap.of_list in
+  let headers = Dream.all_headers req |> List.map (Pair.map_fst String.lowercase_ascii) |> StringMap.of_list in
   Dream.log "headers is %a" (StringMap.pp ~pp_arrow:(fun fmt () -> Format.pp_print_string fmt " -> ") String.pp String.pp) headers;
   let+ signature = Dream.header req "Signature" in
   Dream.log "signature is %s" signature;
@@ -70,6 +70,7 @@ let verify_request resolve_public_key (req: Dream.request) =
   Dream.log "body is %s" body;
   let body_digest = body_digest body in
   Dream.log "body digest is %s" body_digest;
+  Option.iter (Dream.log "header body digest is %s") (StringMap.find_opt "digest" headers);
   (* signed headers *)
   let+ signed_headers = StringMap.find_opt "headers" hsig in
   Dream.log "signed headers is %s" signed_headers;
