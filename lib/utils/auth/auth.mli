@@ -1,3 +1,9 @@
+open Containers
+
+module StringMap : module type of Map.Make (String)
+
+
+val parse_signature : string -> string StringMap.t
 
 val verify_request:
   (string -> (X509.Public_key.t, 'a) Lwt_result.t) ->

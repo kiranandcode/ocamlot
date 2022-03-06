@@ -1,4 +1,5 @@
 open Containers
+
 module StringMap = Map.Make(String)
 
 (* from IRC  *)
@@ -32,13 +33,18 @@ let build_signed_string ~signed_headers ~meth ~path ~headers ~body_digest =
 
 let drop_quotes str = String.sub str 1 (String.length str - 2)
 
+let split_equals str =
+  match String.index_opt str '=' with
+  | Some ind ->
+    let key = String.sub str 0 ind in
+    let data = String.sub str (ind + 1) (String.length str - ind - 1) in
+    Some (key,data)
+  | _ -> None
+
 let parse_signature signature =
   String.split_on_char ',' signature
-  |> List.filter_map (fun entry ->
-    match String.split_on_char '=' entry with
-    | [k;v] -> Some (k,drop_quotes v)
-    | _ -> None
-  )
+  |> List.filter_map split_equals
+  |> List.map (Pair.map_snd drop_quotes)
   |> StringMap.of_list
 
 let verify signed_string signature pubkey =
