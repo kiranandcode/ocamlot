@@ -17,17 +17,38 @@ let with_path path uri =
 
 let with_fragment fragment uri = Uri.with_fragment uri (Some fragment)
 
-let api_path config =
-  Configuration.Url.api_base_path config
+module ContentType = struct
+  let ld_json_activity_streams = "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
 
+  let ld_json = "application/ld+json"
+  let activity_json = "application/activity+json"
+  let plain_json = "application/json"
+  let html = "text/html"
+  let any = "*/*"
+
+  let content_types = [
+    ld_json_activity_streams, `JSON;
+    ld_json, `JSON;
+    activity_json, `JSON;
+    plain_json, `JSON;
+    html, `HTML;
+    any, `HTML;
+  ]
+
+  let of_string content_type =
+    List.find_opt
+      (fun (str, _) ->
+         print_endline @@ "looking up " ^ str ^ " matches " ^ content_type;
+         String.prefix ~pre:str content_type)
+      content_types
+    |> Option.map snd
+
+end
 
 module ActivityStreams = struct
 
-  module ContentType = struct
-    let ld_json = "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
-    let activity_json = "application/activity+json"
-  end
-  
+
+
   let context =
     "@context", list [
       string "https://www.w3.org/ns/activitystreams";
@@ -36,32 +57,36 @@ module ActivityStreams = struct
 
 end
 
-  
-module User = struct
-  type t = Database.LocalUser.t
 
-  let user_path config (actor: t) =
-    api_path config
-    |> with_path ("user/" ^ Database.LocalUser.username actor) 
+module LocalUser = struct
 
-  let to_json config (actor: t) =
+  module PublicKey = struct
+
+    let of_local_user config actor =
+      let username = Database.LocalUser.username actor in
+      assoc [
+        "id", uri (Configuration.Url.user config username |> with_fragment "main-key");
+        "owner", uri (Configuration.Url.user config username);
+        "publicKeyPem", string (Database.LocalUser.pubkey actor)
+      ]      
+
+  end
+
+
+  let of_local_user config (actor: Database.LocalUser.t) =
+    let username = Database.LocalUser.username actor in
     assoc [
       ActivityStreams.context;
-      "id", uri (user_path config actor);
+      "id", uri (Configuration.Url.user config username);
       "type", string "Person";
+      "name", string (Database.LocalUser.display_name actor);
       "preferredUsername", string (Database.LocalUser.display_name actor);
-      "inbox", uri (user_path config actor
-                    |> with_path "inbox");
-      "publicKey", assoc [
-        "id", uri (user_path config actor
-                   |> with_fragment "main-key");
-        "owner", uri (user_path config actor);
-        "publicKeyPem", string (Database.LocalUser.pubkey actor)
-      ]
+      "inbox", uri (Configuration.Url.user_inbox config username);
+      "publicKey", PublicKey.of_local_user config actor
     ]
 
 end
- 
+
 module Webfinger = struct
 
   let profile_page url = assoc [
@@ -77,9 +102,9 @@ module Webfinger = struct
   ]    
 
   let activity_json_self config username =
-    self_link ActivityStreams.ContentType.activity_json (Configuration.Url.user config username)
+    self_link ContentType.activity_json (Configuration.Url.user config username)
   let activitystreams_self config username =
-    self_link ActivityStreams.ContentType.ld_json (Configuration.Url.user config username)
+    self_link ContentType.ld_json_activity_streams (Configuration.Url.user config username)
 
   let of_local_user config (actor: Database.LocalUser.t) =
     let username = Database.LocalUser.username actor in

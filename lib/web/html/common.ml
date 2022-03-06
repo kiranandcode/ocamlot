@@ -12,3 +12,5 @@ module B = Bulma.Bulma (struct
     let figure ?a elts = figure ?a elts
     let table ?a elts = table ?a elts
   end)
+
+

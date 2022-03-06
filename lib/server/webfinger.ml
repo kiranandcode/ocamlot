@@ -40,7 +40,7 @@ let resource_to_username config queried_resource =
   
 
 let handle_webfinger config req =
-  let content_type = Dream.header req "Content-Type" in
+  let content_type = Dream.header req "Accept" in
   if not (Option.for_all String.(prefix ~pre:"application/json") content_type) then
     Dream.log "webfinger for unsupported content type \"%s\", ignoring silently"
       (Option.value ~default:"" content_type);

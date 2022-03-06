@@ -5,7 +5,7 @@ let build_header ?(title="Strange women lying in ponds distributing swords is no
   let charset charset = H.meta ~a:[H.a_charset charset] () in
   let viewport params = H.meta ~a:[H.a_name "viewport"; H.a_content params] () in
   H.head (H.title (H.txt ("OCamlot - " ^ title))) [
-    stylesheet "static/style/style.css";
+    stylesheet "/static/style/style.css";
     charset "UTF-8";
     viewport "width=device-width, initial-scale=1"
   ]
