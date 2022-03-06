@@ -51,7 +51,7 @@ let verify signed_string signature pubkey =
   let result =  X509.Public_key.verify `SHA256 ~scheme:`RSA_PKCS1
     ~signature:(Cstruct.of_string signature)
     pubkey
-    (`Digest (Cstruct.of_string signed_string)) in
+    (`Message (Cstruct.of_string signed_string)) in
   match result with
   | Ok () -> Lwt_result.return true
   | Error _ -> Lwt_result.return false
