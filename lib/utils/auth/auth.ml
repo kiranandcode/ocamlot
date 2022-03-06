@@ -53,8 +53,10 @@ let verify signed_string signature pubkey =
     pubkey
     (`Message (Cstruct.of_string signed_string)) in
   match result with
-  | Ok () -> Lwt_result.return true
-  | Error _ -> Lwt_result.return false
+  | Ok () -> true
+  | Error `Msg e ->
+    Dream.log "error while verifying: %s" e;
+    false
 
 let verify_request resolve_public_key (req: Dream.request) =
   let (let+) x f = match x with None -> Lwt.return (Ok false) | Some v -> f v in
@@ -100,7 +102,7 @@ let verify_request resolve_public_key (req: Dream.request) =
   Dream.log "was able to decode the public key";
 
   (* verify signature against signed string with public key *)
-  verify signed_string signature public_key
+  Lwt_result.return @@ verify signed_string signature public_key
 
 let sign_headers ~priv_key ~key_id
       ~(body: Cohttp_lwt.Body.t)
