@@ -325,10 +325,21 @@ CLOSED: [2022-03-06 Sun 08:03]
 CLOSED: [2022-03-06 Sun 06:12]
 *** DONE look up how pleroma responds 
 CLOSED: [2022-03-06 Sun 06:12]
-** TODO Update user endpoint to return JSON response if application type is json, json+ld
-** TODO Verify that actor returned has parity with pleroma  
-** TODO add inbox endpoint
+** DONE Update user endpoint to return JSON response if application type is json, json+ld
+CLOSED: [2022-03-06 Sun 18:45]
+** DONE Verify that actor returned has parity with pleroma
+CLOSED: [2022-03-06 Sun 18:45]
+** DONE add inbox endpoint
+CLOSED: [2022-03-06 Sun 18:45]
 *** print recived json, try signing, fail
+** TODO add content length field to build signed headers enforce present
+** TODO validate follow request, return not acceptable if not valid
+** TODO Add remote module to activitypub, parse pleroma follow request
+** TODO Insert follow request into database
+** TODO update code to use database outside of build dir
+** TODO Look at pleroma follow object
+** TODO add custom sql to retrieve all information needed to serialise pleroma follow object
+** TODO add local follow object to activitypub module
 ** TODO Use signing functions to manually send follow request to atestaccount
 *** TODO read joinmastadon blogpost for follow specification
 ** TODO Write frontend for following
