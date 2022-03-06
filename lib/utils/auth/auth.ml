@@ -30,11 +30,13 @@ let build_signed_string ~signed_headers ~meth ~path ~headers ~body_digest =
   )
   |> String.concat "\n"
 
+let drop_quotes str = String.sub str 1 (String.length str - 2)
+
 let parse_signature signature =
   String.split_on_char ',' signature
   |> List.filter_map (fun entry ->
-    match String.split_on_char ',' entry with
-    | [k;v] -> Some (k,v)
+    match String.split_on_char '=' entry with
+    | [k;v] -> Some (k,drop_quotes v)
     | _ -> None
   )
   |> StringMap.of_list
