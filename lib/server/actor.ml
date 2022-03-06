@@ -52,7 +52,7 @@ let lookup_request url : (X509.Public_key.t, 'a) result Lwt.t =
     try
       let* pair =
         Cohttp_lwt_unix.Client.get
-          ~headers:(Cohttp.Header.of_list ["Content-Type", Activitypub.ContentType.activity_json])
+          ~headers:(Cohttp.Header.of_list ["Accept", Activitypub.ContentType.activity_json])
           (Uri.of_string url) in
       Lwt_result.return pair
     with exn -> Lwt.return (Result.of_exn exn) in
