@@ -69,13 +69,20 @@ let verify_request resolve_public_key (req: Dream.request) =
   (* signed string *)
   let signed_string = build_signed_string ~signed_headers ~meth ~path ~headers ~body_digest in
 
+  Dream.log "signed string is:\n%s" signed_string;
+
   (* 2. retrieve signature *)
   let+ signature = StringMap.find_opt "signature" hsig in
+  Dream.log "signature was:\n%s" signed_string;
   let+ signature = Base64.decode signature |> Result.to_opt in
+
+  Dream.log "decoded signature was:\n%s" signed_string;
 
   (* 3. retrieve public key *)
   let+ key_id = StringMap.find_opt "keyId" hsig in
   let* public_key = resolve_public_key key_id in
+
+  Dream.log "was able to decode the public key";
 
   (* verify signature against signed string with public key *)
   verify signed_string signature public_key
