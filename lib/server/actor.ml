@@ -10,6 +10,8 @@ let with_user req then_ =
 let (let+) x f = x f
 let (let*) x f = Lwt.bind x f
 
+
+
 let handle_actor_get config req =
   let+ current_user = Common.with_current_user req in
   let+ user = with_user req in
@@ -20,7 +22,9 @@ let handle_actor_get config req =
   | Some `HTML ->
     Dream.html (Html.Profile.build current_user user req)
   | Some `JSON ->
-    Dream.json (Yojson.Safe.to_string (Activitypub.LocalUser.of_local_user config user))
+    Dream.respond
+      ~headers:[("Content-Type", Activitypub.ContentType.activity_json)]
+      (Yojson.Safe.to_string (Activitypub.LocalUser.of_local_user config user))
 
 let handle_inbox_get req =
   Dream.log "GET to %s/inbox" (Dream.param req "username");
