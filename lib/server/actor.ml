@@ -64,7 +64,6 @@ let lookup_request url : (X509.Public_key.t, 'a) result Lwt.t =
   let pub_key = X509.Public_key.decode_pem (Cstruct.of_string public_key_pem)
               |> Result.map_err (fun (`Msg err) -> err) in
   Lwt.return pub_key
-  
 
 let handle_inbox_post req =
   Dream.log "POST to %s/inbox" (Dream.param req "username");

@@ -95,6 +95,7 @@ let verify_request resolve_public_key (req: Dream.request) =
   (* 3. retrieve public key *)
   let+ key_id = StringMap.find_opt "keyId" hsig in
   let* public_key = resolve_public_key key_id in
+  Dream.log "public key:\n%s" (X509.Public_key.encode_pem public_key |> Cstruct.to_string);
 
   Dream.log "was able to decode the public key";
 
