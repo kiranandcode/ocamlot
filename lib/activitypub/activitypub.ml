@@ -37,10 +37,7 @@ module ContentType = struct
 
   let of_string content_type =
     List.find_opt
-      (fun (str, _) ->
-         print_endline @@ "looking up " ^ str ^ " matches " ^ content_type;
-         String.prefix ~pre:str content_type)
-      content_types
+      (fun (str, _) -> String.prefix ~pre:str content_type) content_types
     |> Option.map snd
 
 end
@@ -78,11 +75,13 @@ module LocalUser = struct
     assoc [
       ActivityStreams.context;
       "id", uri (Configuration.Url.user config username);
+      "url", uri (Configuration.Url.user_profile_page config username);
+      (* "summary", string ""; *)
       "type", string "Person";
       "name", string (Database.LocalUser.display_name actor);
       "preferredUsername", string (Database.LocalUser.display_name actor);
       "inbox", uri (Configuration.Url.user_inbox config username);
-      "publicKey", PublicKey.of_local_user config actor
+      "publicKey", PublicKey.of_local_user config actor;
     ]
 
 end
