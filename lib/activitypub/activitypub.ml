@@ -76,11 +76,16 @@ module LocalUser = struct
       ActivityStreams.context;
       "id", uri (Configuration.Url.user config username);
       "url", uri (Configuration.Url.user_profile_page config username);
-      (* "summary", string ""; *)
+
+      "summary", string "SUMMARIES NOT SUPPORTED BY OCAMLOT";
+
       "type", string "Person";
       "name", string (Database.LocalUser.display_name actor);
       "preferredUsername", string (Database.LocalUser.display_name actor);
+
       "inbox", uri (Configuration.Url.user_inbox config username);
+      "outbox", uri (Configuration.Url.user_outbox config username);
+
       "publicKey", PublicKey.of_local_user config actor;
     ]
 
