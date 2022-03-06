@@ -317,6 +317,8 @@ CLOSED: [2022-03-05 Sat 16:42]
 CLOSED: [2022-03-05 Sat 16:42]
 ** DONE Lookup how to do background tasks
 CLOSED: [2022-03-05 Sat 16:42]
+** TODO update tests to use in memory database
+
 ** TODO Setup webfinger endpoint
 *** TODO look up web finger spec
 *** TODO look up how pleroma responds 

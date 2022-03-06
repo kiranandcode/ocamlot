@@ -1,5 +1,5 @@
+[@@@warning "-32"]
 module Common = struct
-  open Bos
   open Containers
   module Ty = Caqti_type.Std
   module type DB = Caqti_lwt.CONNECTION
@@ -16,23 +16,31 @@ module Common = struct
   let check_string_eq ~expected value = Alcotest.(check string) "string matches" expected value
   let check_string_neq ~expected value = Alcotest.(check bool) "string does not match" false String.(expected = value)
 
-  let with_db f () =
-    let db_name = "/tmp/ocamlot_test" ^ Int.to_string (Stdlib.Random.int 20_000) ^ ".db" in
-    let test_db_path = Fpath.of_string db_name |> Result.get_exn in
-    let create_db_cmd = Cmd.(v "sqlite3" % "-init" % "../resources/schema.sql" % db_name) in
 
-    OS.File.delete ~must_exist:false test_db_path |> Result.get_exn;
-    OS.Cmd.run create_db_cmd |> Result.get_exn;
-    (* print_endline @@ "at line " ^ Int.to_string __LINE__; *)
-    let+ connection = Caqti_lwt.connect (Uri.make ~scheme:"sqlite3" ~path:(Fpath.to_string test_db_path) ()) in
-    begin
-      match connection with
-      | Ok _ -> ()
-      |Error e -> failwith (Caqti_error.show e)
-    end;
-    let (module DB) = Result.get_exn connection in
-    print_endline ("database: " ^ db_name);
-    f (module DB : Caqti_lwt.CONNECTION)
+  let init_requests =
+    let init_statements = IO.with_in "../resources/schema.sql" IO.read_all
+                          |> String.split_on_char ';'
+                          |> List.map String.trim
+                          |> List.filter (Fun.negate String.is_empty) in
+    let create_opaque_request schema =
+      Caqti_request.exec ~oneshot:true Caqti_type.unit schema in
+    List.map create_opaque_request init_statements
+
+  let with_db (f: (module Caqti_lwt.CONNECTION) -> 'a Lwt.t) () =
+    let+ connection = Caqti_lwt.connect (Uri.make ~scheme:"sqlite3" ~path:":memory:" ()) in
+    let connection = Result.get_exn connection in
+    let (module DB) = connection in
+    let exec req =
+      let+ result = DB.exec req () in
+      let () = result
+               |> Result.map_err Caqti_error.show
+               |> Result.get_or_failwith in
+      Lwt.return () in
+
+    let+ () = Lwt_list.iter_s exec init_requests  in
+    let+ res = f (module DB : Caqti_lwt.CONNECTION) in
+    let+ () = DB.disconnect () in
+    Lwt.return res
 
 end
 

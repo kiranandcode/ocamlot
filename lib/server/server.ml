@@ -7,16 +7,14 @@ let handle_get_home req =
 
 
 let () =
-  let config = Settings.create ~domain:"ocamlot.xyz" in
-  Dream.initialize_log ~level:`Debug ();
-  Dream.run
-    ~tls:false
-    ~port:4000
+  let config = Settings.create ~domain:"ocamlot.nfshost.com" in
+  Dream.run ~tls:false ~port:4000
   @@ Dream.logger
   @@ Dream.sql_pool "sqlite3://:test.db"
   @@ Dream.sql_sessions 
   @@ Dream.router [
     Authentication.route;
+
     Dream.scope "/api" [] [
       Actor.route config;
     ];

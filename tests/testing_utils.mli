@@ -14,7 +14,7 @@ module Common : sig
   val check_string_eq : expected:string -> string -> unit
   val check_string_neq : expected:string -> string -> unit
 
-  val with_db : ((module DB) -> 'a Lwt.t) -> unit -> 'a Lwt.t
+  val with_db : ((module Caqti_lwt.CONNECTION) -> 'a Lwt.t) -> unit -> 'a Lwt.t
 
 end
 

@@ -69,7 +69,7 @@ CREATE TABLE Posts (
       ON UPDATE RESTRICT
       ON DELETE RESTRICT
 );
-CREATE index idxPost_public_id on Post(public_id);
+CREATE index idxPost_public_id on Posts(public_id);
 
 -- table for mentions
 CREATE TABLE Mentions (
