@@ -55,17 +55,22 @@ let verify_request resolve_public_key (req: Dream.request) =
   let meth = Dream.method_ req |> Dream.method_to_string |> String.lowercase_ascii in
   let[@warning "-26-depracated"] path =
     Dream.path req |> String.concat "/" |> fun result -> "/" ^ result in
+  Dream.log "verifying request";
   let headers = Dream.all_headers req |> StringMap.of_list in
+  Dream.log "headers is %a" (StringMap.pp ~pp_arrow:(fun fmt () -> Format.pp_print_string fmt " -> ") String.pp String.pp) headers;
   let+ signature = Dream.header req "Signature" in
+  Dream.log "signature is %s" signature;
   let hsig = parse_signature signature in
+  Dream.log "hsig is %a" (StringMap.pp ~pp_arrow:(fun fmt () -> Format.pp_print_string fmt " -> ") String.pp String.pp) hsig;
 
   (* 1. build signed string *)
   let@ body = Dream.body req in
+  Dream.log "body is %s" body;
   let body_digest = body_digest body in
-
+  Dream.log "body digest is %s" body_digest;
   (* signed headers *)
   let+ signed_headers = StringMap.find_opt "headers" hsig in
-
+  Dream.log "signed headers is %s" signed_headers;
   (* signed string *)
   let signed_string = build_signed_string ~signed_headers ~meth ~path ~headers ~body_digest in
 
