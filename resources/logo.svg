@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="483.77954"
+   height="483.77954"
+   viewBox="0 0 128 128"
+   version="1.1"
+   id="svg8"
+   inkscape:version="1.0.2 (e86c870879, 2021-01-15)"
+   sodipodi:docname="logo.svg"
+   inkscape:export-filename="/home/kirang/Documents/code/ocaml/activitypub-server/resources/logo-1024.png"
+   inkscape:export-xdpi="203.2"
+   inkscape:export-ydpi="203.2">
+  <title
+     id="title1020">OCamlot Logo</title>
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.4142136"
+     inkscape:cx="347.80158"
+     inkscape:cy="286.45426"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer11"
+     inkscape:document-rotation="0"
+     showgrid="false"
+     inkscape:snap-intersection-paths="true"
+     inkscape:object-paths="true"
+     inkscape:snap-midpoints="false"
+     inkscape:snap-smooth-nodes="false"
+     inkscape:object-nodes="true"
+     inkscape:snap-nodes="false"
+     inkscape:pagecheckerboard="true"
+     inkscape:window-width="2560"
+     inkscape:window-height="1402"
+     inkscape:window-x="1920"
+     inkscape:window-y="0"
+     inkscape:window-maximized="0"
+     units="px"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     lock-margins="true" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>OCamlot Logo</dc:title>
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by-sa/4.0/" />
+        <dc:date>2022-03-07</dc:date>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Kiran Gopinathan</dc:title>
+          </cc:Agent>
+        </dc:creator>
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by-sa/4.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Notice" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Attribution" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#ShareAlike" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:groupmode="layer"
+     id="layer11"
+     inkscape:label="background"
+     transform="translate(26.753679,3.1805072)"
+     style="display:none">
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.941999;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+       id="rect1044"
+       width="128"
+       height="128"
+       x="-26.753679"
+       y="-3.1805072" />
+  </g>
+  <g
+     inkscape:label="Body"
+     inkscape:groupmode="layer"
+     id="layer1"
+     style="display:inline"
+     transform="translate(-30.377717,-26.877085)" />
+  <g
+     inkscape:groupmode="layer"
+     id="layer10"
+     inkscape:label="Character"
+     style="display:inline"
+     transform="translate(-30.377717,-26.877085)" />
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="Neck"
+     style="display:inline"
+     transform="translate(-30.377717,-26.877085)" />
+  <g
+     inkscape:groupmode="layer"
+     id="layer3"
+     inkscape:label="Head"
+     style="display:inline"
+     transform="translate(-30.377717,-26.877085)" />
+  <g
+     id="g1055"
+     transform="translate(20.455124,25.733859)">
+    <path
+       id="path843"
+       style="display:inline;fill:#ff7800;stroke-width:1.3057;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
+       d="m 310.2168,254.9707 c -0.0161,1.11597 -0.0449,2.21962 -0.0449,3.35157 0,33.59132 7.15858,60.15407 21.4746,79.68945 14.42701,19.53538 33.84679,29.30273 58.26172,29.30273 8.87061,0 17.06315,-1.29626 24.58594,-3.875 l -35.4668,-33.00976 V 299.85938 L 343.85742,254.9707 Z m 159.05468,0.32032 -21.87695,0.71093 -31.99219,50.76563 23.60352,23.38867 h 13.98047 c 10.88284,-18.60253 16.32617,-42.54632 16.32617,-71.83398 0,-1.02377 -0.0278,-2.02056 -0.041,-3.03125 z m 41.57618,33.75195 c -1.95653,14.89749 -5.41295,28.57968 -10.36719,41.04687 l 6.16601,-0.0312 9.05079,-16.33593 17.46679,0.008 z m -240.5293,10.66797 -31.49414,42.89062 -22.89453,35.54492 36.16601,-24.57031 29.82227,24.66797 h 29.97656 c -4.10487,-3.68355 -8.01062,-7.72207 -11.70898,-12.13281 -15.00087,-17.98552 -24.95093,-40.12402 -29.86719,-66.40039 z"
+       transform="matrix(0.26458333,0,0,0.26458333,-57.131397,-30.057593)" />
+    <path
+       id="text990"
+       style="font-style:normal;font-weight:normal;font-size:97.6674px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;display:inline;fill:#26a269;fill-opacity:1;stroke:none;stroke-width:3.56031;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="m 389.91602,113.60352 c -36.53457,0 -65.76092,13.13471 -87.68164,39.40234 -21.80476,26.14314 -32.70704,61.24849 -32.70704,105.31836 0,43.23382 10.50105,77.83556 31.48633,103.8164 l 57.33789,3.75586 c -11.32603,-5.06226 -21.10408,-13.15372 -29.32617,-24.2871 -14.96177,-20.41655 -22.44141,-48.17866 -22.44141,-83.28516 0,-35.231 7.47964,-63.05415 22.44141,-83.4707 15.07776,-20.41655 35.37442,-30.625 60.89063,-30.625 25.5162,0 45.69717,10.20845 60.54296,30.625 14.96178,20.41655 22.44336,48.2397 22.44336,83.4707 0,28.93445 -5.08661,52.87632 -15.25,71.83203 h 29.22071 l 10.41211,-0.0508 c 8.44656,-20.50341 12.67382,-44.42997 12.67382,-71.78125 0,-44.06987 -10.90227,-79.17522 -32.70703,-105.31836 C 455.4472,126.73821 426.33459,113.6035 389.91602,113.6035 Z m 28.20507,253.66992 c -8.53853,3.30463 -17.93942,4.96093 -28.20507,4.96094 -10.14743,-10e-6 -19.46641,-1.62063 -27.9629,-4.84961 l -1.02148,18.0664 -38.45703,-2.84179 c 18.70703,13.50012 41.18753,20.24999 67.44141,20.25 27.59848,0 50.99708,-7.51384 70.20312,-22.52735 l -27.69531,0.45703 v -0.16992 l -0.0527,0.084 z"
+       transform="matrix(0.26458333,0,0,0.26458333,-57.131397,-30.057593)" />
+    <path
+       id="rect857"
+       style="display:inline;fill:#ffa348;stroke-width:0.355737;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
+       d="m 100.87963,54.964602 v 31.953607 l 13.93903,13.136151 0.0137,-0.0222 v 0.045 h 10.01157 l 12.89291,0.0977 6.48431,-13.102561 -1.93241,-3.439583 -5.46166,-0.0026 -2.44315,4.5003 -5.33695,0.02687 H 115.7978 l -7.44,-7.523617 V 54.964536 Z"
+       sodipodi:nodetypes="cccccccccccccccc"
+       transform="translate(-57.131397,-30.057593)" />
+    <path
+       id="rect865"
+       style="display:inline;fill:#ffbe6f;stroke-width:0.245222;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
+       d="m 112.76159,50.157218 -4.59093,0.501261 H 98.00487 l -1.961121,4.828646 H 85.998366 v 7.442957 l 1.825729,-2.231906 2.727483,2.231906 0.913638,0.661458 h 5.3e-4 15.390794 c 0.47301,0.301963 0.94602,0.603925 1.41903,0.905888 l 2.02933,-2.030367 v -8.492506 z"
+       sodipodi:nodetypes="ccccccccccccccc"
+       transform="translate(-57.131397,-30.057593)" />
+    <path
+       id="rect944"
+       style="fill:#ffbe6f;fill-opacity:1;stroke-width:0.4;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
+       d="m 9.5687402,63.492943 7.8905598,6.526555 20.393169,1.31879 0.263549,-4.083991 -20.420457,-1.318784 z"
+       sodipodi:nodetypes="cccccc" />
+  </g>
+</svg>

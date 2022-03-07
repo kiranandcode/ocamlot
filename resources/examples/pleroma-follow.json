@@ -1,0 +1,51 @@
+{
+   "@context":[
+      "https://www.w3.org/ns/activitystreams",
+      "https://ocamlot.xyz/schemas/litepub-0.1.jsonld",
+      {
+         "@language":"und"
+      }
+   ],
+   "actor":"https://ocamlot.xyz/users/atestaccount",
+   "cc":[
+      
+   ],
+   "context":"https://ocamlot.xyz/contexts/a2ca253e-2dde-4a6d-8060-6c0297f93dd1",
+   "context_id":18,
+   "directMessage":true,
+   "id":"https://ocamlot.xyz/activities/665280d0-0f11-4513-a698-c7ae0b18e3bd",
+   "object":{
+      "actor":"https://ocamlot.xyz/users/atestaccount",
+      "attachment":[
+         
+      ],
+      "attributedTo":"https://ocamlot.xyz/users/atestaccount",
+      "cc":[
+         
+      ],
+      "content":"<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> screw you idiot",
+      "context":"https://ocamlot.xyz/contexts/a2ca253e-2dde-4a6d-8060-6c0297f93dd1",
+      "conversation":"https://ocamlot.xyz/contexts/a2ca253e-2dde-4a6d-8060-6c0297f93dd1",
+      "id":"https://ocamlot.xyz/objects/5e88fdc6-e965-4f9d-a585-70eca8e71383",
+      "published":"2022-03-06T10:18:34.463275Z",
+      "sensitive":null,
+      "source":"@example@ocamlot.nfshost.com screw you idiot",
+      "summary":"",
+      "tag":[
+         {
+            "href":"https://ocamlot.nfshost.com/users/example",
+            "name":"@example@ocamlot.nfshost.com",
+            "type":"Mention"
+         }
+      ],
+      "to":[
+         "https://ocamlot.nfshost.com/users/example"
+      ],
+      "type":"Note"
+   },
+   "published":"2022-03-06T10:18:34.460663Z",
+   "to":[
+      "https://ocamlot.nfshost.com/users/example"
+   ],
+   "type":"Create"
+}
