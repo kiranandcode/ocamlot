@@ -1,0 +1,4 @@
+(executable (name main)
+  (preprocess (pps ppx_deriving.std))
+  (libraries activitypub decoders decoders-yojson yojson containers ptime)
+)
