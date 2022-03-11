@@ -1,4 +1,5 @@
 
+
 module Link : sig
 
   type 'a t = 'a Link.t
@@ -177,3 +178,6 @@ module Like : sig
   val post : t -> Post.t Link.t
   val target : t -> Actor.t Link.t
 end = Like
+
+
+module Interface = Interface

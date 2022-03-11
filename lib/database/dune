@@ -1,7 +1,7 @@
 (library (name database)
  (libraries
    ;; internal libraries
-   password
+   password activitypub configuration
    ;; external libraries
    containers
    ;; crypto

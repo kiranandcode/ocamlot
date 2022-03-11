@@ -52,8 +52,10 @@ let handle_webfinger config req =
       let* query_res = Database.LocalUser.lookup_user ~username db in
       let+ local_user_opt = query_res |> or_error in
       let+ local_user = local_user_opt |> or_not_found in
-      let json = Activitypub.Webfinger.of_local_user config local_user
-                 |> Yojson.Safe.to_string in
+      let json =
+        Database.Interface.Webfinger.construct_query_result_for config local_user
+        |> Activitypub.Encode.Webfinger.query_result
+        |> Yojson.Safe.to_string in
       Dream.json json
     end
   | None ->

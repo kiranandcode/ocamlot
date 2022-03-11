@@ -1,0 +1,27 @@
+{
+    "aliases": [
+        "https://ocamlot.xyz/users/example"
+    ],
+    "links": [
+        {
+            "href": "https://ocamlot.xyz/users/example",
+            "rel": "http://webfinger.net/rel/profile-page",
+            "type": "text/html"
+        },
+        {
+            "href": "https://ocamlot.xyz/users/example",
+            "rel": "self",
+            "type": "application/activity+json"
+        },
+        {
+            "href": "https://ocamlot.xyz/users/example",
+            "rel": "self",
+            "type": "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
+        },
+        {
+            "rel": "http://ostatus.org/schema/1.0/subscribe",
+            "template": "https://ocamlot.xyz/ostatus_subscribe?acct={uri}"
+        }
+    ],
+    "subject": "acct:example@ocamlot.xyz"
+}

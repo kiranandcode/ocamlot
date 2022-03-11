@@ -8,25 +8,34 @@ let with_user req then_ =
   | None -> Dream.respond ~status:`Not_Found "Not found"
   | Some user -> then_ user
 
+let (let-!) (request, x) f =
+  Lwt.bind x (function
+    | Ok v -> f v
+    | Error e ->
+      Dream.error (fun logger -> logger ~request "internal error: %s" e);
+      Dream.respond ~status:`Internal_Server_Error
+        {|{"error": "Internal server error. Administrators have been notified."}|}
+  )
+
 let (let+) x f = x f
 let (let*) x f = Lwt.bind x f
 let (let*!) x f = Lwt_result.bind x f
-
-
 
 let handle_actor_get config req =
   let+ current_user = Common.with_current_user req in
   let+ user = with_user req in
   let content_type = Dream.header req "Accept"
-                     |> Option.value ~default:(Activitypub.ContentType.html) in
-  match Activitypub.ContentType.of_string content_type with
+                     |> Option.value ~default:(Activitypub.Constants.ContentType.html) in
+  match Activitypub.Constants.ContentType.of_string content_type with
   | None -> Dream.respond ~status:`Not_Acceptable "{}"
   | Some `HTML ->
     Dream.html (Html.Profile.build current_user user req)
   | Some `JSON ->
     Dream.respond
-      ~headers:[("Content-Type", Activitypub.ContentType.activity_json)]
-      (Yojson.Safe.to_string (Activitypub.LocalUser.of_local_user config user))
+      ~headers:[("Content-Type", Activitypub.Constants.ContentType.activity_json)]
+      (Yojson.Safe.to_string @@
+       Activitypub.Encode.person @@
+         (Database.Interface.LocalUser.convert_to config user))
 
 let handle_inbox_get req =
   Dream.log "GET to %s/inbox" (Dream.param req "username");
@@ -52,7 +61,8 @@ let lookup_request url : (X509.Public_key.t, 'a) result Lwt.t =
     try
       let* pair =
         Cohttp_lwt_unix.Client.get
-          ~headers:(Cohttp.Header.of_list ["Accept", Activitypub.ContentType.activity_json])
+          (* NOTE: Not obvious, but you need to specify accept headers, else pleroma will return html *)
+          ~headers:(Cohttp.Header.of_list ["Accept", Activitypub.Constants.ContentType.activity_json])
           (Uri.of_string url) in
       Lwt_result.return pair
     with exn -> Lwt.return (Result.of_exn exn) in
@@ -65,16 +75,39 @@ let lookup_request url : (X509.Public_key.t, 'a) result Lwt.t =
               |> Result.map_err (fun (`Msg err) -> err) in
   Lwt.return pub_key
 
+let enforce_is_true vl kont =
+  if vl
+  then kont ()
+  else Dream.respond ~status:`Not_Acceptable {|{"error": "invalid request"}|}
+
 let handle_inbox_post req =
   Dream.log "POST to %s/inbox" (Dream.param req "username");
-  let* verification = Auth.verify_request ~resolve_public_key:lookup_request req in
-  begin match verification with
-  | Ok status -> Dream.log "verification status was %b" status
-  | Error e -> Dream.log "error while verifying: %s" e
-  end;
-  let* body = Dream.body req in
-  Dream.log "DATA: %s" body;
-  Dream.respond ~status:`OK ""
+  let-! request_is_verified = req, Http_sig.verify_request ~resolve_public_key:lookup_request req in
+  enforce_is_true request_is_verified begin fun () ->
+    let* body = Dream.body req in
+    Dream.log "DATA: %s" body;
+    let follow =
+      Decoders_yojson.Safe.Decode.decode_string
+        Activitypub.Decode.(create follow)
+        body in
+    match follow with
+    | Ok (follow_obj: Activitypub.Types.follow Activitypub.Types.create) ->
+      Dream.log "received a create of a follow object.";
+      Dream.log "addressed to: %s" @@ String.concat ", " follow_obj.to_;
+      Dream.log "cc'd to: %s" @@ String.concat ", " follow_obj.cc;
+      Dream.log "is direct: %b" follow_obj.direct_message;
+      Dream.log "follow id: %s" follow_obj.obj.id;
+      Dream.log "follow actor: %s" follow_obj.obj.actor;
+      Dream.log "follow to: %s" @@ String.concat ", " follow_obj.obj.to_;
+      Dream.log "follow ccd: %s" @@ String.concat ", " follow_obj.obj.cc;
+      Dream.log "follow object?: %s" follow_obj.obj.object_;
+      Dream.respond ~status:`OK ""
+    | Error e ->
+      Dream.error (fun log -> log ~request:req "error while decoding follow request: %a"
+                                Decoders_yojson.Safe.Decode.pp_error e
+                  );
+      Dream.respond ~status:`Not_Acceptable ""
+  end
 
 
 let handle_outbox_get req =

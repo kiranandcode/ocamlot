@@ -1,2 +1,3 @@
 (library (name activitypub)
- (libraries database configuration yojson))
+ (preprocess (pps ppx_deriving.std ppx_fields_conv))
+ (libraries containers yojson decoders decoders-yojson ptime))

@@ -334,12 +334,19 @@ CLOSED: [2022-03-06 Sun 18:45]
 *** print recived json, try signing, fail
 ** DONE add content length field to build signed headers enforce present
 CLOSED: [2022-03-11 Fri 02:03]
-** TODO validate follow request, return not acceptable if not valid
-** TODO Add remote module to activitypub, parse pleroma follow request
-** TODO Insert follow request into database
-** TODO update code to use database outside of build dir
+** DONE Refactor definitions into activitypub.common
+CLOSED: [2022-03-11 Fri 06:19]
+** DONE Refactor decoders into activitypub.remote
+CLOSED: [2022-03-11 Fri 11:11]
+** DONE update code to use database outside of build dir
+CLOSED: [2022-03-11 Fri 11:31]
+** DONE validate follow request, return not acceptable if not valid
+CLOSED: [2022-03-11 Fri 11:31]
+** DONE Add remote module to activitypub, parse pleroma follow request
+CLOSED: [2022-03-11 Fri 11:31]
 ** TODO Look at pleroma follow object
 ** TODO add custom sql to retrieve all information needed to serialise pleroma follow object
+** TODO Insert follow request into database
 ** TODO add local follow object to activitypub module
 ** TODO Use signing functions to manually send follow request to atestaccount
 *** TODO read joinmastadon blogpost for follow specification

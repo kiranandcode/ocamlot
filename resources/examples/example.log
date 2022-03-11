@@ -1,0 +1,73 @@
+06.03.22 11:13:29.861                       Running at http://localhost:4000
+06.03.22 11:13:29.862                       Type Ctrl+C to stop
+06.03.22 11:13:31.083       dream.log  INFO REQ 1 GET /home 10.255.240.4:53228 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+06.03.22 11:13:31.197       dream.log  INFO REQ 1 200 in 114391 μs
+06.03.22 11:13:31.497       dream.log  INFO REQ 2 GET /static/style/style.css 10.255.240.4:53253 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+06.03.22 11:13:31.505       dream.log  INFO REQ 2 200 in 8140 μs
+06.03.22 11:13:33.816       dream.log  INFO REQ 3 GET /register 10.255.240.4:53312 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+06.03.22 11:13:33.829       dream.log  INFO REQ 3 200 in 12435 μs
+06.03.22 11:13:34.134       dream.log  INFO REQ 4 GET /static/style/style.css 10.255.240.4:53321 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+06.03.22 11:13:34.141       dream.log  INFO REQ 4 200 in 7276 μs
+06.03.22 11:13:47.207       dream.log  INFO REQ 5 POST /register 10.255.240.4:53695 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+06.03.22 11:13:47.209                       REQ 5 register page POST
+06.03.22 11:13:48.596       dream.log  INFO REQ 5 303 /home in 1389069 μs
+06.03.22 11:13:48.852       dream.log  INFO REQ 6 GET /home 10.255.240.4:53756 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+06.03.22 11:13:48.894       dream.log  INFO REQ 6 200 in 42699 μs
+06.03.22 11:13:49.293       dream.log  INFO REQ 7 GET /static/style/style.css 10.255.240.4:53775 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+06.03.22 11:13:49.301       dream.log  INFO REQ 7 200 in 7765 μs
+06.03.22 11:13:54.848       dream.log  INFO REQ 8 POST /users/example/inbox 10.255.240.2:30770 Pleroma 2.4.2; https://ocamlot.xyz <john@ocamlot.xyz>
+06.03.22 11:13:54.858                       REQ 8 POST to example/inbox
+06.03.22 11:13:54.858                       REQ 8 verifying request
+06.03.22 11:13:54.859                       REQ 8 headers is "Connection" -> "close", "Content-Length" -> "851",
+"Content-Type" -> "application/activity+json",
+"Date" -> "Sun, 06 Mar 2022 11:13:54 GMT", "Host" -> "ocamlot.nfshost.com",
+"X-Forwarded-For" -> "116.203.100.141",
+"X-Forwarded-Host" -> "ocamlot.nfshost.com", "X-Forwarded-Proto" -> "https",
+"X-Forwarded-Server" -> "edge2.phxe.nearlyfreespeech.net",
+"digest" -> "SHA-256=ECeCGUyDDjo7BfsRMXT/M6U9aB1UNJkZvAUvcexGIAU=",
+"signature" -> "keyId="https://ocamlot.xyz/users/atestaccount#main-key",algorithm="rsa-sha256",headers="(request-target) content-length date digest host",signature="QebLz+18hlcy63E4VusmnyrpmZTali6FtBfcwCyhxe8VUeEtmD36uXQgp84zfSun0xLD/x8kz5LLMeAy/BUqVgWvM9wepQUq7QZ/po7q1pcvI63T3zkoDJ8Iuwk7MShx7lWo2slcEhTKOCX9LQlH5pRR3BAuq86HcCzJK1BfrYXfd6tfDqv5E33/Grb2Mdt0vzgcVgYDT6PD9zs3Q5nkiunJ8c5KhlHqiQJswefWnTQ8UGDyBolkYFPBBlsADP3BthS9/DDX0uaWFX+YHXgkeXkcVGN7ifZ2Hcb5qtd0iP3r7eobr9KRsyWVdLXN7Z7g+q7mkLeTTDUWF3i4wOeLNg=="",
+"user-agent" -> "Pleroma 2.4.2; https://ocamlot.xyz <john@ocamlot.xyz>"
+06.03.22 11:13:54.859                       REQ 8 signature is keyId="https://ocamlot.xyz/users/atestaccount#main-key",algorithm="rsa-sha256",headers="(request-target) content-length date digest host",signature="QebLz+18hlcy63E4VusmnyrpmZTali6FtBfcwCyhxe8VUeEtmD36uXQgp84zfSun0xLD/x8kz5LLMeAy/BUqVgWvM9wepQUq7QZ/po7q1pcvI63T3zkoDJ8Iuwk7MShx7lWo2slcEhTKOCX9LQlH5pRR3BAuq86HcCzJK1BfrYXfd6tfDqv5E33/Grb2Mdt0vzgcVgYDT6PD9zs3Q5nkiunJ8c5KhlHqiQJswefWnTQ8UGDyBolkYFPBBlsADP3BthS9/DDX0uaWFX+YHXgkeXkcVGN7ifZ2Hcb5qtd0iP3r7eobr9KRsyWVdLXN7Z7g+q7mkLeTTDUWF3i4wOeLNg=="
+06.03.22 11:13:54.859                       REQ 8 hsig is "algorithm" -> "rsa-sha256",
+"headers" -> "(request-target) content-length date digest host",
+"keyId" -> "https://ocamlot.xyz/users/atestaccount#main-key"
+06.03.22 11:13:54.859                       REQ 8 body is {"@context":["https://www.w3.org/ns/activitystreams","https://ocamlot.xyz/schemas/litepub-0.1.jsonld",{"@language":"und"}],"actor":"https://ocamlot.xyz/users/atestaccount","context":"https://ocamlot.xyz/contexts/62c5fd29-b3ce-46b7-909e-136508f16e7f","id":"https://ocamlot.xyz/activities/f874c2ca-9dc5-4dae-b89e-4b5e835f28ad","object":{"actor":"https://ocamlot.xyz/users/atestaccount","cc":[],"context":"https://ocamlot.xyz/contexts/62c5fd29-b3ce-46b7-909e-136508f16e7f","context_id":23,"id":"https://ocamlot.xyz/activities/f6743838-47cb-4f62-9c15-ba1ac48b4d0e","object":"https://ocamlot.nfshost.com/users/example","published":"2022-03-06T11:13:54.284580Z","state":"cancelled","to":["https://ocamlot.nfshost.com/users/example"],"type":"Follow"},"published":"2022-03-06T11:13:54.284566Z","to":["https://ocamlot.nfshost.com/users/example"],"type":"Undo"}
+06.03.22 11:13:54.859                       REQ 8 body digest is SHA-256=ECeCGUyDDjo7BfsRMXT/M6U9aB1UNJkZvAUvcexGIAU=
+06.03.22 11:13:54.859                       REQ 8 signed headers is (request-target) content-length date digest host
+06.03.22 11:13:54.859                       REQ 8 signed string is:
+(request-target): post /users/example/inbox
+content-length: 
+date: 
+digest: SHA-256=ECeCGUyDDjo7BfsRMXT/M6U9aB1UNJkZvAUvcexGIAU=
+host: 
+06.03.22 11:13:54.859                       REQ 8 verification status was false
+06.03.22 11:13:54.859                       REQ 8 DATA: {"@context":["https://www.w3.org/ns/activitystreams","https://ocamlot.xyz/schemas/litepub-0.1.jsonld",{"@language":"und"}],"actor":"https://ocamlot.xyz/users/atestaccount","context":"https://ocamlot.xyz/contexts/62c5fd29-b3ce-46b7-909e-136508f16e7f","id":"https://ocamlot.xyz/activities/f874c2ca-9dc5-4dae-b89e-4b5e835f28ad","object":{"actor":"https://ocamlot.xyz/users/atestaccount","cc":[],"context":"https://ocamlot.xyz/contexts/62c5fd29-b3ce-46b7-909e-136508f16e7f","context_id":23,"id":"https://ocamlot.xyz/activities/f6743838-47cb-4f62-9c15-ba1ac48b4d0e","object":"https://ocamlot.nfshost.com/users/example","published":"2022-03-06T11:13:54.284580Z","state":"cancelled","to":["https://ocamlot.nfshost.com/users/example"],"type":"Follow"},"published":"2022-03-06T11:13:54.284566Z","to":["https://ocamlot.nfshost.com/users/example"],"type":"Undo"}
+06.03.22 11:13:54.859       dream.log  INFO REQ 8 200 in 10650 μs
+06.03.22 11:13:56.773       dream.log  INFO REQ 9 POST /users/example/inbox 10.255.240.2:30821 Pleroma 2.4.2; https://ocamlot.xyz <john@ocamlot.xyz>
+06.03.22 11:13:56.784                       REQ 9 POST to example/inbox
+06.03.22 11:13:56.784                       REQ 9 verifying request
+06.03.22 11:13:56.784                       REQ 9 headers is "Connection" -> "close", "Content-Length" -> "393",
+"Content-Type" -> "application/activity+json",
+"Date" -> "Sun, 06 Mar 2022 11:13:56 GMT", "Host" -> "ocamlot.nfshost.com",
+"X-Forwarded-For" -> "116.203.100.141",
+"X-Forwarded-Host" -> "ocamlot.nfshost.com", "X-Forwarded-Proto" -> "https",
+"X-Forwarded-Server" -> "edge2.phxe.nearlyfreespeech.net",
+"digest" -> "SHA-256=LVGEZMfWOCrS5sRZWdqDdBmQQCv+ziT4D1zN4OzjZNs=",
+"signature" -> "keyId="https://ocamlot.xyz/users/atestaccount#main-key",algorithm="rsa-sha256",headers="(request-target) content-length date digest host",signature="A+1xJV8v7pfJwo4JNkSfN+nGwxaCBsscOU+F6ds9urr2DnJkSzcO3cv8dIaOQZLYJLAEg6VLFClJW0jDTNeBPvlCT7qPVfPK5nAjjZXZnXd3IRm0taVWnymXJ29+uIkZuvIU/inVD7OTci77/1zi/+GTrzuDI/fZnAsBrRuaPhtn+N81KmceRDji/FrMjQcyKuNiSZHboC7oC57kMjnlEJf9U+p1Kpwzis3xI/CZwMmImK1GcjGIYQIe+LGcSBZ7GDs1JBdqKOkLHHwOAZl6SO1x3tjyxWqahPCYbNbGvArqoQRY2FEzbBnmXakg1P0ErFe5RDkpiPRHDKrPT6hLNg=="",
+"user-agent" -> "Pleroma 2.4.2; https://ocamlot.xyz <john@ocamlot.xyz>"
+06.03.22 11:13:56.784                       REQ 9 signature is keyId="https://ocamlot.xyz/users/atestaccount#main-key",algorithm="rsa-sha256",headers="(request-target) content-length date digest host",signature="A+1xJV8v7pfJwo4JNkSfN+nGwxaCBsscOU+F6ds9urr2DnJkSzcO3cv8dIaOQZLYJLAEg6VLFClJW0jDTNeBPvlCT7qPVfPK5nAjjZXZnXd3IRm0taVWnymXJ29+uIkZuvIU/inVD7OTci77/1zi/+GTrzuDI/fZnAsBrRuaPhtn+N81KmceRDji/FrMjQcyKuNiSZHboC7oC57kMjnlEJf9U+p1Kpwzis3xI/CZwMmImK1GcjGIYQIe+LGcSBZ7GDs1JBdqKOkLHHwOAZl6SO1x3tjyxWqahPCYbNbGvArqoQRY2FEzbBnmXakg1P0ErFe5RDkpiPRHDKrPT6hLNg=="
+06.03.22 11:13:56.784                       REQ 9 hsig is "algorithm" -> "rsa-sha256",
+"headers" -> "(request-target) content-length date digest host",
+"keyId" -> "https://ocamlot.xyz/users/atestaccount#main-key"
+06.03.22 11:13:56.784                       REQ 9 body is {"@context":["https://www.w3.org/ns/activitystreams","https://ocamlot.xyz/schemas/litepub-0.1.jsonld",{"@language":"und"}],"actor":"https://ocamlot.xyz/users/atestaccount","cc":[],"id":"https://ocamlot.xyz/activities/82faaad2-c432-40e4-b94e-346b503ce332","object":"https://ocamlot.nfshost.com/users/example","state":"pending","to":["https://ocamlot.nfshost.com/users/example"],"type":"Follow"}
+06.03.22 11:13:56.784                       REQ 9 body digest is SHA-256=LVGEZMfWOCrS5sRZWdqDdBmQQCv+ziT4D1zN4OzjZNs=
+06.03.22 11:13:56.784                       REQ 9 signed headers is (request-target) content-length date digest host
+06.03.22 11:13:56.784                       REQ 9 signed string is:
+(request-target): post /users/example/inbox
+content-length: 
+date: 
+digest: SHA-256=LVGEZMfWOCrS5sRZWdqDdBmQQCv+ziT4D1zN4OzjZNs=
+host: 
+06.03.22 11:13:56.784                       REQ 9 verification status was false
+06.03.22 11:13:56.784                       REQ 9 DATA: {"@context":["https://www.w3.org/ns/activitystreams","https://ocamlot.xyz/schemas/litepub-0.1.jsonld",{"@language":"und"}],"actor":"https://ocamlot.xyz/users/atestaccount","cc":[],"id":"https://ocamlot.xyz/activities/82faaad2-c432-40e4-b94e-346b503ce332","object":"https://ocamlot.nfshost.com/users/example","state":"pending","to":["https://ocamlot.nfshost.com/users/example"],"type":"Follow"}
+06.03.22 11:13:56.784       dream.log  INFO REQ 9 200 in 11789 μs
