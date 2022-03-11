@@ -5,7 +5,7 @@ let is_not_empty opt = opt |> Option.filter (Fun.negate String.is_empty)
 let check_unauthenticated = Common.Middleware.redirect_if_present "user" ~to_:"/home"
 
 let handle_register_get request =
-  let+ errors = Common.get_errors request in
+  let+ errors = Common.Error.get request in
   let errors = 
     errors
     |> Option.map List.return
@@ -17,7 +17,7 @@ let handle_register_post req =
   Dream.log "register page POST";
   let+ result = Dream.form req in
   let fail_with err =
-    let+ () = Common.set_error req err in
+    let+ () = Common.Error.set req err in
     Dream.redirect req "/register" in
   let (let-@!) (x,err) f = match x with Error str -> fail_with (err ^ str) | Ok vl -> f vl in
   let (let-!) (x,err) f = match x with  None -> fail_with err | Some vl -> f vl in
@@ -40,7 +40,7 @@ let handle_register_post req =
 
 
 let handle_login_get req =
-  let+ errors = Common.get_errors req in
+  let+ errors = Common.Error.get req in
   let errors = 
     errors
     |> Option.map List.return
@@ -51,7 +51,7 @@ let handle_login_get req =
 let handle_login_post req =
   let+ result = Dream.form req in
   let fail_with err =
-    let+ () = Common.set_error req err in
+    let+ () = Common.Error.set req err in
     Dream.redirect req "/login" in
   let (let-@!) (x,err) f = match x with Error str -> fail_with (err ^ str) | Ok vl -> f vl in
   let (let-!) (x,err) f = match x with  None -> fail_with err | Some vl -> f vl in

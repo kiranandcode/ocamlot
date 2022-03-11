@@ -8,6 +8,11 @@ CREATE TABLE dream_session (
   payload TEXT NOT NULL
 );
 
+CREATE TABLE Activity (
+  id TEXT PRIMARY KEY,                 -- uuid of the activity
+  raw_data TEXT NOT NULL               -- json data
+);
+
 -- table for local users
 CREATE TABLE LocalUser (
    id INTEGER PRIMARY KEY,

@@ -3,7 +3,7 @@
    ;; internal libraries
    password activitypub configuration
    ;; external libraries
-   containers
+   containers uuidm
    ;; crypto
    x509
    ;; database

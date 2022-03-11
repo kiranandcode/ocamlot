@@ -47,6 +47,15 @@ type 'a delete = {
 }
 [@@deriving show, eq]
 
+type 'a event = [
+    `Create of 'a create
+  | `Announce of 'a announce
+  | `Accept of 'a accept
+  | `Undo of 'a undo
+  | `Delete of 'a delete
+] [@@deriving show, eq]
+
+
 (** * Objects *)
 
 type public_key = {
@@ -111,6 +120,7 @@ type note = {
 type block = {
   id: string;
   obj: string;
+  published: Ptime.t option;
   actor: string;
   raw: Yojson.Safe.t;
 } [@@deriving show, eq]
@@ -118,9 +128,24 @@ type block = {
 type like = {
   id: string;
   actor: string;
+  published: Ptime.t option;
   obj: string;
   raw: Yojson.Safe.t;
 }
+[@@deriving show, eq]
+
+type core_obj = [
+    `Person of person
+  | `Follow of follow
+  | `Note of note
+  | `Block of block
+  | `Like of like
+] [@@deriving show, eq]
+
+type core_event = core_obj event
+[@@deriving show, eq]
+
+type obj = [ core_obj | core_event ]
 [@@deriving show, eq]
 
 module Webfinger = struct

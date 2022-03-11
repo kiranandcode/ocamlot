@@ -19,6 +19,10 @@ let user_outbox config username =
   Params.domain config
   |> Fun.flip Uri.with_path ("/users/" ^ username ^ "/outbox")
 
+let activity_endpoint config id =
+  Params.domain config
+  |> Fun.flip Uri.with_path ("/activity/" ^ id)
+
 let api_base_path config =
   Params.domain config
   |> Fun.flip Uri.with_path "api"

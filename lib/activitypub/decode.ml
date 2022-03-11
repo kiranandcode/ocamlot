@@ -1,6 +1,8 @@
 open Containers
 open Common
 
+let decode_string enc vl = D.decode_string enc vl |> Result.map_err D.string_of_error
+
 let id = D.(one_of ["string", string; "id", field "id" string])
 
 let mention =
@@ -40,10 +42,10 @@ let like =
   let* () = field "type" @@ constant ~msg:"expected Like (received %s)" "Like"
   and* id = field "id" string
   and* actor = field "actor" id
+  and* published = field_opt "published" timestamp
   and* obj = field "object" id
   and* raw = value in
-  succeed ({id; actor; obj; raw}: Types.like)
-
+  succeed ({id; actor; published; obj; raw}: Types.like)
 
 let tombstone =
   let open D in
@@ -69,7 +71,7 @@ let block =
   and* published = field_opt "published" timestamp
   and* actor = field "actor" id
   and* raw = value in
-  succeed ({id;published;obj;actor;raw}: _ Types.delete)
+  succeed ({id;published;obj;actor;raw}: Types.block)
 
 
 let accept obj =
@@ -80,7 +82,7 @@ let accept obj =
   and* published = field_opt "published" timestamp
   and* obj = field "object" obj
   and* raw = value in
-  succeed ({id;published;actor;obj;raw}: _ Types.delete)
+  succeed ({id;published;actor;obj;raw}: _ Types.accept)
 
 let public_key =
   let open D in
@@ -192,6 +194,37 @@ let create obj =
     obj;
     raw;
   }: _ Types.create)
+
+let core_obj () =
+  let open D in
+  let* ty = field "type" string in
+  match ty with
+  | "Person" -> person >|= fun v -> `Person v
+  | "Follow" -> follow >|= fun v -> `Follow v
+  | "Note" -> note >|= fun v -> `Note v
+  | "Block" -> block >|= fun v -> `Block v
+  | "Like" -> like >|= fun v -> `Like v
+  | _ -> fail "unsupported event"
+
+let obj = core_obj ()
+let core_obj = core_obj ()
+
+let event (enc: Types.core_obj D.decoder) : Types.obj D.decoder =
+  let open D in
+  let* ty = field "type" string in
+  match ty with
+  | "Create" -> create enc >|= fun v -> `Create v
+  | "Announce" -> announce enc >|= fun v -> `Announce v
+  | "Accept" -> accept enc >|= fun v -> `Accept v
+  | "Undo" -> undo enc >|= fun v -> `Undo v
+  | "Delete" -> delete enc >|= fun v -> `Delete v
+  | _ -> fail "unsupported event"
+
+let obj : Types.obj D.decoder =
+  D.one_of [
+    "core_obj", obj;
+    "core_obj event", (event core_obj)
+  ]
 
 module Webfinger = struct
 

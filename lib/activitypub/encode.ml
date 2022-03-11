@@ -141,19 +141,39 @@ let note ({ id; actor; to_; in_reply_to; cc; content; sensitive; source; summary
     "tags" @ tags <: E.list (or_raw tag);
   ]
 
-let block ({ id; obj; actor; raw=_ }: Types.block) =
+let block ({ id; obj; published; actor; raw=_ }: Types.block) =
   ap_obj "Block" [
     "id" @ id <: E.string;
     "object" @ obj <: E.string;
     "actor" @ actor <: E.string;
+    "published" @? published <: ptime;
   ]
 
-let like ({ id; actor; obj; raw=_ }: Types.like) =
+let like ({ id; actor; published; obj; raw=_ }: Types.like) =
   ap_obj "Like" [
     "id" @ id <: E.string;
     "actor" @ actor <: E.string;
     "object" @ obj <: E.string;
+    "published" @? published <: ptime;
   ]
+
+let core_obj : Types.core_obj E.encoder = function
+  | `Follow f -> follow f
+  | `Block b -> block b
+  | `Note n -> note n
+  | `Person p -> person p
+  | `Like l -> like l
+
+let event enc : _ Types.event E.encoder = function
+  | `Announce a -> announce enc a
+  | `Undo u -> undo enc u
+  | `Delete d -> delete enc d
+  | `Create c -> create enc c
+  | `Accept a -> accept enc a
+
+let object_ : Types.obj E.encoder = function
+  | #Types.core_obj as c -> core_obj c
+  | #Types.core_event as e -> event core_obj e
 
 module Webfinger = struct
 

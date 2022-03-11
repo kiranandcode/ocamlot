@@ -19,6 +19,8 @@ let () =
 
     Actor.route config;
 
+    Activity.route config;
+
     Dream.get "/home" @@ handle_get_home;
 
     Dream.get "/static/**" @@ Dream.static "static";
