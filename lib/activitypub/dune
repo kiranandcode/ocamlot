@@ -1,3 +1,3 @@
 (library (name activitypub)
- (preprocess (pps ppx_deriving.std ppx_fields_conv))
+ (preprocess (pps ppx_deriving.std))
  (libraries containers yojson decoders decoders-yojson ptime))
