@@ -1,0 +1,18 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://ocamlot.xyz/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ],
+  "actor": "https://ocamlot.xyz/users/atestaccount",
+  "cc": [],
+  "id": "https://ocamlot.xyz/activities/bc6afbd9-20da-455a-948f-4cf1db1dc3ca",
+  "object": "https://ocamlot.nfshost.com/users/example",
+  "state": "pending",
+  "to": [
+    "https://ocamlot.nfshost.com/users/example"
+  ],
+  "type": "Follow"
+}

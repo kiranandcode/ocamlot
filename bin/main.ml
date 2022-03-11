@@ -1,7 +1,7 @@
 [@@@warning "-33"]
 open Containers
 
-let follow_cancel = IO.with_in "../resources/examples/pleroma-follow-cancel.json"
+let follow_cancel = IO.with_in "../resources/examples/pleroma-follow-undo.json"
              IO.read_all
          |> Yojson.Safe.from_string
 
@@ -87,7 +87,7 @@ type follow = {
   actor: string;
   cc: string list;
   object_: string;
-  state: [`Pending ] option;
+  state: [`Pending | `Cancelled ] option;
 } [@@deriving show, eq]
 
 type person = {
@@ -293,7 +293,8 @@ let follow =
   and* id = field "id" string
   and* object_ = field "object" string
   and* state = field_opt "state" (string >>= function "pending" -> succeed `Pending
-                                                 | _ -> fail "unknown status") in
+                                                    | "cancelled" -> succeed `Cancelled
+                                                    | _ -> fail "unknown status") in
   succeed {actor; cc; id; object_; state}
 
 let announce obj =
@@ -328,7 +329,6 @@ let create obj =
   }: _ create)
 
        
-
 
 
 let () = Yojson.Safe.to_string ~std:true follow_cancel

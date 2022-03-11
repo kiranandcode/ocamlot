@@ -128,7 +128,8 @@ let build_signed_headers ~priv_key ~key_id
     ["Digest", body_digest;
      "Date", date;
      "Host", host;
-     "Signature", signature_string]
+     "Signature", signature_string;
+     "Content-Length", body_str_len ]
   |> StringMap.to_list
 
 let sign_headers ~priv_key ~key_id

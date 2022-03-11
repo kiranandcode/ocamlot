@@ -78,8 +78,8 @@ let follow_obj = {|{"@context":["https://www.w3.org/ns/activitystreams","https:/
 
 T.add_test "parsing signatures works correctly" @@  fun () ->
 let signature = {|keyId="https://ocamlot.xyz/users/atestaccount#main-key",algorithm="rsa-sha256",headers="(request-target) content-length date digest host",signature="Rw8WUQlm1QFiPUGvoORDJO3w9urA91M94VnAcZTIu3edfVbIuM1Eac+EdMIUP4+Qqz3HNVE5PCHvn5XcDtU337dxP0aZnkvoHxi8cssDzUkh3AIyuLQglzYxo36Q4PG1guz2IfvuJK5xtxLn3ELbRP2KkARUmm4uJYhFXoe7BBBCT9HezvfCOiHSDzLZr4ZGuNsW1x31twN1YEq/+Qzf62do87bnSg3IvZXHDkUDojw7zpgOEZVfvCDZTwPPTzMP/B1lRbUfuAHqK1JrAOmgV2s4t7VmYE+pkg+s9E9kmfYeJGcGeUDvKgYZxOfbWMepGZLMQFXjioeq6+7ml0Kckg=="|} in
-let headers = Auth.parse_signature signature in
-let is_present key = Auth.StringMap.mem key headers in
+let headers = Http_sig.parse_signature signature in
+let is_present key = Http_sig.StringMap.mem key headers in
 Lwt.return @@
 Alcotest.(check bool) "all expected keys are present" true @@ List.for_all is_present [
   "keyId"; "algorithm"; "headers"; "signature"
@@ -92,7 +92,7 @@ let pubkey = X509.Public_key.decode_pem (Cstruct.of_string pubkey_pem)
 let signature = Base64.decode_exn signature in
 Lwt.return @@
 Alcotest.(check bool) "signature is verified correctly" true
-  (Auth.verify ~signature ~signed_string pubkey)
+  (Http_sig.verify ~signature ~signed_string pubkey)
 ;;
 
 T.add_test "verifing signatures fails correctly" @@ fun () ->
@@ -108,18 +108,18 @@ let pubkey = X509.Public_key.decode_pem (Cstruct.of_string pubkey_pem)
 let signature = Base64.decode_exn signature in
 Lwt.return @@
 Alcotest.(check bool) "signature is rejected correctly" false
-  (Auth.verify ~signature ~signed_string pubkey)
+  (Http_sig.verify ~signature ~signed_string pubkey)
 ;;
 
 T.add_test "build signed string works correctly" @@ fun () ->
 
 let signed_string' =
-  Auth.build_signed_string
+  Http_sig.build_signed_string
     ~signed_headers:"(request-target) content-length date digest host"
     ~meth:"post"
     ~path:"/users/example/inbox"
     ~body_digest:"SHA-256=Eg24tq9YA9SmHSex1hN/QZvkj2Iq4jOtRtMPzG/UkyA="
-    ~headers:(Auth.StringMap.of_list [
+    ~headers:(Http_sig.StringMap.of_list [
       "content-length", "393";
       "date", "Sun, 06 Mar 2022 13:05:44 GMT";
       "host", "ocamlot.nfshost.com"
@@ -158,7 +158,7 @@ let resolve_public_key url =
   Alcotest.(check string) "server calls resolve public key on key-id"
     "https://ocamlot.xyz/users/multi-mention#main-key" url;
   Lwt.return @@ X509.Public_key.decode_pem (Cstruct.of_string pubkey_pem) in
-let+ request_response = Auth.verify_request ~resolve_public_key req in
+let+ request_response = Http_sig.verify_request ~resolve_public_key req in
 Alcotest.(check bool) "response is some" true (Result.is_ok request_response);
 Alcotest.(check bool) "response is true" true (Result.get_exn request_response);
 Lwt.return_unit
@@ -173,11 +173,11 @@ let headers = [
   "Content-Type", "application/activity+json";
   "Host", "ocamlot.nfshost.com";
   "Content-Length", Int.to_string @@ String.length follow_obj;
-] |> Auth.StringMap.of_list in
+] |> Http_sig.StringMap.of_list in
 let uri = "https://ocamlot.nfshost.com/users/example/inbox" |> Uri.of_string in
 let method_ = `POST in
 let headers =
-  Auth.build_signed_headers
+  Http_sig.build_signed_headers
   ~priv_key ~key_id ~headers
   ~body_str:follow_obj ~current_time
   ~method_:(Dream.method_to_string method_) ~uri in
@@ -187,7 +187,7 @@ let resolve_public_key url =
   Alcotest.(check string) "server calls resolve public key on key-id"
     key_id url;
   Lwt.return @@ Ok (X509.Private_key.public priv_key) in
-let+ request_response = Auth.verify_request ~resolve_public_key req in
+let+ request_response = Http_sig.verify_request ~resolve_public_key req in
 Alcotest.(check bool) "response is some" true (Result.is_ok request_response);
 Alcotest.(check bool) "response is true" true (Result.get_exn request_response);
 Lwt.return_unit

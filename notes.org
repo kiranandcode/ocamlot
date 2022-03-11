@@ -332,7 +332,8 @@ CLOSED: [2022-03-06 Sun 18:45]
 ** DONE add inbox endpoint
 CLOSED: [2022-03-06 Sun 18:45]
 *** print recived json, try signing, fail
-** TODO add content length field to build signed headers enforce present
+** DONE add content length field to build signed headers enforce present
+CLOSED: [2022-03-11 Fri 02:03]
 ** TODO validate follow request, return not acceptable if not valid
 ** TODO Add remote module to activitypub, parse pleroma follow request
 ** TODO Insert follow request into database

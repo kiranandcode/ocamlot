@@ -1,0 +1,31 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://ocamlot.xyz/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ],
+  "actor": "https://ocamlot.xyz/users/atestaccount",
+  "context": "https://ocamlot.xyz/contexts/6815ac44-ba52-4bd8-931b-814b238ce2c7",
+  "id": "https://ocamlot.xyz/activities/6468d079-014f-4d73-bb8a-cb4b435a3469",
+  "object": {
+    "actor": "https://ocamlot.xyz/users/atestaccount",
+    "cc": [],
+    "context": "https://ocamlot.xyz/contexts/6815ac44-ba52-4bd8-931b-814b238ce2c7",
+    "context_id": 28,
+    "id": "https://ocamlot.xyz/activities/b2caee98-26ee-4c24-8385-7d24da9b91c4",
+    "object": "https://ocamlot.nfshost.com/users/example",
+    "published": "2022-03-06T13:05:18.372373Z",
+    "state": "cancelled",
+    "to": [
+      "https://ocamlot.nfshost.com/users/example"
+    ],
+    "type": "Follow"
+  },
+  "published": "2022-03-06T13:05:18.372351Z",
+  "to": [
+    "https://ocamlot.nfshost.com/users/example"
+  ],
+  "type": "Undo"
+}
