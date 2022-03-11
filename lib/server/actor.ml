@@ -88,19 +88,16 @@ let handle_inbox_post req =
     Dream.log "DATA: %s" body;
     let follow =
       Decoders_yojson.Safe.Decode.decode_string
-        Activitypub.Decode.(create follow)
+        Activitypub.Decode.(follow)
         body in
     match follow with
-    | Ok (follow_obj: Activitypub.Types.follow Activitypub.Types.create) ->
-      Dream.log "received a create of a follow object.";
-      Dream.log "addressed to: %s" @@ String.concat ", " follow_obj.to_;
-      Dream.log "cc'd to: %s" @@ String.concat ", " follow_obj.cc;
-      Dream.log "is direct: %b" follow_obj.direct_message;
-      Dream.log "follow id: %s" follow_obj.obj.id;
-      Dream.log "follow actor: %s" follow_obj.obj.actor;
-      Dream.log "follow to: %s" @@ String.concat ", " follow_obj.obj.to_;
-      Dream.log "follow ccd: %s" @@ String.concat ", " follow_obj.obj.cc;
-      Dream.log "follow object?: %s" follow_obj.obj.object_;
+    | Ok (follow_obj: Activitypub.Types.follow) ->
+      Dream.log "received a follow object.";
+      Dream.log "follow id: %s" follow_obj.id;
+      Dream.log "follow actor: %s" follow_obj.actor;
+      Dream.log "follow to: %s" @@ String.concat ", " follow_obj.to_;
+      Dream.log "follow ccd: %s" @@ String.concat ", " follow_obj.cc;
+      Dream.log "follow object?: %s" follow_obj.object_;
       Dream.respond ~status:`OK ""
     | Error e ->
       Dream.error (fun log -> log ~request:req "error while decoding follow request: %a"
