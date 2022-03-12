@@ -2,7 +2,7 @@ open Containers
 open Common
 let with_user req then_ =
   let load_user req username = Dream.sql req (Database.LocalUser.lookup_user ~username) in
-  with_param "user" load_user req ~then_ ~else_:(not_found ~msg:"User not found")
+  with_param "username" load_user req ~then_ ~else_:(not_found ~msg:"User not found")
 
 let handle_actor_get config req =
   let> user = with_user req in
