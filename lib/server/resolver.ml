@@ -105,6 +105,9 @@ let resolve_remote_user ~username ~domain db : (Database.RemoteUser.t, string) L
     let+! username = person_res.name
                      |> Result.of_opt
                      |> Lwt.return in
+    let+! url = person_res.url
+                |> Result.of_opt
+                |> Lwt.return in
     Database.RemoteUser.create_remote_user
       ?display_name:person_res.preferred_username
       ~inbox:person_res.inbox
@@ -115,7 +118,7 @@ let resolve_remote_user ~username ~domain db : (Database.RemoteUser.t, string) L
       ~public_key_pem:person_res.public_key.pem
       ~username
       ~instance:(Database.RemoteInstance.self remote_instance)
-      ~url:remote_instance.url db
+      ~url:url db
 
 let build_follow_request config local remote db =
   let id = Database.Activity.fresh_id () in
