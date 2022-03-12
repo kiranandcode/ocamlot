@@ -1,8 +1,11 @@
 open Containers
-let (let+) x f = Lwt.bind x f
+open Common
 
-let is_not_empty opt = opt |> Option.filter (Fun.negate String.is_empty)
 let check_unauthenticated = Common.Middleware.redirect_if_present "user" ~to_:"/home"
+let failwith ~req ~to_ err = let+ () = Common.Error.set req err in Dream.redirect req to_
+let holds_or_else ~to_ ~req red vl kont = match vl with false -> failwith ~to_ ~req red | true -> kont ()
+let ok_or_else ~to_ ~req red vl kont = match vl with Error e -> failwith ~to_ ~req (red ^ e) | Ok v -> kont v
+let or_else ~to_ ~req red vl kont = match vl with None -> failwith ~to_ ~req red | Some v -> kont v
 
 let handle_register_get request =
   let+ errors = Common.Error.get request in
@@ -16,21 +19,19 @@ let handle_register_get request =
 let handle_register_post req =
   Dream.log "register page POST";
   let+ result = Dream.form req in
-  let fail_with err =
-    let+ () = Common.Error.set req err in
-    Dream.redirect req "/register" in
-  let (let-@!) (x,err) f = match x with Error str -> fail_with (err ^ str) | Ok vl -> f vl in
-  let (let-!) (x,err) f = match x with  None -> fail_with err | Some vl -> f vl in
-  let (let-?) (x,err) f = match x with false -> fail_with err | true -> f () in
   match result with
   | `Ok elts ->
-    let-! username = List.assoc_opt ~eq:String.equal "username" elts |> is_not_empty, "Username can not be empty" in
-    let-! password = List.assoc_opt ~eq:String.equal "password" elts |> is_not_empty, "Password can not be empty" in
+    let> username = List.assoc_opt ~eq:String.equal "username" elts
+                    |> or_else ~to_:"/register" ~req "username can not be empty" in
+    let> password = List.assoc_opt ~eq:String.equal "password" elts
+                    |> or_else ~to_:"/register" ~req "Password can not be empty" in
     let passwords = List.filter (function "password", _ -> true | _ -> false ) elts in
-    let-? () = passwords |> List.for_all (fun (_, vl) -> String.(vl = password)), "Passwords do not match"  in
+    let> () = passwords
+              |> List.for_all (fun (_, vl) -> String.(vl = password))
+              |> holds_or_else ~to_:"/register" ~req "Passwords do not match"  in
     let+ result = Dream.sql req @@ fun db ->
       Database.LocalUser.create_user ~username ~password db in
-    let-@! user = result, "Error creating user: " in
+    let> user = result |> ok_or_else ~to_:"/register" ~req "Error creating user: " in
     let+ () = Dream.invalidate_session req in
     let+ () = Dream.set_session_field req "user"
                 (Database.LocalUser.username user) in
@@ -50,18 +51,15 @@ let handle_login_get req =
 
 let handle_login_post req =
   let+ result = Dream.form req in
-  let fail_with err =
-    let+ () = Common.Error.set req err in
-    Dream.redirect req "/login" in
-  let (let-@!) (x,err) f = match x with Error str -> fail_with (err ^ str) | Ok vl -> f vl in
-  let (let-!) (x,err) f = match x with  None -> fail_with err | Some vl -> f vl in
   match result with
   | `Ok elts ->
-    let-! username = List.assoc_opt ~eq:String.equal "username" elts |> is_not_empty, "Username can not be empty" in
-    let-! password = List.assoc_opt ~eq:String.equal "password" elts |> is_not_empty, "Password can not be empty" in
+    let> username = List.assoc_opt ~eq:String.equal "username" elts
+                    |> or_else ~to_:"/login" ~req "Username can not be empty" in
+    let> password = List.assoc_opt ~eq:String.equal "password" elts
+                    |> or_else ~to_:"/login" ~req "Password can not be empty" in
     let+ result = Dream.sql req @@ fun db -> Database.LocalUser.login_user ~username ~password db in
-    let-@! user = result, "Internal error while logging in: " in
-    let-! user = user, "Could not log in - user not found/password does not match" in
+    let> user = result |> ok_or_else ~to_:"/login" ~req "Internal error while logging in: " in
+    let> user = user |> or_else ~to_:"/login" ~req "Could not log in - user not found/password does not match" in
     let+ () = Dream.invalidate_session req in
     let+ () = Dream.set_session_field req "user"
                 (Database.LocalUser.username user) in
@@ -79,14 +77,14 @@ let handle_logout_post req =
     Dream.redirect req "/home"
 
 let route = 
-    Dream.scope "/" [] [
+  Dream.scope "/" [] [
 
-      Dream.scope "/" [check_unauthenticated] [
-        Dream.get "/register" handle_register_get;
-        Dream.post "/register" handle_register_post;
+    Dream.scope "/" [check_unauthenticated] [
+      Dream.get "/register" handle_register_get;
+      Dream.post "/register" handle_register_post;
 
-        Dream.get "/login" handle_login_get;
-        Dream.post "/login" handle_login_post;
-      ];
-      Dream.post "/logout" handle_logout_post;
-    ]
+      Dream.get "/login" handle_login_get;
+      Dream.post "/login" handle_login_post;
+    ];
+    Dream.post "/logout" handle_logout_post;
+  ]

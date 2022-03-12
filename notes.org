@@ -344,7 +344,43 @@ CLOSED: [2022-03-11 Fri 11:31]
 CLOSED: [2022-03-11 Fri 11:31]
 ** DONE Add remote module to activitypub, parse pleroma follow request
 CLOSED: [2022-03-11 Fri 11:31]
-** TODO Look at pleroma follow object
+** DONE Look at pleroma follow object
+CLOSED: [2022-03-12 Sat 02:07]
+** DONE add follow form to page
+CLOSED: [2022-03-12 Sat 04:02]
+** TODO write resolve function : username, domain -> remote user
+*** given username, domain
+*** lookup remote user -> if found, done.
+*** if not found
+**** create remote instance
+**** send query to remote instance/.wellknown/webfinger?resource=acct:username@domain
+***** if unreachable, record unreachable w. current time
+***** if reachable + parse, 
+****** extract self + activity_json url
+****** send request to url
+******* if unreachable, record unreachable w. current time
+******* if reachable + parse,
+******** add new remote user
+******** return created remote user
+** TODO Add pubkey field to remote user
+** TODO Create follow function : username, domain -> unit
+*** resolve username, domain to remote user
+*** write function to create follow request from current user, remote_user
+#+begin_src json
+{
+	"@context": "https://www.w3.org/ns/activitystreams",
+	"id": "https://my-example.com/my-first-follow",
+	"type": "Follow",
+	"actor": "https://my-example.com/actor",
+	"object": "https://mastodon.social/users/Mastodon"
+}
+#+end_src
+**** id -> Activity.fresh_id () |> Configuration.url
+**** type -> follow
+**** actor -> RemoteUser.url
+**** object -> LocalUser.username |> Configuration.Url.format
+*** 
+
 ** TODO add custom sql to retrieve all information needed to serialise pleroma follow object
 ** TODO Insert follow request into database
 ** TODO add local follow object to activitypub module

@@ -1,4 +1,14 @@
-let local_username = Re.(rep1 (alt [rg 'a' 'z'; rg '0' '9'; rg 'A' 'Z'; char '_'; char '.'; char '-']))
+let local_username =
+  Re.(rep1 (alt [rg 'a' 'z'; rg '0' '9'; rg 'A' 'Z'; char '_'; char '.'; char '-']))
+
+
+let user_tag _config =
+  Re.(seq [
+    group local_username;
+    char '@';
+    group (rep1 any)
+  ]) 
+  
 
 let webfinger_format config =
   Re.(seq [

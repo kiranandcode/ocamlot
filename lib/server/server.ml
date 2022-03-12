@@ -1,9 +1,56 @@
 [@@@warning "-33"]
+open Containers
+open Common
 
+let failwith ~req err = let+ () = Common.Error.set req err in Dream.redirect req "/home"
+let holds_or_else ~req red vl kont = match vl with false -> failwith ~req red | true -> kont ()
+let ok_or_else ~req red vl kont = match vl with Error e -> failwith ~req (red ^ e) | Ok v -> kont v
+let or_else ~req red vl kont = match vl with None -> failwith ~req red | Some v -> kont v
+let form_ok_or_else ~req red (vl: _ Dream.form_result) kont =
+  match vl with
+  | `Many_tokens _ -> failwith ~req (red ^ "many tokens")
+  | `Missing_token _ -> failwith ~req (red ^ "missing tokens")
+  | `Invalid_token _ -> failwith ~req (red ^ "invalid token")
+  | `Wrong_session _ -> failwith ~req (red ^ "wrong session")
+  | `Expired _ -> failwith ~req (red ^ "expired form")
+  | `Wrong_content_type -> failwith ~req (red ^ "wrong content type")
+  | `Ok v -> kont v
 
 let handle_get_home req =
-  Common.with_current_user req @@ fun user -> Dream.html (Html.Home.build user req)
+  Common.with_current_user req @@ fun user ->
+  let+ errors = Common.Error.get req in
+  let errors = errors |> Option.map (Fun.flip List.cons []) |> Option.value ~default:[] in
+  Dream.html (Html.Home.build ~errors user req)
 
+
+let handle_post_home config =
+  let user_tag = Configuration.Regex.user_tag config |> Re.compile in
+  let user_tag str =
+    match Re.exec_opt user_tag str with
+    | None -> None
+    | Some matches -> Some (Re.Group.get matches 1, Re.Group.get matches 2) in
+  fun req ->
+  let+ form_results = Dream.form req in
+  let> form_data = form_results
+                   |> form_ok_or_else ~req "Invalid form submission: " in
+
+  let lookup keyword = List.assoc_opt ~eq:String.equal keyword form_data in
+  match lookup "follow", lookup "post" with
+  | Some follow, _ ->
+    Dream.log "following %s" follow;
+    begin match user_tag follow with
+    | None -> Dream.log "did not match anything!"
+    | Some (username, domain) ->
+      Dream.log "follow %s at %s" username domain
+    end;
+    (*  run configuration.parse account *)
+    handle_get_home req
+  | _, Some post ->
+    Dream.log "toasting %s" post;
+    handle_get_home req
+  | _ ->
+    Dream.log "form data: %s" @@ [%show: (string * string) list] form_data;
+    handle_get_home req
 
 
 let () =
@@ -22,6 +69,7 @@ let () =
     Activity.route config;
 
     Dream.get "/home" @@ handle_get_home;
+    Dream.post "/home" @@ (handle_post_home config);
 
     Dream.get "/static/**" @@ Dream.static "static";
     Dream.get "/**" @@ fun req -> Dream.redirect req "/home"
