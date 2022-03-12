@@ -5,13 +5,13 @@ let with_user req then_ =
   with_param "user" load_user req ~then_ ~else_:(not_found ~msg:"User not found")
 
 let handle_actor_get config req =
-  let> current_user = Common.with_current_user req in
   let> user = with_user req in
   let content_type = Dream.header req "Accept"
                      |> Option.value ~default:(Activitypub.Constants.ContentType.html) in
   match Activitypub.Constants.ContentType.of_string content_type with
   | None -> Dream.respond ~status:`Not_Acceptable "{}"
   | Some `HTML ->
+    let> current_user = Common.with_current_user req in
     Dream.html (Html.Profile.build current_user user req)
   | Some `JSON ->
     activity_json
