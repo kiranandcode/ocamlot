@@ -362,7 +362,6 @@ CLOSED: [2022-03-12 Sat 04:02]
 ******* if reachable + parse,
 ******** add new remote user
 ******** return created remote user
-** TODO Add pubkey field to remote user
 ** TODO Create follow function : username, domain -> unit
 *** resolve username, domain to remote user
 *** write function to create follow request from current user, remote_user
@@ -379,7 +378,11 @@ CLOSED: [2022-03-12 Sat 04:02]
 **** type -> follow
 **** actor -> RemoteUser.url
 **** object -> LocalUser.username |> Configuration.Url.format
-*** 
+*** create headers, content type activitystreams
+*** uri is RemoteUser.url |> inbox
+*** method is post
+*** sign headers, with LocalUser.private key
+*** print request body
 
 ** TODO add custom sql to retrieve all information needed to serialise pleroma follow object
 ** TODO Insert follow request into database
