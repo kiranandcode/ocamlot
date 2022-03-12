@@ -46,6 +46,7 @@ let id {id;data=_} = id
 
 let url config id = (Configuration.Url.activity_endpoint config (Uuidm.to_string ~upper:false id))
 
+let id_to_string str = Uuidm.to_string str
 let id_from_string str = Uuidm.of_string str
 
 let fresh_id () =

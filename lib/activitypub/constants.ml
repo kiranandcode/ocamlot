@@ -28,6 +28,8 @@ module ContentType = struct
 end
 
 module Webfinger = struct
+  let json_rd = "application/jrd+json"
+
   let self_rel = "self"
   let ostatus_rel = "http://ostatus.org/schema/1.0/subscribe"
   let profile_page = "http://webfinger.net/rel/profile-page"

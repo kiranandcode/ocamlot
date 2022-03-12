@@ -7,7 +7,7 @@ let instance = Result.get_ok instance in
 let+ user = Database.RemoteUser.create_remote_user
     ~username:"atestaccount"
     ~instance:(Database.RemoteInstance.self instance)
-    ~url:"https://ocamlot.xyz/users/atestaccount"
+    ~url:"https://ocamlot.xyz/users/atestaccount"  ~public_key_pem:""
     db in
 let user = Result.get_ok user in
 let@ actor = Database.Actor.of_remote user db in
@@ -20,7 +20,7 @@ let instance = Result.get_ok instance in
 let+ user = Database.RemoteUser.create_remote_user
     ~username:"atestaccount"
     ~instance:(Database.RemoteInstance.self instance)
-    ~url:"https://ocamlot.xyz/users/atestaccount"
+    ~url:"https://ocamlot.xyz/users/atestaccount"  ~public_key_pem:""
     db in
 let user = Result.get_ok user in
 let+ _ = Database.Actor.of_remote user db in
@@ -34,7 +34,7 @@ let instance = Result.get_ok instance in
 let+ user = Database.RemoteUser.create_remote_user
     ~username:"atestaccount"
     ~instance:(Database.RemoteInstance.self instance)
-    ~url:"https://ocamlot.xyz/users/atestaccount"
+    ~url:"https://ocamlot.xyz/users/atestaccount"  ~public_key_pem:""
     db in
 let user = Result.get_ok user in
 let+ link = Database.Actor.of_remote user db in
@@ -49,7 +49,7 @@ let instance = Result.get_ok instance in
 let+ remote_user = Database.RemoteUser.create_remote_user
     ~username:"atestaccount"
     ~instance:(Database.RemoteInstance.self instance)
-    ~url:"https://ocamlot.xyz/users/atestaccount"
+    ~url:"https://ocamlot.xyz/users/atestaccount"  ~public_key_pem:""
     db in
 let remote_user = Result.get_ok remote_user in
 let+ link = Database.Actor.of_remote remote_user db in

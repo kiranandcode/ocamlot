@@ -81,3 +81,6 @@ let pubkey user =
   user.pubkey
   |> X509.Public_key.encode_pem
   |> Cstruct.to_string
+
+let privkey user = user.privkey
+

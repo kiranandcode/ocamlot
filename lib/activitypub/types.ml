@@ -1,3 +1,7 @@
+type yojson = Yojson.Safe.t
+let pp_yojson fmt vl = Yojson.Safe.pretty_print fmt vl
+let equal_yojson l r = Yojson.Safe.equal l r
+
 (** * Events *)
 type 'a create = {
   id: string;
@@ -7,7 +11,7 @@ type 'a create = {
   cc: string list;
   direct_message: bool;
   obj: 'a;
-  raw: Yojson.Safe.t;
+  raw: yojson;
 } [@@deriving show, eq]
 
 
@@ -18,7 +22,7 @@ type 'a announce = {
   to_: string list;
   cc: string list;
   obj: 'a;
-  raw: Yojson.Safe.t;
+  raw: yojson;
 } [@@deriving show, eq]
 
 
@@ -27,7 +31,7 @@ type 'a accept = {
   actor: string;
   published: Ptime.t option;
   obj: 'a;
-  raw: Yojson.Safe.t;
+  raw: yojson;
 } [@@deriving show, eq]
 
 type 'a undo = {
@@ -35,7 +39,7 @@ type 'a undo = {
   actor: string;
   published: Ptime.t option;
   obj: 'a;
-  raw: Yojson.Safe.t;
+  raw: yojson;
 } [@@deriving show, eq]
 
 type 'a delete = {
@@ -43,7 +47,7 @@ type 'a delete = {
   actor: string;
   published: Ptime.t option;
   obj: 'a;
-  raw: Yojson.Safe.t;
+  raw: yojson;
 }
 [@@deriving show, eq]
 
@@ -84,7 +88,7 @@ type person = {
   followers: string option;
   following: string option;
   icon: string option;
-  raw: Yojson.Safe.t;
+  raw: yojson;
 }  [@@deriving show, eq]
 
 type follow = {
@@ -113,8 +117,8 @@ type note = {
   source: string option;
   summary: string option;
   published: Ptime.t option;
-  tags: [ `Raw of Yojson.Safe.t | `Value of tag ] list;
-  raw: Yojson.Safe.t;
+  tags: [ `Raw of yojson | `Value of tag ] list;
+  raw: yojson;
 } [@@deriving show, eq]
 
 type block = {
@@ -122,7 +126,7 @@ type block = {
   obj: string;
   published: Ptime.t option;
   actor: string;
-  raw: Yojson.Safe.t;
+  raw: yojson;
 } [@@deriving show, eq]
 
 type like = {
@@ -130,7 +134,7 @@ type like = {
   actor: string;
   published: Ptime.t option;
   obj: string;
-  raw: Yojson.Safe.t;
+  raw: yojson;
 }
 [@@deriving show, eq]
 

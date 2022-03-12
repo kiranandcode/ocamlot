@@ -348,9 +348,12 @@ CLOSED: [2022-03-11 Fri 11:31]
 CLOSED: [2022-03-12 Sat 02:07]
 ** DONE add follow form to page
 CLOSED: [2022-03-12 Sat 04:02]
-** TODO write resolve function : username, domain -> remote user
-*** given username, domain
-*** lookup remote user -> if found, done.
+** DONE write resolve function : username, domain -> remote user
+CLOSED: [2022-03-12 Sat 08:33]
+*** DONE given username, domain
+CLOSED: [2022-03-12 Sat 08:07]
+*** DONE lookup remote user -> if found, done.
+CLOSED: [2022-03-12 Sat 08:07]
 *** if not found
 **** create remote instance
 **** send query to remote instance/.wellknown/webfinger?resource=acct:username@domain
@@ -363,8 +366,10 @@ CLOSED: [2022-03-12 Sat 04:02]
 ******** add new remote user
 ******** return created remote user
 ** TODO Create follow function : username, domain -> unit
-*** resolve username, domain to remote user
-*** write function to create follow request from current user, remote_user
+*** DONE resolve username, domain to remote user
+CLOSED: [2022-03-12 Sat 10:44]
+*** DONE write function to create follow request from current user, remote_user
+CLOSED: [2022-03-12 Sat 10:44]
 #+begin_src json
 {
 	"@context": "https://www.w3.org/ns/activitystreams",
@@ -383,7 +388,6 @@ CLOSED: [2022-03-12 Sat 04:02]
 *** method is post
 *** sign headers, with LocalUser.private key
 *** print request body
-
 ** TODO add custom sql to retrieve all information needed to serialise pleroma follow object
 ** TODO Insert follow request into database
 ** TODO add local follow object to activitypub module

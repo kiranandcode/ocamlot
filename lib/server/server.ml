@@ -38,9 +38,20 @@ let handle_post_home config =
   match lookup "follow", lookup "post" with
   | Some follow, _ ->
     Dream.log "following %s" follow;
+    let> user = Common.with_current_user req in
     begin match user_tag follow with
     | None -> Dream.log "did not match anything!"
     | Some (username, domain) ->
+      let comp current_user () =
+        let+ remote_user =
+          Dream.sql req (Resolver.follow_remote_user config
+                           current_user ~username ~domain) in
+        match remote_user with
+        | Error str ->
+          Dream.log "error was %s" str; Lwt.return_unit
+        | Ok () ->
+          Lwt.return_unit in
+      Option.iter (fun user -> Lwt.async (comp user)) user;
       Dream.log "follow %s at %s" username domain
     end;
     (*  run configuration.parse account *)
@@ -55,7 +66,10 @@ let handle_post_home config =
 
 let () =
   let config = Configuration.Params.create ~domain:"ocamlot.nfshost.com" in
-  Dream.run ~tls:false ~port:4000
+  Dream.run
+    (* ~certificate_file:"/home/kirang/Documents/code/elixir/pleroma/priv/server.pem"
+     * ~key_file:"/home/kirang/Documents/code/elixir/pleroma/priv/server.key" *)
+    ~port:4000
   @@ Dream.logger
   @@ Dream.sql_pool "sqlite3://:../../test.db"
   @@ Dream.sql_sessions 

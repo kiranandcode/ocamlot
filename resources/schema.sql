@@ -40,6 +40,15 @@ CREATE TABLE RemoteUser (
    instance_id INTEGER NOT NULL,       -- instance of user
    display_name TEXT,                  -- display name - if null then username
    url  TEXT UNIQUE NOT NULL,          -- url of actor (obtained via webfinger if needed)
+
+   inbox TEXT,                         -- inbox url of the user
+   outbox TEXT,                        -- outbox url of the user
+
+   followers TEXT,                     -- followers url of the user
+   following TEXT,                     -- following url of the user
+
+   summary TEXT,                       -- summary string of the user
+   public_key_pem TEXT,                -- public key of the user
    FOREIGN KEY (instance_id)
        REFERENCES RemoteInstance (id)
        ON UPDATE RESTRICT

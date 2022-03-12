@@ -25,6 +25,7 @@ module LocalUser : sig
   val username: t -> string
   val display_name: t -> string
   val pubkey : t -> string
+  val privkey : t -> X509.Private_key.t
 
 end = Local_user
 
@@ -51,11 +52,20 @@ module RemoteUser : sig
   val display_name : t -> string
   val url : t -> string
 
+  val inbox: t -> Uri.t
+  val outbox: t -> Uri.t option
+  val followers: t -> Uri.t option
+  val following: t -> Uri.t option
+  val summary: t -> string option
+  val public_key: t -> X509.Public_key.t
+
   val create_remote_user:
-    ?display_name:string ->
+    ?display_name:string -> ?inbox:string -> ?outbox:string ->
+    ?followers:string -> ?following:string -> ?summary:string ->
     username:string ->
     instance:Remote_instance.t Link.t ->
-    url:string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+    url:string -> public_key_pem:string ->
+    (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
   val lookup_remote_user_by_url: string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
   val lookup_remote_user_by_url_exn: string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
@@ -190,6 +200,8 @@ module Activity : sig
 
 
   val id_from_string: string -> id option
+  val id_to_string: id -> string
+
   val fresh_id : unit -> id
 
   val create: id:id -> data:Yojson.Safe.t -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
