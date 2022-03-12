@@ -102,14 +102,14 @@ let resolve_remote_user ~username ~domain db : (Database.RemoteUser.t, string) L
     Dream.log "remote user was %a" Activitypub.Types.pp_person person_res;
     let+! remote_instance = Database.RemoteInstance.create_instance domain db in
     let+! () = Database.RemoteInstance.record_instance_reachable remote_instance db in
-    let+! username = person_res.name
+    let+! username = person_res.preferred_username
                      |> Result.of_opt
                      |> Lwt.return in
     let+! url = person_res.url
                 |> Result.of_opt
                 |> Lwt.return in
     Database.RemoteUser.create_remote_user
-      ?display_name:person_res.preferred_username
+      ?display_name:person_res.name
       ~inbox:person_res.inbox
       ~outbox:person_res.outbox
       ?followers:person_res.followers
