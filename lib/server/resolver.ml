@@ -23,7 +23,6 @@ let json_rd_header =
   ("Accept", Activitypub.Constants.Webfinger.json_rd)
 
 let req_post ~headers url body =
-  let url = Uri.with_scheme url (Some "http") in
   let body = Cohttp_lwt.Body.of_string body in
   try
     let+ pair =
@@ -36,7 +35,6 @@ let req_post ~headers url body =
 
 
 let req ~headers url =
-  let url = Uri.with_scheme url (Some "http") in
   try
     let+ pair =
       Cohttp_lwt_unix.Client.get
