@@ -1,0 +1,442 @@
+12.03.22 12:24:07.193                       Running at http://localhost:4000
+12.03.22 12:24:07.193                       Type Ctrl+C to stop
+12.03.22 12:24:19.684       dream.log  INFO REQ 1 GET /home 10.255.240.1:42620 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+12.03.22 12:24:20.434       dream.log  INFO REQ 1 200 in 750227 μs
+12.03.22 12:24:20.981       dream.log  INFO REQ 2 GET /static/style/style.css 10.255.240.1:42679 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+12.03.22 12:24:20.989       dream.log  INFO REQ 2 200 in 8805 μs
+12.03.22 12:24:26.703       dream.log  INFO REQ 3 POST /home 10.255.240.1:42934 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+12.03.22 12:24:26.706                       REQ 3 following atestaccount@ocamlot.xyz
+12.03.22 12:24:26.741                       REQ 3 follow atestaccount at ocamlot.xyz
+12.03.22 12:24:27.846       dream.log  INFO REQ 4 GET /users/example 10.255.240.2:65167 Pleroma 2.4.2; https://ocamlot.xyz <john@ocamlot.xyz>
+12.03.22 12:24:33.321       dream.log  INFO REQ 5 GET /users/example 10.255.240.2:65339 Pleroma 2.4.2; https://ocamlot.xyz <john@ocamlot.xyz>
+12.03.22 12:24:38.334                       REQ 3 follow request resp was:
+((encoding (Fixed 7))
+ (headers
+  ((Server nginx/1.18.0) (Date "Sat, 12 Mar 2022 12:24:38 GMT")
+   (Content-Type "application/json; charset=utf-8") (Content-Length 7)
+   (Connection keep-alive) (access-control-allow-credentials true)
+   (access-control-allow-origin *)
+   (access-control-expose-headers
+    Link,X-RateLimit-Reset,X-RateLimit-Limit,X-RateLimit-Remaining,X-Request-Id,Idempotency-Key)
+   (cache-control "max-age=0, private, must-revalidate")
+   (content-security-policy
+    "upgrade-insecure-requests;script-src 'self';connect-src 'self' blob: https://ocamlot.xyz wss://ocamlot.xyz;media-src 'self' https:;img-src 'self' data: blob: https:;default-src 'none';base-uri 'self';frame-ancestors 'none';style-src 'self' 'unsafe-inline';font-src 'self';manifest-src 'self';")
+   (permissions-policy "interest-cohort=()") (referrer-policy same-origin)
+   (x-content-type-options nosniff) (x-download-options noopen)
+   (x-frame-options DENY) (x-permitted-cross-domain-policies none)
+   (x-request-id FtuhsEyOXZV7uAAAAWJh) (x-xss-protection "1; mode=block")))
+ (version HTTP_1_1) (status Bad_request) (flush false))
+12.03.22 12:24:38.334                       REQ 3 response body was "error"
+12.03.22 12:24:38.376       dream.log  INFO REQ 3 200 in 11672525 μs
+12.03.22 12:24:38.422       dream.log  INFO REQ 5 200 in 5100156 μs
+12.03.22 12:24:38.473       dream.log  INFO REQ 4 200 in 10626357 μs
+12.03.22 12:24:38.632       dream.log  INFO REQ 6 GET /static/style/style.css 10.255.240.1:43317 Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0
+12.03.22 12:24:38.638       dream.log  INFO REQ 6 200 in 6419 μs
+12.03.22 12:25:31.990       dream.log  INFO REQ 7 POST /users/example/inbox 10.255.240.3:39380 Pleroma 2.4.2; https://ocamlot.xyz <john@ocamlot.xyz>
+12.03.22 12:25:32.007                       REQ 7 POST to example/inbox
+12.03.22 12:25:32.617                       REQ 7 DATA: {"@context":["https://www.w3.org/ns/activitystreams","https://ocamlot.xyz/schemas/litepub-0.1.jsonld",{"@language":"und"}],"actor":"https://ocamlot.xyz/users/atestaccount","cc":["https://ocamlot.xyz/users/atestaccount/followers"],"context":"https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11","context_id":36,"directMessage":false,"id":"https://ocamlot.xyz/activities/98486484-1ae7-45a8-8fe3-d70bee6f4bb1","object":{"actor":"https://ocamlot.xyz/users/atestaccount","attachment":[],"attributedTo":"https://ocamlot.xyz/users/atestaccount","cc":["https://ocamlot.xyz/users/atestaccount/followers"],"content":"<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!","context":"https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11","conversation":"https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11","id":"https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539","published":"2022-03-12T12:25:31.364632Z","sensitive":null,"source":"@example@ocamlot.nfshost.com hey buddy what's up!","summary":"","tag":[{"href":"https://ocamlot.nfshost.com/users/example","name":"@example@ocamlot.nfshost.com","type":"Mention"}],"to":["https://www.w3.org/ns/activitystreams#Public","https://ocamlot.nfshost.com/users/example"],"type":"Note"},"published":"2022-03-12T12:25:31.361055Z","to":["https://www.w3.org/ns/activitystreams#Public","https://ocamlot.nfshost.com/users/example"],"type":"Create"}
+12.03.22 12:25:32.618                       REQ 7 recieved an obj:
+`Create ({ Types.id =
+                            "https://ocamlot.xyz/activities/98486484-1ae7-45a8-8fe3-d70bee6f4bb1";
+                            actor = "https://ocamlot.xyz/users/atestaccount";
+                            published = (Some 2022-03-12 12:25:31 +00:00);
+                            to_ =
+                            ["https://www.w3.org/ns/activitystreams#Public";
+                              "https://ocamlot.nfshost.com/users/example"];
+                            cc =
+                            ["https://ocamlot.xyz/users/atestaccount/followers"
+                              ];
+                            direct_message = false;
+                            obj =
+                            `Note ({ Types.id =
+                                     "https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539";
+                                     actor =
+                                     "https://ocamlot.xyz/users/atestaccount";
+                                     to_ =
+                                     ["https://www.w3.org/ns/activitystreams#Public";
+                                       "https://ocamlot.nfshost.com/users/example"
+                                       ];
+                                     in_reply_to = None;
+                                     cc =
+                                     ["https://ocamlot.xyz/users/atestaccount/followers"
+                                       ];
+                                     content =
+                                     "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!";
+                                     sensitive = false;
+                                     source =
+                                     (Some "@example@ocamlot.nfshost.com hey buddy what's up!");
+                                     summary = (Some "");
+                                     published =
+                                     (Some 2022-03-12 12:25:31 +00:00);
+                                     tags =
+                                     [`Value ({ Types.ty = `Mention;
+                                                href =
+                                                "https://ocamlot.nfshost.com/users/example";
+                                                name =
+                                                "@example@ocamlot.nfshost.com"
+                                                })
+                                       ];
+                                     raw =
+                                     {
+                                       "actor":
+                                         "https://ocamlot.xyz/users/atestaccount",
+                                       "attachment": [],
+                                       "attributedTo":
+                                         "https://ocamlot.xyz/users/atestaccount",
+                                       "cc": [
+                                         "https://ocamlot.xyz/users/atestaccount/followers"
+                                       ],
+                                       "content":
+                                         "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!",
+                                       "context":
+                                         "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+                                       "conversation":
+                                         "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+                                       "id":
+                                         "https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539",
+                                       "published":
+                                         "2022-03-12T12:25:31.364632Z",
+                                       "sensitive": null,
+                                       "source":
+                                         "@example@ocamlot.nfshost.com hey buddy what's up!",
+                                       "summary": "",
+                                       "tag": [
+                                         {
+                                           "href":
+                                             "https://ocamlot.nfshost.com/users/example",
+                                           "name":
+                                             "@example@ocamlot.nfshost.com",
+                                           "type": "Mention"
+                                         }
+                                       ],
+                                       "to": [
+                                         "https://www.w3.org/ns/activitystreams#Public",
+                                         "https://ocamlot.nfshost.com/users/example"
+                                       ],
+                                       "type": "Note"
+                                     } });
+raw =
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://ocamlot.xyz/schemas/litepub-0.1.jsonld",
+    { "@language": "und" }
+  ],
+  "actor": "https://ocamlot.xyz/users/atestaccount",
+  "cc": [ "https://ocamlot.xyz/users/atestaccount/followers" ],
+  "context":
+    "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+  "context_id": 36,
+  "directMessage": false,
+  "id": "https://ocamlot.xyz/activities/98486484-1ae7-45a8-8fe3-d70bee6f4bb1",
+  "object": {
+    "actor": "https://ocamlot.xyz/users/atestaccount",
+    "attachment": [],
+    "attributedTo": "https://ocamlot.xyz/users/atestaccount",
+    "cc": [ "https://ocamlot.xyz/users/atestaccount/followers" ],
+    "content":
+      "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!",
+    "context":
+      "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+    "conversation":
+      "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+    "id": "https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539",
+    "published": "2022-03-12T12:25:31.364632Z",
+    "sensitive": null,
+    "source": "@example@ocamlot.nfshost.com hey buddy what's up!",
+    "summary": "",
+    "tag": [
+      {
+        "href": "https://ocamlot.nfshost.com/users/example",
+        "name": "@example@ocamlot.nfshost.com",
+        "type": "Mention"
+      }
+    ],
+    "to": [
+      "https://www.w3.org/ns/activitystreams#Public",
+      "https://ocamlot.nfshost.com/users/example"
+    ],
+    "type": "Note"
+  },
+  "published": "2022-03-12T12:25:31.361055Z",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public",
+    "https://ocamlot.nfshost.com/users/example"
+  ],
+  "type": "Create"
+}
+})
+12.03.22 12:25:32.618                       REQ 7 received a create object!
+12.03.22 12:25:32.618       dream.log ERROR REQ 7 501 in 628165 μs
+12.03.22 12:26:09.357       dream.log  INFO REQ 8 POST /users/example/inbox 10.255.240.2:12268 Pleroma 2.4.2; https://ocamlot.xyz <john@ocamlot.xyz>
+12.03.22 12:26:09.373                       REQ 8 POST to example/inbox
+12.03.22 12:26:09.979                       REQ 8 DATA: {"@context":["https://www.w3.org/ns/activitystreams","https://ocamlot.xyz/schemas/litepub-0.1.jsonld",{"@language":"und"}],"actor":"https://ocamlot.xyz/users/atestaccount","cc":["https://ocamlot.xyz/users/atestaccount/followers"],"context":"https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11","context_id":36,"directMessage":false,"id":"https://ocamlot.xyz/activities/98486484-1ae7-45a8-8fe3-d70bee6f4bb1","object":{"actor":"https://ocamlot.xyz/users/atestaccount","attachment":[],"attributedTo":"https://ocamlot.xyz/users/atestaccount","cc":["https://ocamlot.xyz/users/atestaccount/followers"],"content":"<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!","context":"https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11","conversation":"https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11","id":"https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539","published":"2022-03-12T12:25:31.364632Z","sensitive":null,"source":"@example@ocamlot.nfshost.com hey buddy what's up!","summary":"","tag":[{"href":"https://ocamlot.nfshost.com/users/example","name":"@example@ocamlot.nfshost.com","type":"Mention"}],"to":["https://www.w3.org/ns/activitystreams#Public","https://ocamlot.nfshost.com/users/example"],"type":"Note"},"published":"2022-03-12T12:25:31.361055Z","to":["https://www.w3.org/ns/activitystreams#Public","https://ocamlot.nfshost.com/users/example"],"type":"Create"}
+12.03.22 12:26:09.980                       REQ 8 recieved an obj:
+`Create ({ Types.id =
+                            "https://ocamlot.xyz/activities/98486484-1ae7-45a8-8fe3-d70bee6f4bb1";
+                            actor = "https://ocamlot.xyz/users/atestaccount";
+                            published = (Some 2022-03-12 12:25:31 +00:00);
+                            to_ =
+                            ["https://www.w3.org/ns/activitystreams#Public";
+                              "https://ocamlot.nfshost.com/users/example"];
+                            cc =
+                            ["https://ocamlot.xyz/users/atestaccount/followers"
+                              ];
+                            direct_message = false;
+                            obj =
+                            `Note ({ Types.id =
+                                     "https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539";
+                                     actor =
+                                     "https://ocamlot.xyz/users/atestaccount";
+                                     to_ =
+                                     ["https://www.w3.org/ns/activitystreams#Public";
+                                       "https://ocamlot.nfshost.com/users/example"
+                                       ];
+                                     in_reply_to = None;
+                                     cc =
+                                     ["https://ocamlot.xyz/users/atestaccount/followers"
+                                       ];
+                                     content =
+                                     "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!";
+                                     sensitive = false;
+                                     source =
+                                     (Some "@example@ocamlot.nfshost.com hey buddy what's up!");
+                                     summary = (Some "");
+                                     published =
+                                     (Some 2022-03-12 12:25:31 +00:00);
+                                     tags =
+                                     [`Value ({ Types.ty = `Mention;
+                                                href =
+                                                "https://ocamlot.nfshost.com/users/example";
+                                                name =
+                                                "@example@ocamlot.nfshost.com"
+                                                })
+                                       ];
+                                     raw =
+                                     {
+                                       "actor":
+                                         "https://ocamlot.xyz/users/atestaccount",
+                                       "attachment": [],
+                                       "attributedTo":
+                                         "https://ocamlot.xyz/users/atestaccount",
+                                       "cc": [
+                                         "https://ocamlot.xyz/users/atestaccount/followers"
+                                       ],
+                                       "content":
+                                         "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!",
+                                       "context":
+                                         "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+                                       "conversation":
+                                         "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+                                       "id":
+                                         "https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539",
+                                       "published":
+                                         "2022-03-12T12:25:31.364632Z",
+                                       "sensitive": null,
+                                       "source":
+                                         "@example@ocamlot.nfshost.com hey buddy what's up!",
+                                       "summary": "",
+                                       "tag": [
+                                         {
+                                           "href":
+                                             "https://ocamlot.nfshost.com/users/example",
+                                           "name":
+                                             "@example@ocamlot.nfshost.com",
+                                           "type": "Mention"
+                                         }
+                                       ],
+                                       "to": [
+                                         "https://www.w3.org/ns/activitystreams#Public",
+                                         "https://ocamlot.nfshost.com/users/example"
+                                       ],
+                                       "type": "Note"
+                                     } });
+raw =
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://ocamlot.xyz/schemas/litepub-0.1.jsonld",
+    { "@language": "und" }
+  ],
+  "actor": "https://ocamlot.xyz/users/atestaccount",
+  "cc": [ "https://ocamlot.xyz/users/atestaccount/followers" ],
+  "context":
+    "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+  "context_id": 36,
+  "directMessage": false,
+  "id": "https://ocamlot.xyz/activities/98486484-1ae7-45a8-8fe3-d70bee6f4bb1",
+  "object": {
+    "actor": "https://ocamlot.xyz/users/atestaccount",
+    "attachment": [],
+    "attributedTo": "https://ocamlot.xyz/users/atestaccount",
+    "cc": [ "https://ocamlot.xyz/users/atestaccount/followers" ],
+    "content":
+      "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!",
+    "context":
+      "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+    "conversation":
+      "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+    "id": "https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539",
+    "published": "2022-03-12T12:25:31.364632Z",
+    "sensitive": null,
+    "source": "@example@ocamlot.nfshost.com hey buddy what's up!",
+    "summary": "",
+    "tag": [
+      {
+        "href": "https://ocamlot.nfshost.com/users/example",
+        "name": "@example@ocamlot.nfshost.com",
+        "type": "Mention"
+      }
+    ],
+    "to": [
+      "https://www.w3.org/ns/activitystreams#Public",
+      "https://ocamlot.nfshost.com/users/example"
+    ],
+    "type": "Note"
+  },
+  "published": "2022-03-12T12:25:31.361055Z",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public",
+    "https://ocamlot.nfshost.com/users/example"
+  ],
+  "type": "Create"
+}
+})
+12.03.22 12:26:09.980                       REQ 8 received a create object!
+12.03.22 12:26:09.980       dream.log ERROR REQ 8 501 in 622398 μs
+12.03.22 12:27:32.525       dream.log  INFO REQ 9 POST /users/example/inbox 10.255.240.3:44117 Pleroma 2.4.2; https://ocamlot.xyz <john@ocamlot.xyz>
+12.03.22 12:27:32.599                       REQ 9 POST to example/inbox
+12.03.22 12:27:33.209                       REQ 9 DATA: {"@context":["https://www.w3.org/ns/activitystreams","https://ocamlot.xyz/schemas/litepub-0.1.jsonld",{"@language":"und"}],"actor":"https://ocamlot.xyz/users/atestaccount","cc":["https://ocamlot.xyz/users/atestaccount/followers"],"context":"https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11","context_id":36,"directMessage":false,"id":"https://ocamlot.xyz/activities/98486484-1ae7-45a8-8fe3-d70bee6f4bb1","object":{"actor":"https://ocamlot.xyz/users/atestaccount","attachment":[],"attributedTo":"https://ocamlot.xyz/users/atestaccount","cc":["https://ocamlot.xyz/users/atestaccount/followers"],"content":"<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!","context":"https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11","conversation":"https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11","id":"https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539","published":"2022-03-12T12:25:31.364632Z","sensitive":null,"source":"@example@ocamlot.nfshost.com hey buddy what's up!","summary":"","tag":[{"href":"https://ocamlot.nfshost.com/users/example","name":"@example@ocamlot.nfshost.com","type":"Mention"}],"to":["https://www.w3.org/ns/activitystreams#Public","https://ocamlot.nfshost.com/users/example"],"type":"Note"},"published":"2022-03-12T12:25:31.361055Z","to":["https://www.w3.org/ns/activitystreams#Public","https://ocamlot.nfshost.com/users/example"],"type":"Create"}
+12.03.22 12:27:33.210                       REQ 9 recieved an obj:
+`Create ({ Types.id =
+                            "https://ocamlot.xyz/activities/98486484-1ae7-45a8-8fe3-d70bee6f4bb1";
+                            actor = "https://ocamlot.xyz/users/atestaccount";
+                            published = (Some 2022-03-12 12:25:31 +00:00);
+                            to_ =
+                            ["https://www.w3.org/ns/activitystreams#Public";
+                              "https://ocamlot.nfshost.com/users/example"];
+                            cc =
+                            ["https://ocamlot.xyz/users/atestaccount/followers"
+                              ];
+                            direct_message = false;
+                            obj =
+                            `Note ({ Types.id =
+                                     "https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539";
+                                     actor =
+                                     "https://ocamlot.xyz/users/atestaccount";
+                                     to_ =
+                                     ["https://www.w3.org/ns/activitystreams#Public";
+                                       "https://ocamlot.nfshost.com/users/example"
+                                       ];
+                                     in_reply_to = None;
+                                     cc =
+                                     ["https://ocamlot.xyz/users/atestaccount/followers"
+                                       ];
+                                     content =
+                                     "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!";
+                                     sensitive = false;
+                                     source =
+                                     (Some "@example@ocamlot.nfshost.com hey buddy what's up!");
+                                     summary = (Some "");
+                                     published =
+                                     (Some 2022-03-12 12:25:31 +00:00);
+                                     tags =
+                                     [`Value ({ Types.ty = `Mention;
+                                                href =
+                                                "https://ocamlot.nfshost.com/users/example";
+                                                name =
+                                                "@example@ocamlot.nfshost.com"
+                                                })
+                                       ];
+                                     raw =
+                                     {
+                                       "actor":
+                                         "https://ocamlot.xyz/users/atestaccount",
+                                       "attachment": [],
+                                       "attributedTo":
+                                         "https://ocamlot.xyz/users/atestaccount",
+                                       "cc": [
+                                         "https://ocamlot.xyz/users/atestaccount/followers"
+                                       ],
+                                       "content":
+                                         "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!",
+                                       "context":
+                                         "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+                                       "conversation":
+                                         "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+                                       "id":
+                                         "https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539",
+                                       "published":
+                                         "2022-03-12T12:25:31.364632Z",
+                                       "sensitive": null,
+                                       "source":
+                                         "@example@ocamlot.nfshost.com hey buddy what's up!",
+                                       "summary": "",
+                                       "tag": [
+                                         {
+                                           "href":
+                                             "https://ocamlot.nfshost.com/users/example",
+                                           "name":
+                                             "@example@ocamlot.nfshost.com",
+                                           "type": "Mention"
+                                         }
+                                       ],
+                                       "to": [
+                                         "https://www.w3.org/ns/activitystreams#Public",
+                                         "https://ocamlot.nfshost.com/users/example"
+                                       ],
+                                       "type": "Note"
+                                     } });
+raw =
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://ocamlot.xyz/schemas/litepub-0.1.jsonld",
+    { "@language": "und" }
+  ],
+  "actor": "https://ocamlot.xyz/users/atestaccount",
+  "cc": [ "https://ocamlot.xyz/users/atestaccount/followers" ],
+  "context":
+    "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+  "context_id": 36,
+  "directMessage": false,
+  "id": "https://ocamlot.xyz/activities/98486484-1ae7-45a8-8fe3-d70bee6f4bb1",
+  "object": {
+    "actor": "https://ocamlot.xyz/users/atestaccount",
+    "attachment": [],
+    "attributedTo": "https://ocamlot.xyz/users/atestaccount",
+    "cc": [ "https://ocamlot.xyz/users/atestaccount/followers" ],
+    "content":
+      "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> hey buddy what&#39;s up!",
+    "context":
+      "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+    "conversation":
+      "https://ocamlot.xyz/contexts/c77b44ae-dd97-4727-8e44-a837fa2f0f11",
+    "id": "https://ocamlot.xyz/objects/993b6d7a-4d43-4039-8ac1-bb6720be4539",
+    "published": "2022-03-12T12:25:31.364632Z",
+    "sensitive": null,
+    "source": "@example@ocamlot.nfshost.com hey buddy what's up!",
+    "summary": "",
+    "tag": [
+      {
+        "href": "https://ocamlot.nfshost.com/users/example",
+        "name": "@example@ocamlot.nfshost.com",
+        "type": "Mention"
+      }
+    ],
+    "to": [
+      "https://www.w3.org/ns/activitystreams#Public",
+      "https://ocamlot.nfshost.com/users/example"
+    ],
+    "type": "Note"
+  },
+  "published": "2022-03-12T12:25:31.361055Z",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public",
+    "https://ocamlot.nfshost.com/users/example"
+  ],
+  "type": "Create"
+}
+})
+12.03.22 12:27:33.210                       REQ 9 received a create object!
+12.03.22 12:27:33.210       dream.log ERROR REQ 9 501 in 685178 μs
