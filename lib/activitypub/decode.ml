@@ -144,11 +144,13 @@ let note =
   and* source = field_opt "source"
                   (one_of ["string", string; "multi-encode", field "content" string])
   and* summary = field_or_default "summary" (nullable string) None
-  and* sensitive = field_or_default "sensitive" bool false
+  and* sensitive = field_or_default "sensitive" (nullable bool) None
   and* published = field_opt "published" timestamp
   and* tags = field_or_default "tag" (lossy_list_of tag) []
   and* raw = value in
-  succeed ({ id; actor; in_reply_to; to_; cc; sensitive; content; source; summary; tags; published; raw }: Types.note)
+  succeed ({ id; actor; in_reply_to; to_; cc;
+             sensitive=Option.value ~default:false sensitive;
+             content; source; summary; tags; published; raw }: Types.note)
 
 let follow =
   let open D in
