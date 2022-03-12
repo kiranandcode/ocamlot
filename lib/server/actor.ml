@@ -38,22 +38,49 @@ let handle_inbox_post req =
   Dream.log "DATA: %s" body;
   let follow =
     Decoders_yojson.Safe.Decode.decode_string
-      Activitypub.Decode.(follow)
-      body in
+      Activitypub.Decode.(obj) body in
   match follow with
-  | Ok (follow_obj: Activitypub.Types.follow) ->
-    Dream.log "received a follow object.";
-    Dream.log "follow id: %s" follow_obj.id;
-    Dream.log "follow actor: %s" follow_obj.actor;
-    Dream.log "follow to: %s" @@ String.concat ", " follow_obj.to_;
-    Dream.log "follow ccd: %s" @@ String.concat ", " follow_obj.cc;
-    Dream.log "follow object?: %s" follow_obj.object_;
-    Dream.respond ~status:`OK ""
   | Error e ->
-    Dream.error (fun log -> log ~request:req "error while decoding follow request: %a"
-                              Decoders_yojson.Safe.Decode.pp_error e
-                );
+    Dream.error (fun log ->
+      log ~request:req "error while decoding request: %a"
+        Decoders_yojson.Safe.Decode.pp_error e);
     Dream.respond ~status:`Not_Acceptable ""
+  | Ok obj ->
+    Dream.log "recieved an obj:\n%a"
+      Activitypub.Types.pp_obj obj;
+    match obj with
+    | `Create _c ->
+      Dream.log "received a create object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+    | `Follow (f: Activitypub.Types.follow) ->
+      Dream.log "follow: %a" Activitypub.Types.pp_follow f;
+      Dream.log "received a follow object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+    | `Announce _ ->
+      Dream.log "received an announce object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+    | `Block _ ->
+      Dream.log "received a block object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+    | `Note _ ->
+      Dream.log "received a note object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+    | `Person _ ->
+      Dream.log "received a person object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+    | `Undo _ ->
+      Dream.log "received an undo object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+    | `Delete _ ->
+      Dream.log "received a delete object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+    | `Accept _ ->
+      Dream.log "received an accept object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+    | `Like _ ->
+      Dream.log "received a like object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+
 
 let handle_outbox_get req =
   Dream.log "GET %s/outbox" (Dream.param req "username");
