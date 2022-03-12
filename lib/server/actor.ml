@@ -19,12 +19,9 @@ let handle_actor_get config req =
        |> Database.Interface.LocalUser.convert_to config
        |> Activitypub.Encode.person)
 
-
-
 let handle_inbox_get req =
   Dream.log "GET to %s/inbox" (Dream.param req "username");
   Dream.respond ~status:`OK ""
-
 
 let enforce_is_true vl kont =
   if vl

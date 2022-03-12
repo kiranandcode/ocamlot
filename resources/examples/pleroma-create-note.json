@@ -1,0 +1,51 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://ocamlot.xyz/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ],
+  "actor": "https://ocamlot.xyz/users/atestaccount",
+  "cc": [
+    "https://ocamlot.xyz/users/atestaccount/followers"
+  ],
+  "context": "https://ocamlot.xyz/contexts/f432f89a-9235-4ca8-abfe-a7b6b3e802f6",
+  "context_id": 34,
+  "directMessage": false,
+  "id": "https://ocamlot.xyz/activities/6fc3aff6-2e06-4980-8fde-941cdfdff1e0",
+  "object": {
+    "actor": "https://ocamlot.xyz/users/atestaccount",
+    "attachment": [],
+    "attributedTo": "https://ocamlot.xyz/users/atestaccount",
+    "cc": [
+      "https://ocamlot.xyz/users/atestaccount/followers"
+    ],
+    "content": "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AH8Iw1uMJ5QFtk4ycy\" href=\"https://ocamlot.nfshost.com/users/example\" rel=\"ugc\">@<span>example</span></a></span> yo homie smell you later",
+    "context": "https://ocamlot.xyz/contexts/f432f89a-9235-4ca8-abfe-a7b6b3e802f6",
+    "conversation": "https://ocamlot.xyz/contexts/f432f89a-9235-4ca8-abfe-a7b6b3e802f6",
+    "id": "https://ocamlot.xyz/objects/b6b63477-ecca-466d-9c58-97df598920f8",
+    "published": "2022-03-12T11:53:31.886677Z",
+    "sensitive": null,
+    "source": "@example@ocamlot.nfshost.com yo homie smell you later",
+    "summary": "",
+    "tag": [
+      {
+        "href": "https://ocamlot.nfshost.com/users/example",
+        "name": "@example@ocamlot.nfshost.com",
+        "type": "Mention"
+      }
+    ],
+    "to": [
+      "https://www.w3.org/ns/activitystreams#Public",
+      "https://ocamlot.nfshost.com/users/example"
+    ],
+    "type": "Note"
+  },
+  "published": "2022-03-12T11:53:31.884868Z",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public",
+    "https://ocamlot.nfshost.com/users/example"
+  ],
+  "type": "Create"
+}
