@@ -150,6 +150,7 @@ let follow_remote_user config
   let+! remote = resolve_remote_user ~username ~domain db in
   let+! follow = build_follow_request config local remote db in
   let current_time = Ptime_clock.now () in
+  let+ () = Lwt.pause () in
   let body_str = Yojson.Safe.to_string follow in
   let uri = Database.RemoteUser.inbox remote in
   let headers =
@@ -166,9 +167,14 @@ let follow_remote_user config
       ~priv_key:(Database.LocalUser.privkey local)
       ~uri
     |> Cohttp.Header.of_list in
+  let+ () = Lwt.pause () in
   let+! (resp,body) = req_post ~headers uri body_str in
+  let+ () = Lwt.pause () in
   Dream.log "follow request resp was:\n%a" Cohttp.Response.pp_hum resp;
+  let+ () = Lwt.pause () in
   let+ body = Cohttp_lwt.Body.to_string body in
+  let+ () = Lwt.pause () in
   Dream.log "response body was %s" body;
+  let+ () = Lwt.pause () in
   Lwt.return_ok ()
 
