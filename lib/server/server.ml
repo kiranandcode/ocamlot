@@ -42,16 +42,14 @@ let handle_post_home config =
     begin match user_tag follow with
     | None -> Dream.log "did not match anything!"
     | Some (username, domain) ->
-      let comp current_user () =
-        let+ remote_user =
-          Dream.sql req (Resolver.follow_remote_user config
-                           current_user ~username ~domain) in
-        match remote_user with
-        | Error str ->
-          Dream.log "error was %s" str; Lwt.return_unit
-        | Ok () ->
-          Lwt.return_unit in
-      Option.iter (fun user -> Lwt.async (comp user)) user;
+      let comp current_user =
+        Resolver.send (
+          Resolver.Task.Follow {
+            local=current_user;
+            username; domain
+          }
+        ) in
+      Option.iter (fun user -> comp user) user;
       Dream.log "follow %s at %s" username domain
     end;
     (*  run configuration.parse account *)
@@ -63,15 +61,20 @@ let handle_post_home config =
     Dream.log "form data: %s" @@ [%show: (string * string) list] form_data;
     handle_get_home req
 
+let caqti path = Caqti_lwt.connect (Uri.of_string path)
+          |> Lwt.map Result.get_exn
+
 
 let () =
-  let config = Configuration.Params.create ~domain:"ocamlot.nfshost.com" in
+  let database_path =  "sqlite3://:../../test.db" in
+  let config = Configuration.Params.create
+                 ~database_path ~domain:"ocamlot.nfshost.com" in
   Dream.run
     (* ~certificate_file:"/home/kirang/Documents/code/elixir/pleroma/priv/server.pem"
      * ~key_file:"/home/kirang/Documents/code/elixir/pleroma/priv/server.key" *)
     ~port:4000
   @@ Dream.logger
-  @@ Dream.sql_pool "sqlite3://:../../test.db"
+  @@ Dream.sql_pool database_path
   @@ Dream.sql_sessions 
   @@ Dream.router [
     Webfinger.route config;
