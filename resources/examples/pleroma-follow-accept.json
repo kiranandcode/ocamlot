@@ -1,0 +1,22 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://ocamlot.xyz/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ],
+  "actor": "https://ocamlot.xyz/users/example",
+  "cc": [],
+  "id": "https://ocamlot.xyz/activities/c99c2ba5-3ec0-412d-8cd0-2788867b7f67",
+  "object": {
+    "actor": "https://ocamlot.nfshost.com/users/example",
+    "id": "https://ocamlot.nfshost.com/activity/7612618e-7c66-4792-b410-e4c971f5de51",
+    "object": "https://ocamlot.xyz/users/example",
+    "type": "Follow"
+  },
+  "to": [
+    "https://ocamlot.nfshost.com/users/example"
+  ],
+  "type": "Accept"
+}

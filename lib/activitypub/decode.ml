@@ -5,6 +5,7 @@ let decode_string enc vl = D.decode_string enc vl |> Result.map_err D.string_of_
 
 let id = D.(one_of ["string", string; "id", field "id" string])
 
+
 let mention =
   let open D in
   let* () = field "type" @@ constant ~msg:"expected Mention (received %s)" "Mention"
@@ -157,9 +158,9 @@ let follow =
   let* () = field "type" @@ constant ~msg:"expected create object (received %s)" "Follow"
   and* actor = field "actor" id
   and* cc = field_or_default "cc" (singleton_or_list string) []
-  and* to_ = field "to" (singleton_or_list string)
+  and* to_ = field_or_default "to" (singleton_or_list string) []
   and* id = field "id" string
-  and* object_ = field "object" string
+  and* object_ = field "object" id
   and* state = field_opt "state" (string >>= function "pending" -> succeed `Pending
                                                     | "cancelled" -> succeed `Cancelled
                                                     | _ -> fail "unknown status") in
