@@ -178,30 +178,3 @@ let follow_remote_user config
   let+ () = Lwt.pause () in
   Lwt.return_ok ()
 
-module Task = struct
-  type t = Follow of {
-    local: Database.LocalUser.t;
-    username: string;
-    domain: string
-  } 
-
-  type state = Caqti_lwt.connection
-  type config = Configuration.Params.t
-
-  let init_state config  =
-    Caqti_lwt.connect (Uri.of_string (Configuration.Params.database_path
-                                        config))
-    |> Lwt.map Result.get_exn
-
-  let perform config (db: Caqti_lwt.connection) = function
-    | Follow {local;username;domain} ->
-      let+ result = follow_remote_user config local ~username ~domain db in
-      match result with
-      | Error str ->
-        Dream.log "error was %s" str; Lwt.return_unit
-      | Ok () -> 
-        Lwt.return_unit
-
-end
-
-include (Worker.Make(Task))

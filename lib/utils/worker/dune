@@ -1,2 +1,0 @@
-(library (name worker)
- (libraries containers lwt zmq zmq-lwt))
