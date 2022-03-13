@@ -365,6 +365,7 @@ CLOSED: [2022-03-12 Sat 08:07]
 ******* if reachable + parse,
 ******** add new remote user
 ******** return created remote user
+** TODO setup rabbitmq/zeroq based helper
 ** TODO Create follow function : username, domain -> unit
 *** DONE resolve username, domain to remote user
 CLOSED: [2022-03-12 Sat 10:44]
