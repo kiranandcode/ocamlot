@@ -74,8 +74,15 @@ CREATE TABLE Actor (
 CREATE TABLE Posts (
    id INTEGER PRIMARY KEY,           -- internal post id, not exposed
    public_id STRING,                 -- if post is by an local user, then assign a public id for the url
-   url STRING NOT NULL UNIQUE,              -- url of the post, if local, then /api/posts/<public_id>
+   url STRING NOT NULL UNIQUE,       -- url/id of the post, if local, then /api/posts/<public_id>
    author_id INTEGER,                -- author of the post
+
+   is_public BOOLEAN,                -- is the post public? or only to the mentioned users
+
+   summary TEXT,                     -- subject of the post
+   post_source TEXT,                 -- source of the post
+
+   published DATE,                   -- date at which post was published
 
    raw_data TEXT,                    -- if by an external user, then keep raw json of the post
    FOREIGN KEY (author_id)
@@ -85,11 +92,47 @@ CREATE TABLE Posts (
 );
 CREATE index idxPost_public_id on Posts(public_id);
 
+-- table for post-to value
+CREATE TABLE PostTo (
+   post_id INTEGER,                  -- post in question
+   actor_id INTEGER,                -- target of the post
+
+   PRIMARY KEY (post_id, actor_id)
+
+   FOREIGN KEY (post_id)
+      REFERENCES Post (id)
+      ON UPDATE RESTRICT
+      ON DELETE RESTRICT
+
+   FOREIGN KEY (actor_id)
+      REFERENCES Actor (id)
+      ON UPDATE RESTRICT
+      ON DELETE RESTRICT
+);
+
+-- table for post-cc value
+CREATE TABLE PostCc (
+   post_id INTEGER,                  -- post in question
+   actor_id INTEGER,                -- target of the post
+
+   PRIMARY KEY (post_id, actor_id)
+
+   FOREIGN KEY (actor_id)
+      REFERENCES Actor (id)
+      ON UPDATE RESTRICT
+      ON DELETE RESTRICT
+
+   FOREIGN KEY (post_id)
+      REFERENCES Post (id)
+      ON UPDATE RESTRICT
+      ON DELETE RESTRICT
+);
+
 -- table for mentions
 CREATE TABLE Mentions (
-   public_id STRING,                 -- if mention is by a local user, then assign a public id for the url (TODO, do we need this?)
-   url STRING NOT NULL UNIQUE,              -- url of the mention, if local, then /api/mentions/<public_id>
-   raw_data TEXT,                    -- if by an external user, then keep raw json of the mention
+   public_id STRING,                -- if mention is by a local user, then assign a public id for the url (TODO, do we need this?)
+   url STRING NOT NULL UNIQUE,      -- url of the mention, if local, then /api/mentions/<public_id>
+   raw_data TEXT,                   -- if by an external user, then keep raw json of the mention
 
    post_id INTEGER NOT NULL,        -- post doing the mentioning
    actor_id INTEGER NOT NULL,       -- actor being mentioned
@@ -108,6 +151,29 @@ CREATE TABLE Mentions (
 );
 CREATE index idxMentions_public_id on Mentions(public_id);
 
+-- table for Tags
+CREATE TABLE Tags (
+   tag_id INTEGER PRIMARY KEY,       -- tag id
+   tag_name STRING                   -- tag name
+);
+CREATE index idxTags_tag_name on Tags(tag_name);
+
+-- table for PostTags (references to tags in posts)
+CREATE TABLE PostTags (
+   post_id INTEGER,                  -- post id
+   tag_id INTEGER,                   -- tag id
+   url STRING,                       -- href of the tag root (i.e head to url to see all posts) if external
+   PRIMARY KEY (post_id, tag_id)
+   FOREIGN KEY (post_id)
+      REFERENCES Post (id)
+      ON UPDATE RESTRICT
+      ON DELETE RESTRICT
+   FOREIGN KEY (tag_id)
+      REFERENCES Tags (id)
+      ON UPDATE RESTRICT
+      ON DELETE RESTRICT
+);
+CREATE index idxPostTags_tag_url on PostTags(url);
 
 -- table for likes
 CREATE TABLE Likes (

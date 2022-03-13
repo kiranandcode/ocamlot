@@ -61,7 +61,6 @@ type 'a event = [
 
 
 (** * Objects *)
-
 type public_key = {
   id: string;
   owner: string;

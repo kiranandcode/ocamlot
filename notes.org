@@ -324,7 +324,7 @@ CLOSED: [2022-03-06 Sun 08:03]
 *** DONE look up web finger spec
 CLOSED: [2022-03-06 Sun 06:12]
 *** DONE look up how pleroma responds 
-CLOSED: [2022-03-06 Sun 06:12]
+CLOSED: [2022-03-06 Sun 06:12] 
 ** DONE Update user endpoint to return JSON response if application type is json, json+ld
 CLOSED: [2022-03-06 Sun 18:45]
 ** DONE Verify that actor returned has parity with pleroma
@@ -406,3 +406,19 @@ CLOSED: [2022-03-13 Sun 10:41]
 *** webfinger to remote to find remote user
 *** construct follow request
 *** post to server using signed 
+** TODO Update follow table to include (date created, date updated, & pending)
+** TODO Update Resolver.follow to add pending entry to database
+** TODO Write function to handle post of accept follow objects
+*** Write single SQL function to update entry in following database, using remote actor url + local user username
+*** when decoding accept follow object in inbox
+*** first, check accept.object.id. id is in activity database
+*** lookup remote user by url (accept.actor)
+*** retrieve url in to field, extract username from url
+*** lookup local user by username
+*** then update following relation between remote user, local user
+** TODO Write function to handle post of reject follow objects
+*** first check reject.object.id is in activity database
+*** then remove following request from table
+*** (optional)? once posting added, 
+** TODO Write function to handle post of note objects
+*** update code to handle full tables, cc, to etc.
