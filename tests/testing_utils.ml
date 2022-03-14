@@ -4,9 +4,10 @@ module Common = struct
   module Ty = Caqti_type.Std
   module type DB = Caqti_lwt.CONNECTION
   let (let+) x f = Lwt.bind x f
-  let (let@) x f = Lwt.(x >|= f)
-  let (let*) x f = Lwt.(x >|= function v -> f (Result.get_exn v))
-  let ret = Lwt.return_unit
+  (* let (let+!) x f = Lwt_result.bind x f
+   * let (let@) x f = Lwt.(x >|= f) *)
+  let (let*) x f = Lwt.(x >>= function v -> f (Result.get_exn v))
+  let ret v = Lwt.return v
 
 
   let check_is_true vl = Alcotest.(check bool) "predicate is true" true vl

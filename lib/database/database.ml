@@ -1,5 +1,4 @@
 
-
 module Link : sig
 
   type 'a t = 'a Link.t
@@ -87,23 +86,84 @@ module Post : sig
 
   val create_post :
     ?public_id:string ->
+    ?summary:string ->
     ?raw_data:string ->
     url:string ->
-    author:Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+    author:Actor.t Link.t ->
+    is_public:bool ->
+    post_source:string ->
+    published:CalendarLib.Calendar.t ->
+    (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
-  val lookup_post_by_url : string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
-  val lookup_post_by_url_exn : string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+  val post_to:
+    Post.t Link.t -> (module Caqti_lwt.CONNECTION) -> (Actor.t Link.t list, string) Lwt_result.t
+  val post_cc:
+    Post.t Link.t -> (module Caqti_lwt.CONNECTION) -> (Actor.t Link.t list, string) Lwt_result.t
 
-  val lookup_post_by_public_id : string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
-  val lookup_post_by_public_id_exn : string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+  val add_post_to:
+    Post.t Link.t -> Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
+  val add_post_tos:
+    Post.t Link.t -> Actor.t Link.t list -> (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
 
-  val collect_posts_by_author: Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+  val add_post_cc:
+    Post.t Link.t -> Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
+  val add_post_ccs:
+    Post.t Link.t -> Actor.t Link.t list -> (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
+
+
+  val lookup_post_by_url :
+    string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
+  val lookup_post_by_url_exn :
+    string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+
+  val lookup_post_by_public_id :
+    string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
+  val lookup_post_by_public_id_exn :
+    string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+
+  val collect_posts_by_author:
+    Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
+  val add_post_tag:
+    ?url:string ->
+    Post.t Link.t ->
+    Tag.t Link.t ->
+    (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
+
+  val add_post_tags:
+    Post.t Link.t ->
+    (Tag.t Link.t * string option) list ->
+    (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
+
+  val collect_post_tags:
+    Post.t Link.t ->
+    (module Caqti_lwt.CONNECTION) ->
+    ((Tag.t * string option) list, string) Lwt_result.t
+
+  val add_post_mention:
+    Post.t Link.t ->
+    Actor.t Link.t ->
+    (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
+
+  val add_post_mentions:
+    Post.t Link.t ->
+    Actor.t Link.t list ->
+    (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
+
+  val collect_post_mentions:
+    Post.t Link.t ->
+    (module Caqti_lwt.CONNECTION) ->
+    (Actor.t Link.t list, string) Lwt_result.t
 
   val self : t -> t Link.t
   val public_id : t -> string option
   val author : t -> Actor.t Link.t
   val url : t -> string
   val raw_data : t -> string option
+  val is_public: t -> bool
+  val summary: t -> string option
+  val post_source: t -> string
+  val published: t -> CalendarLib.Calendar.t
 end = Post
 
 
@@ -113,28 +173,42 @@ module Follow : sig
   val create_follow :
     ?public_id:string ->
     ?raw_data:string ->
-    ?pending:bool ->
+    ?updated:CalendarLib.Calendar.t ->
     url:string ->
     author:Actor.t Link.t ->
-    target:Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+    target:Actor.t Link.t ->
+    pending:bool ->
+    created:CalendarLib.Calendar.t ->
+    (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
   val lookup_follow_by_url : string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
   val lookup_follow_by_url_exn : string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
   val lookup_follow_by_public_id :
     string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
-  val lookup_post_by_public_id_exn : string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+  val lookup_follow_by_public_id_exn : string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
   val update_follow_pending_status :
-    t -> bool option -> (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
+    ?timestamp:CalendarLib.Calendar.t ->
+    t Link.t -> bool -> (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
+
+  val collect_follows_for_actor:
+    ?offset:CalendarLib.Calendar.t * int * int ->
+    Actor.t Link.t ->
+    (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
+  val delete_follow:
+    t Link.t -> (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
 
   val self : t -> t Link.t
   val public_id : t -> string option
   val author : t -> Actor.t Link.t
   val target : t -> Actor.t Link.t
-  val pending : t -> bool option
+  val pending : t -> bool
   val url : t -> string
   val raw_data : t -> string option
+  val created: t -> CalendarLib.Calendar.t
+  val updated: t -> CalendarLib.Calendar.t option
 end = Follow
 
 module Mention : sig
@@ -169,7 +243,9 @@ module Like : sig
     ?raw_data:string ->
     url:string ->
     post:Post.t Link.t ->
-    actor:Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+    actor:Actor.t Link.t ->
+    published:CalendarLib.Calendar.t ->
+    (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
   val lookup_like_by_url : string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
   val lookup_like_by_url_exn : string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
@@ -181,12 +257,18 @@ module Like : sig
   val collect_likes_for_post :
     Post.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
 
+  val collect_likes_for_actor :
+    ?offset:(CalendarLib.Calendar.t * int * int) ->
+    Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
+
   val self : t -> t Link.t
   val public_id : t -> string option
   val url : t -> string
   val raw_data : t -> string option
   val post : t -> Post.t Link.t
   val target : t -> Actor.t Link.t
+  val published: t -> CalendarLib.Calendar.t
 end = Like
 
 module Activity : sig
@@ -210,6 +292,19 @@ module Activity : sig
   val update: t -> Yojson.Safe.t -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
 end = Activity
+
+module Tag : sig
+  type t = Tag.t
+
+  val create: string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+
+  
+  val find: string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
+  val find_exn : string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+
+  val self: t -> t Link.t
+  val name: t -> string
+end = Tag
 
 
 module Interface = Interface

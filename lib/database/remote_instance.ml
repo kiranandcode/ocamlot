@@ -8,7 +8,7 @@ type t = {
   url: string;                            (* url to instance *)
   mutable last_unreachable: Calendar.t option;    (* time since the sever was unreachable *)
 }
-let enc = Caqti_type.Field.define_coding
+
 
 let t =
   let encode {id;url;last_unreachable} =

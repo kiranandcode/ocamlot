@@ -3,9 +3,8 @@ module Common : sig
   module type DB = Caqti_lwt.CONNECTION
 
   val ( let+ ) : 'a Lwt.t -> ('a -> 'b Lwt.t) -> 'b Lwt.t
-  val ( let@ ) : 'a Lwt.t -> ('a -> 'b) -> 'b Lwt.t
-  val ( let* ) : ('a, 'b) result Lwt.t -> ('a -> 'c) -> 'c Lwt.t
-  val ret : unit Lwt.t
+  val ( let* ) : ('a, 'b) result Lwt.t -> ('a -> 'c Lwt.t) -> 'c Lwt.t
+  val ret : 'a -> 'a Lwt.t
 
   val check_is_true : bool -> unit
   val check_is_false : bool -> unit

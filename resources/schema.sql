@@ -10,7 +10,7 @@ CREATE TABLE dream_session (
 
 CREATE TABLE Activity (
   id TEXT PRIMARY KEY,                 -- uuid of the activity
-  raw_data TEXT NOT NULL               -- json data
+  raw_data BLOB NOT NULL               -- json data
 );
 
 -- table for local users
@@ -73,18 +73,18 @@ CREATE TABLE Actor (
 -- table for posts
 CREATE TABLE Posts (
    id INTEGER PRIMARY KEY,           -- internal post id, not exposed
-   public_id STRING,                 -- if post is by an local user, then assign a public id for the url
-   url STRING NOT NULL UNIQUE,       -- url/id of the post, if local, then /api/posts/<public_id>
-   author_id INTEGER,                -- author of the post
+   public_id TEXT,                 -- if post is by an local user, then assign a public id for the url
+   url TEXT NOT NULL UNIQUE,       -- url/id of the post, if local, then /api/posts/<public_id>
+   author_id INTEGER NOT NULL,       -- author of the post
 
    is_public BOOLEAN,                -- is the post public? or only to the mentioned users
 
    summary TEXT,                     -- subject of the post
-   post_source TEXT,                 -- source of the post
+   post_source TEXT NOT NULL,        -- source of the post
 
-   published DATE,                   -- date at which post was published
+   published DATE NOT NULL,          -- date at which post was published
 
-   raw_data TEXT,                    -- if by an external user, then keep raw json of the post
+   raw_data BLOB,                    -- if by an external user, then keep raw json of the post
    FOREIGN KEY (author_id)
       REFERENCES Actor (id)
       ON UPDATE RESTRICT
@@ -100,7 +100,7 @@ CREATE TABLE PostTo (
    PRIMARY KEY (post_id, actor_id)
 
    FOREIGN KEY (post_id)
-      REFERENCES Post (id)
+      REFERENCES Posts (id)
       ON UPDATE RESTRICT
       ON DELETE RESTRICT
 
@@ -123,16 +123,13 @@ CREATE TABLE PostCc (
       ON DELETE RESTRICT
 
    FOREIGN KEY (post_id)
-      REFERENCES Post (id)
+      REFERENCES Posts (id)
       ON UPDATE RESTRICT
       ON DELETE RESTRICT
 );
 
 -- table for mentions
-CREATE TABLE Mentions (
-   public_id STRING,                -- if mention is by a local user, then assign a public id for the url (TODO, do we need this?)
-   url STRING NOT NULL UNIQUE,      -- url of the mention, if local, then /api/mentions/<public_id>
-   raw_data TEXT,                   -- if by an external user, then keep raw json of the mention
+CREATE TABLE Mention (
 
    post_id INTEGER NOT NULL,        -- post doing the mentioning
    actor_id INTEGER NOT NULL,       -- actor being mentioned
@@ -140,7 +137,7 @@ CREATE TABLE Mentions (
    PRIMARY KEY (post_id, actor_id)
 
    FOREIGN KEY (post_id)
-      REFERENCES Post (id)
+      REFERENCES Posts (id)
       ON UPDATE RESTRICT
       ON DELETE RESTRICT
    FOREIGN KEY (actor_id)
@@ -149,12 +146,11 @@ CREATE TABLE Mentions (
       ON DELETE RESTRICT
 
 );
-CREATE index idxMentions_public_id on Mentions(public_id);
 
 -- table for Tags
 CREATE TABLE Tags (
-   tag_id INTEGER PRIMARY KEY,       -- tag id
-   tag_name STRING                   -- tag name
+   tag_id INTEGER PRIMARY KEY,          -- tag id
+   tag_name TEXT NOT NULL UNIQUE        -- tag name
 );
 CREATE index idxTags_tag_name on Tags(tag_name);
 
@@ -162,14 +158,14 @@ CREATE index idxTags_tag_name on Tags(tag_name);
 CREATE TABLE PostTags (
    post_id INTEGER,                  -- post id
    tag_id INTEGER,                   -- tag id
-   url STRING,                       -- href of the tag root (i.e head to url to see all posts) if external
+   url TEXT,                         -- href of the tag root (i.e head to url to see all posts) if external
    PRIMARY KEY (post_id, tag_id)
    FOREIGN KEY (post_id)
-      REFERENCES Post (id)
+      REFERENCES Posts (id)
       ON UPDATE RESTRICT
       ON DELETE RESTRICT
    FOREIGN KEY (tag_id)
-      REFERENCES Tags (id)
+      REFERENCES Tags (tag_id)
       ON UPDATE RESTRICT
       ON DELETE RESTRICT
 );
@@ -182,13 +178,16 @@ CREATE TABLE Likes (
    post_id INTEGER NOT NULL,       -- post being liked
    actor_id INTEGER NOT NULL,      -- actor doing the liking
 
+   published DATE NOT NULL,        -- date at which like was published
 
-   public_id STRING,               -- if like by a local user, then assign a public id for the like object
-   url STRING NOT NULL,            -- url of the like object, if local, then /api/likes/<public_id>
-   raw_data TEXT,                  -- if by an external user, then keep the raw json of the like object
+   public_id TEXT,                 -- if like by a local user, then assign a public id for the like object
+   url TEXT NOT NULL,              -- url of the like object, if local, then /api/likes/<public_id>
+   raw_data BLOB,                  -- if by an external user, then
+                                   -- keep the raw json of the like
+                                   -- object
 
    FOREIGN KEY (post_id)
-      REFERENCES Post (id)
+      REFERENCES Posts (id)
       ON UPDATE RESTRICT
       ON DELETE RESTRICT
    FOREIGN KEY (actor_id)
@@ -202,10 +201,14 @@ CREATE index idxLikes_public_id on Likes(public_id);
 -- table for follows 
 CREATE TABLE Follows (
    id INTEGER PRIMARY KEY,               -- internal like id, not exposed
-   public_id STRING,                     -- if follow by a local user, then assign a public id for the like object
-   url STRING,                           -- url of the follow object, if local then /api/follows/<public_id>
-   raw_data TEXT,                        -- if by an external user, then keep the raw json of the like object
-   pending BOOLEAN,                      -- whether the follow request is pending
+   public_id TEXT,                       -- if follow by a local user, then assign a public id for the follow object
+   url TEXT,                             -- url of the follow object, if local then /api/follows/<public_id>
+   raw_data BLOB,                        -- if by an external user, then keep the raw json of the follow object
+   pending BOOLEAN NOT NULL,             -- whether the follow request is pending
+
+   created DATE NOT NULL,                -- date at which follow was created
+   updated DATE,                         -- date at which follow was updated if ever
+
    author_id INTEGER NOT NULL,           -- id of the author of the follow
    target_id INTEGER NOT NULL,           -- id of the actor being followed
 

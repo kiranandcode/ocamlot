@@ -4,8 +4,8 @@ module T = Testing_utils.Lwt.Make (struct let name = "activity" end);;
 T.add_test "can create activity" @@ with_db @@ fun db ->
 let id = Database.Activity.fresh_id () in
 let data = Yojson.Safe.from_string {| { "example": "data" } |} in
-let@ user = Database.Activity.create ~id ~data db in
-check_is_ok user
+let+ user = Database.Activity.create ~id ~data db in
+ret (check_is_ok user)
 ;;
 
 T.add_test "can lookup activity by id" @@ with_db @@ fun db ->
@@ -13,7 +13,9 @@ let id = Database.Activity.fresh_id () in
 let data = Yojson.Safe.from_string {| { "example": "data" } |} in
 let+ _ = Database.Activity.create ~id ~data db in
 let* user' = Database.Activity.find id db in
-check_is_some user'
+ret begin
+  check_is_some user'
+end
 ;;
 
 T.add_test "looked up activity data matches" @@ with_db @@ fun db ->
@@ -22,8 +24,10 @@ let data = Yojson.Safe.from_string {| { "example": "data" } |} in
 let+ _ = Database.Activity.create ~id ~data db in
 let* user = Database.Activity.find id db in
 let user_data = Option.get user |> Database.Activity.data in
-check_string_eq ~expected:(Yojson.Safe.to_string data)
-  (Yojson.Safe.to_string user_data)
+ret begin
+  check_string_eq ~expected:(Yojson.Safe.to_string data)
+    (Yojson.Safe.to_string user_data)
+end
 ;;
 
 T.add_test "looked up activity data matches with multiple" @@ with_db @@ fun db ->
@@ -37,8 +41,10 @@ let data = Yojson.Safe.from_string {| { "example": "data" } |} in
 let+ _ = Database.Activity.create ~id ~data db in
 let* user = Database.Activity.find id db in
 let user_data = Option.get user |> Database.Activity.data in
+ret begin
 check_string_eq ~expected:(Yojson.Safe.to_string data)
   (Yojson.Safe.to_string user_data)
+end
 ;;
 
 
@@ -51,8 +57,10 @@ let data2 = Yojson.Safe.from_string {| { "example": "data2" } |} in
 let+ _ = Database.Activity.update user data2 db in
 let* user = Database.Activity.find id db in
 let user_data = Option.get user |> Database.Activity.data in
-check_string_eq ~expected:(Yojson.Safe.to_string data2)
-  (Yojson.Safe.to_string user_data)
+ret begin
+  check_string_eq ~expected:(Yojson.Safe.to_string data2)
+    (Yojson.Safe.to_string user_data)
+end
 ;;
 
 T.add_test "updating activity data doesn't change others" @@ with_db @@ fun db ->
@@ -69,8 +77,10 @@ let data2 = Yojson.Safe.from_string {| { "example": "data2" } |} in
 let+ _ = Database.Activity.update user data2 db in
 let* user = Database.Activity.find old_id db in
 let user_data = Option.get user |> Database.Activity.data in
-check_string_eq ~expected:(Yojson.Safe.to_string old_data)
-  (Yojson.Safe.to_string user_data)
+ret begin
+  check_string_eq ~expected:(Yojson.Safe.to_string old_data)
+    (Yojson.Safe.to_string user_data)
+end
 ;;
 
 
