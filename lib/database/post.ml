@@ -131,6 +131,135 @@ FROM Mention
 WHERE post_id = ?
 |}
 
+let collect_post_feed_request =
+  Caqti_request.collect ~oneshot:false T.Std.(tup4 int64 int64 int64 int64) t {|
+-- select posts 
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND (
+    -- where, we (1) are the author
+    P.author_id = ? OR
+	-- or	we (1) are following the author of the post, and the post is public
+    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) AND P.is_public) OR
+	-- or we (1) are the recipients (cc, to) of the post    
+    (EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
+	 EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)))
+ORDER BY DATETIME(P.published) DESC
+|}
+
+let collect_post_feed_offset_request =
+  Caqti_request.collect ~oneshot:false
+    T.Std.(tup4 timestamp int64 int64
+             (tup4 int64 int64 int int)) t {|
+-- select posts 
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND 
+    DATETIME(P.published) <= ? AND (
+    -- where, we (1) are the author
+    P.author_id = ? OR
+-- or	we (1) are following the author of the post, and the post is public
+    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) AND P.is_public) OR
+-- or we (1) are the recipients (cc, to) of the post    
+    (EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
+EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)))
+ORDER BY DATETIME(P.published) DESC
+LIMIT ? OFFSET ?
+|}
+
+let collect_post_direct_messages_request =
+  Caqti_request.collect ~oneshot:false T.Std.(tup3 int64 int64 int64) t {|
+-- select posts 
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND (
+    -- where, we (1) are the author and the post is public
+    (P.author_id = ? AND P.is_public = FALSE) OR
+    -- or we (1) are the recipients (cc, to) of the post    
+    ((EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
+	 EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)) AND
+      P.is_public = FALSE))
+ORDER BY DATETIME(P.published) DESC
+|}
+
+let collect_post_direct_messages_offset_request =
+  Caqti_request.collect ~oneshot:false
+    T.Std.(tup4 timestamp int64 int64
+           (tup3 int64 int int)) t {|
+-- select posts 
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND
+    DATETIME(P.published) <= ? AND (
+    -- where, we (1) are the author and the post is public
+    (P.author_id = ? AND P.is_public = FALSE) OR
+    -- or we (1) are the recipients (cc, to) of the post    
+    ((EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
+	 EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)) AND
+      P.is_public = FALSE))
+ORDER BY DATETIME(P.published) DESC
+LIMIT ? OFFSET ?
+|}
+
+let collect_post_whole_known_network_request =
+  Caqti_request.collect ~oneshot:false T.Std.unit t {|
+-- select posts 
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND (P.is_public = TRUE)
+ORDER BY DATETIME(P.published) DESC
+|}
+
+let collect_post_whole_known_network_request =
+  Caqti_request.collect ~oneshot:false T.Std.(tup3 timestamp int int) t {|
+-- select posts 
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND
+    DATETIME(P.published) <= ? AND
+    (P.is_public = TRUE)
+ORDER BY DATETIME(P.published) DESC
+LIMIT ? OFFSET ?
+|}
+
+let collect_post_local_network_request =
+  Caqti_request.collect ~oneshot:false T.Std.unit t {|
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND
+    (P.is_public = TRUE) AND 
+	EXISTS (SELECT * FROM Actor as Act WHERE Act.id = P.author_id AND Act.local_id IS NOT NULL) 
+ORDER BY DATETIME(P.published) DESC
+|}
+
+
+let collect_post_local_network_offset_request =
+  Caqti_request.collect ~oneshot:false T.Std.(tup3 timestamp int int) t {|
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND
+   DATETIME(P.published) <= ? AND
+    (P.is_public = TRUE) AND 
+	EXISTS (SELECT * FROM Actor as Act WHERE Act.id = P.author_id AND Act.local_id IS NOT NULL) 
+ORDER BY DATETIME(P.published) DESC
+LIMIT ? OFFSET ?
+|}
 
 let resolve_post id (module DB: DB) =
   DB.find resolve_post_request id |> flatten_error
