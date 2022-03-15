@@ -75,6 +75,7 @@ let lookup_user_exn ~username (module DB: DB) =
   let* user = flatten_error @@ DB.find find_user_request username in
   R.return user
 
+let self user : t Link.t = (user.id, resolve_user)
 let username user = user.username
 
 let pubkey user =

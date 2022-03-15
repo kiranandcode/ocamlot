@@ -10,7 +10,8 @@ let with_users n f =
          let* user = 
            Database.LocalUser.create_user
              ~username:("a-user" ^ string_of_int i)
-             ~password:"areallygoodpasswordhere121" db in
+             ~password:"areallygoodpasswordhere121" db
+           >|= Database.LocalUser.self in
          let* user = Database.Actor.of_local user db in
          Lwt.return user
       ) (List.init n Fun.id) in

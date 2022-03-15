@@ -21,6 +21,7 @@ module LocalUser : sig
   val lookup_user : username:string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
   val lookup_user_exn : username:string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
+  val self: t -> t Link.t
   val username: t -> string
   val display_name: t -> string
   val pubkey : t -> string
@@ -71,13 +72,18 @@ module RemoteUser : sig
   val lookup_remote_user_by_address: username:string -> domain:string -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
   val lookup_remote_user_by_address_exn : username:string -> domain:string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
   val get_known_remote_actors : (module Caqti_lwt.CONNECTION) -> ((string * string * string) list, string) Lwt_result.t
+
+  val collect_remote_users_following:
+    ?offset:int * int -> Local_user.t Link.t ->
+    (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
 end = Remote_user
 
 module Actor : sig
   type t = Actor.t = Local of Local_user.t | Remote of Remote_user.t
 
-  val of_local: Local_user.t -> (module Caqti_lwt.CONNECTION) -> (t Link.t, string) Lwt_result.t
-  val of_remote: Remote_user.t -> (module Caqti_lwt.CONNECTION) -> (t Link.t, string) Lwt_result.t
+  val of_local: LocalUser.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t Link.t, string) Lwt_result.t
+  val of_remote: RemoteUser.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t Link.t, string) Lwt_result.t
 end = Actor
 
 

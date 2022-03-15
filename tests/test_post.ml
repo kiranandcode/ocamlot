@@ -12,7 +12,8 @@ let with_users n f =
          let* user = 
            Database.LocalUser.create_user
              ~username:("a-user" ^ string_of_int i)
-             ~password:"areallygoodpasswordhere121" db in
+             ~password:"areallygoodpasswordhere121" db 
+           >|= Database.LocalUser.self in
          let* user = Database.Actor.of_local user db in
          Lwt.return user
       ) (List.init n Fun.id) in
@@ -437,6 +438,7 @@ let* remote_user =
   Database.RemoteUser.create_remote_user
     ~username:"remote0" ~url:"testing.com/users/remote0"
     ~instance:remote_instance ~public_key_pem:"lololol" db
+  >|= Database.RemoteUser.self
   >>= Fun.flip Database.Actor.of_remote db in
 
 let* _ = Database.Post.create_post
@@ -514,6 +516,7 @@ let* remote_user =
   Database.RemoteUser.create_remote_user
     ~username:"remote0" ~url:"testing.com/users/remote0"
     ~instance:remote_instance ~public_key_pem:"lololol" db
+  >|= Database.RemoteUser.self
   >>= Fun.flip Database.Actor.of_remote db in
 
 let* _ = Database.Post.create_post

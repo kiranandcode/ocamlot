@@ -6,6 +6,9 @@ module Common : sig
   val ( let* ) : ('a, 'b) result Lwt.t -> ('a -> 'c Lwt.t) -> 'c Lwt.t
   val ret : 'a -> 'a Lwt.t
 
+  val (>>=) : ('a,'c) Lwt_result.t -> ('a -> ('b, 'c) Lwt_result.t) -> ('b, 'c) Lwt_result.t
+  val (>|=) : ('a,'c) Lwt_result.t -> ('a -> 'b) -> ('b, 'c) Lwt_result.t
+
   val check_is_true : bool -> unit
   val check_is_false : bool -> unit
   val check_is_ok : ('a, 'b) result -> unit

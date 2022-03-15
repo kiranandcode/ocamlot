@@ -81,6 +81,69 @@ SELECT RemoteUser.username, RemoteInstance.url, RemoteUser.url FROM RemoteUser
 JOIN RemoteInstance on RemoteUser.instance_id = RemoteInstance.id
 |}
 
+let collect_remote_users_request =
+  Caqti_request.collect ~oneshot:false T.Std.int64 t {|
+-- select users from remote users
+SELECT
+    RU.id,
+    RU.username,
+    RU.instance_id,
+    RU.display_name,
+    RU.url,
+    RU.inbox,
+    RU.outbox,
+    RU.followers,
+    RU.following,
+    RU.summary,
+    RU.public_key_pem
+FROM RemoteUser as RU
+JOIN Actor as A ON A.remote_id = RU.id
+WHERE
+  -- where there exists a follow
+  EXISTS (
+      SELECT *
+     FROM Follows AS F
+     -- where the author is the remote user
+     WHERE F.author_id = A.id
+       -- the target is our guy
+       AND F.target_id = ?
+       -- and the follow is not pending
+       AND F.pending = FALSE)
+ORDER BY RU.id ASC
+|}
+
+let collect_remote_users_offset_request =
+  Caqti_request.collect ~oneshot:false T.Std.(tup3 int64 int int) t {|
+-- select users from remote users
+SELECT
+    RU.id,
+    RU.username,
+    RU.instance_id,
+    RU.display_name,
+    RU.url,
+    RU.inbox,
+    RU.outbox,
+    RU.followers,
+    RU.following,
+    RU.summary,
+    RU.public_key_pem
+FROM RemoteUser as RU
+JOIN Actor as A ON A.remote_id = RU.id
+WHERE
+  -- where there exists a follow
+  EXISTS (
+      SELECT *
+     FROM Follows AS F
+     -- where the author is the remote user
+     WHERE F.author_id = A.id
+       -- the target is our guy
+       AND F.target_id = ?
+       -- and the follow is not pending
+       AND F.pending = FALSE)
+ORDER BY RU.id ASC
+LIMIT ? OFFSET ?
+|}
+
 let resolve_remote_user id (module DB: DB) =
   DB.find resolve_remote_user_request id |> flatten_error
 
@@ -107,6 +170,14 @@ let lookup_remote_user_by_address_exn ~username ~domain (module DB: DB) =
 let get_known_remote_actors (module DB: DB) =
   DB.collect_list retrieve_known_user_list_reqest () |> flatten_error
 
+let collect_remote_users_following ?offset
+      ((local_user, _): Local_user.t Link.t) (module DB: DB) =
+  match offset with
+  | None ->
+    DB.collect_list collect_remote_users_request local_user |> flatten_error
+  | Some (limit, offset) ->
+    DB.collect_list collect_remote_users_offset_request (local_user, limit, offset)
+    |> flatten_error
 
 let self t : t Link.t = t.id, resolve_remote_user
 let username t = t.username

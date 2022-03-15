@@ -9,6 +9,9 @@ module Common = struct
   let (let*) x f = Lwt.(x >>= function v -> f (Result.get_exn v))
   let ret v = Lwt.return v
 
+  let (>>=) x f = Lwt_result.bind x f
+  let (>|=) x f = Lwt_result.map f x
+
 
   let check_is_true vl = Alcotest.(check bool) "predicate is true" true vl
   let check_is_false vl = Alcotest.(check bool) "predicate is false" false vl
