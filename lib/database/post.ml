@@ -149,6 +149,7 @@ WHERE
 ORDER BY DATETIME(P.published) DESC
 |}
 
+
 let collect_post_feed_offset_request =
   Caqti_request.collect ~oneshot:false
     T.Std.(tup4 timestamp int64 int64
@@ -170,6 +171,7 @@ EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?))
 ORDER BY DATETIME(P.published) DESC
 LIMIT ? OFFSET ?
 |}
+
 
 let collect_post_direct_messages_request =
   Caqti_request.collect ~oneshot:false T.Std.(tup3 int64 int64 int64) t {|
@@ -209,6 +211,7 @@ ORDER BY DATETIME(P.published) DESC
 LIMIT ? OFFSET ?
 |}
 
+
 let collect_post_whole_known_network_request =
   Caqti_request.collect ~oneshot:false T.Std.unit t {|
 -- select posts 
@@ -220,7 +223,7 @@ WHERE
 ORDER BY DATETIME(P.published) DESC
 |}
 
-let collect_post_whole_known_network_request =
+let collect_post_whole_known_network_offset_request =
   Caqti_request.collect ~oneshot:false T.Std.(tup3 timestamp int int) t {|
 -- select posts 
 SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
@@ -357,6 +360,47 @@ let collect_post_mentions
              |> flatten_error in
   let mentions = List.map (fun id -> (id, Actor.resolve)) ls in
   Lwt_result.return mentions
+
+let collect_post_feed ?offset ((post_id, _): Actor.t Link.t) (module DB: DB) =
+  match offset with
+  | None ->
+    DB.collect_list collect_post_feed_request (post_id, post_id, post_id, post_id)
+    |> flatten_error
+  | Some (timestamp, limit, offset) ->
+    DB.collect_list collect_post_feed_offset_request
+      (timestamp, post_id, post_id,
+       (post_id, post_id, limit, offset))
+    |> flatten_error
+
+let collect_post_direct ?offset ((post_id, _): Actor.t Link.t) (module DB: DB) =
+  match offset with
+  | None ->
+    DB.collect_list collect_post_direct_messages_request (post_id, post_id, post_id)
+    |> flatten_error
+  | Some (timestamp, limit, offset) ->
+    DB.collect_list collect_post_direct_messages_offset_request
+      (timestamp, post_id, post_id, (post_id, limit, offset))
+    |> flatten_error
+
+let collect_post_whole_known_network ?offset (module DB: DB) =
+  match offset with
+  | None ->
+    DB.collect_list collect_post_whole_known_network_request ()
+    |> flatten_error
+  | Some (timestamp, limit, offset) ->
+    DB.collect_list collect_post_whole_known_network_offset_request
+      (timestamp, limit, offset)
+    |> flatten_error
+
+let collect_post_local_network ?offset (module DB: DB) =
+  match offset with
+  | None ->
+    DB.collect_list collect_post_local_network_request ()
+    |> flatten_error
+  | Some (timestamp, limit, offset) ->
+    DB.collect_list collect_post_local_network_offset_request
+      (timestamp, limit, offset)
+    |> flatten_error
 
 let self t : t Link.t = t.id, resolve_post
 let public_id t = t.public_id

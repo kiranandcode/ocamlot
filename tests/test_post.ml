@@ -1,6 +1,8 @@
 open Testing_utils.Common
 module T = Testing_utils.Lwt.Make (struct let name = "post" end)
 module Poly = struct let (=) = Containers.Equal.poly end
+let (>|=) x f = Lwt_result.map f x
+let (>>=) x f = Lwt_result.bind x f
 
 let with_users n f =
   with_db @@ fun db ->
@@ -16,6 +18,30 @@ let with_users n f =
       ) (List.init n Fun.id) in
   let users = Array.of_list users in
   f db users
+;;
+
+let with_posts ?sensitive ?dates ~users ~posts:m db f =
+  let+ posts =
+    Lwt_list.map_s
+      (fun i ->
+         let* post = 
+           Database.Post.create_post
+             ~public_id:("post" ^ string_of_int i)
+             ~summary:("Re: Testing" ^ string_of_int i)
+             ~url:("https://localhost.local/activities/" ^ ("as9302390" ^ string_of_int i))
+             ~author:users.(min i ((Array.length users) - 1))
+             ~is_public:(match sensitive with
+               | None -> true
+               | Some sensitive -> not sensitive.(min (Array.length sensitive - 1) i))
+             ~post_source:"Does posts works?"
+             ~published:(match dates with
+               | None -> CalendarLib.Calendar.now ()
+               | Some dates -> dates.(min (Array.length dates - 1) i)
+             ) db in
+         Lwt.return (Database.Post.self post)
+      ) (List.init m Fun.id) in
+  let posts = Array.of_list posts in
+  f posts
 ;;
 
 T.add_test "can create post" @@ with_users 1 @@ fun db users ->
@@ -201,7 +227,7 @@ end
 ;;
 
 
-T.add_test "can add to post to list" @@ with_users 4 @@ fun db users ->
+T.add_test "can add to post's \"to\" list" @@ with_users 4 @@ fun db users ->
 let* post1 = 
   Database.Post.create_post
     ~public_id:"129012901290"
@@ -382,6 +408,163 @@ ret begin
 end
 ;;
 
+T.add_test "can collect posts" @@ with_users 5 @@
+fun db users ->
+let post0_date = CalendarLib.Calendar.now () in
+let post1_date = CalendarLib.Calendar.(add post0_date Period.(day 1)) in
+let post2_date = CalendarLib.Calendar.(add post1_date Period.(day 1)) in
+let post3_date = CalendarLib.Calendar.(add post2_date Period.(day 1)) in
+let post4_date = CalendarLib.Calendar.(add post3_date Period.(day 1)) in
+let post5_date = CalendarLib.Calendar.(add post4_date Period.(day 1)) in
+let _query_date = CalendarLib.Calendar.(add post5_date Period.(day 10)) in
+let follow u1 u2 =
+  Database.Follow.create_follow
+    ~url:("follow" ^
+          string_of_int u1 ^
+          "->" ^
+          string_of_int u2)
+    ~created:(CalendarLib.Calendar.now ())
+    ~pending:false
+    ~author:users.(u1)
+    ~target:users.(u2) db in
+with_posts ~users
+  ~dates:[|post0_date; post1_date; post2_date; post3_date; post4_date|]
+  ~sensitive:[|true; false; false; true; true|] ~posts:5 db @@ fun posts ->
+
+let* remote_instance = Database.RemoteInstance.create_instance "testing.com" db
+                     >|= Database.RemoteInstance.self in
+let* remote_user =
+  Database.RemoteUser.create_remote_user
+    ~username:"remote0" ~url:"testing.com/users/remote0"
+    ~instance:remote_instance ~public_key_pem:"lololol" db
+  >>= Fun.flip Database.Actor.of_remote db in
+
+let* _ = Database.Post.create_post
+                ~author:remote_user ~url:"testing.com/posts/post5"
+                ~public_id:"post5"
+                ~summary:"post 5 by a remote user"
+                ~is_public:true ~published:post5_date
+                ~post_source:"hell worldd" db
+            >|= Database.Post.self in
+
+(* post 0 is by user 0, to user 1, sensitive (should not show up in twkn or local) *)
+let* () = Database.Post.add_post_to posts.(0) users.(1) db in
+(* post 1 is by user 1, to user 2 not private, but user 0 is following user 1 *)
+let* _ = follow 0 1 in
+let* () = Database.Post.add_post_to posts.(1) users.(2) db in
+(* post 2 is by user 2, to user 3 not private, but user 0 is not following    *)
+let* () = Database.Post.add_post_to posts.(2) users.(1) db in
+(* post 3 is by user 3, private, but addressed to user 0    *)
+let* () = Database.Post.add_post_to posts.(3) users.(0) db in
+(* post 4 is by user 4, private, and not addressed to user 0 (should never be seen)  *)
+let* () = Database.Post.add_post_to posts.(4) users.(1) db in
+
+(* should be post 1,2,5  *)
+let* twkn = Database.Post.collect_post_whole_known_network db in
+(* should be post 1,2  *)
+let* local = Database.Post.collect_post_local_network db in
+(* should be post 0,1,3 *)
+let* feed = Database.Post.collect_post_feed users.(0) db in
+(* should be post 0, 3 *)
+let* direct_messages = Database.Post.collect_post_direct users.(0) db in
+
+ret begin
+  let pp_post post = Option.value ~default:"NONE" (Database.Post.public_id post) in
+  let check_post_list expected tmln =
+    Alcotest.(check (list string))
+      "timeline should match"
+      expected (List.map pp_post tmln) in
+  check_is_true (List.length twkn = 3);
+  check_post_list ["post5"; "post2"; "post1"] twkn;
+  check_is_true (List.length local = 2);
+  check_post_list ["post2"; "post1"] local;
+  check_is_true (List.length feed = 3);
+  check_post_list ["post3"; "post1"; "post0"] feed;
+  check_is_true (List.length direct_messages = 2);
+  check_post_list ["post3"; "post0"] direct_messages;
+end
+;;
+
+T.add_test "can collect posts w. limit" @@ with_users 5 @@
+fun db users ->
+let post0_date = CalendarLib.Calendar.now () in
+let post1_date = CalendarLib.Calendar.(add post0_date Period.(day 1)) in
+let post2_date = CalendarLib.Calendar.(add post1_date Period.(day 1)) in
+let post3_date = CalendarLib.Calendar.(add post2_date Period.(day 1)) in
+let post4_date = CalendarLib.Calendar.(add post3_date Period.(day 1)) in
+let post5_date = CalendarLib.Calendar.(add post4_date Period.(day 1)) in
+let query_date = CalendarLib.Calendar.(add post5_date Period.(day 10)) in
+let follow u1 u2 =
+  Database.Follow.create_follow
+    ~url:("follow" ^
+          string_of_int u1 ^
+          "->" ^
+          string_of_int u2)
+    ~created:(CalendarLib.Calendar.now ())
+    ~pending:false
+    ~author:users.(u1)
+    ~target:users.(u2) db in
+with_posts ~users
+  ~dates:[|post0_date; post1_date; post2_date; post3_date; post4_date|]
+  ~sensitive:[|true; false; false; true; true|] ~posts:5 db @@ fun posts ->
+
+let* remote_instance = Database.RemoteInstance.create_instance "testing.com" db
+                     >|= Database.RemoteInstance.self in
+let* remote_user =
+  Database.RemoteUser.create_remote_user
+    ~username:"remote0" ~url:"testing.com/users/remote0"
+    ~instance:remote_instance ~public_key_pem:"lololol" db
+  >>= Fun.flip Database.Actor.of_remote db in
+
+let* _ = Database.Post.create_post
+                ~author:remote_user ~url:"testing.com/posts/post5"
+                ~public_id:"post5"
+                ~summary:"post 5 by a remote user"
+                ~is_public:true ~published:post5_date
+                ~post_source:"hell worldd" db
+            >|= Database.Post.self in
+
+(* post 0 is by user 0, to user 1, sensitive (should not show up in twkn or local) *)
+let* () = Database.Post.add_post_to posts.(0) users.(1) db in
+(* post 1 is by user 1, to user 2 not private, but user 0 is following user 1 *)
+let* _ = follow 0 1 in
+let* () = Database.Post.add_post_to posts.(1) users.(2) db in
+(* post 2 is by user 2, to user 3 not private, but user 0 is not following    *)
+let* () = Database.Post.add_post_to posts.(2) users.(1) db in
+(* post 3 is by user 3, private, but addressed to user 0    *)
+let* () = Database.Post.add_post_to posts.(3) users.(0) db in
+(* post 4 is by user 4, private, and not addressed to user 0 (should never be seen)  *)
+let* () = Database.Post.add_post_to posts.(4) users.(1) db in
+
+(* should be post [5,2],1  *)
+let* twkn = Database.Post.collect_post_whole_known_network
+              ~offset:(query_date, 2, 0) db in
+(* should be post 2, [1]  *)
+let* local =
+  Database.Post.collect_post_local_network
+    ~offset:(query_date, 2, 1) db in
+(* should be post 3,[1,0] *)
+let* feed =
+  Database.Post.collect_post_feed users.(0)
+    ~offset:(post2_date, 3, 0) db in
+(* should be post [3, 0] *)
+let* direct_messages =
+  Database.Post.collect_post_direct
+    ~offset:(query_date, 3, 0)
+    users.(0) db in
+
+ret begin
+  let pp_post post = Option.value ~default:"NONE" (Database.Post.public_id post) in
+  let check_post_list expected tmln =
+    Alcotest.(check (list string))
+      "timeline should match"
+      expected (List.map pp_post tmln) in
+  check_post_list ["post5"; "post2"] twkn;
+  check_post_list ["post1"] local;
+  check_post_list ["post1"; "post0"] feed;
+  check_post_list ["post3"; "post0"] direct_messages;
+end
+;;
 
 
 let () =

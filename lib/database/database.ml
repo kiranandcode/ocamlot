@@ -155,6 +155,25 @@ module Post : sig
     (module Caqti_lwt.CONNECTION) ->
     (Actor.t Link.t list, string) Lwt_result.t
 
+  val collect_post_feed:
+    ?offset:CalendarLib.Calendar.t * int * int ->
+    Actor.t Link.t ->
+    (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
+  val collect_post_direct:
+    ?offset:CalendarLib.Calendar.t * int * int ->
+    Actor.t Link.t ->
+    (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
+  val collect_post_whole_known_network:
+    ?offset:CalendarLib.Calendar.t * int * int ->
+    (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
+  val collect_post_local_network:
+    ?offset:CalendarLib.Calendar.t * int * int ->
+    (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
+
   val self : t -> t Link.t
   val public_id : t -> string option
   val author : t -> Actor.t Link.t
@@ -308,3 +327,4 @@ end = Tag
 
 
 module Interface = Interface
+
