@@ -406,7 +406,8 @@ CLOSED: [2022-03-13 Sun 10:41]
 *** webfinger to remote to find remote user
 *** construct follow request
 *** post to server using signed 
-** TODO Update follow table to include (date created, date updated, & pending)
+** DONE Update follow table to include (date created, date updated, & pending)
+CLOSED: [2022-03-18 Fri 05:55]
 ** TODO Update Resolver.follow to add pending entry to database
 ** TODO Write function to handle post of accept follow objects
 *** Write single SQL function to update entry in following database, using remote actor url + local user username
