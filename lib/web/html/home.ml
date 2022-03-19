@@ -63,7 +63,11 @@ let build_url config time offset txt incr =
               "offset", [Int.to_string (offset + incr)]
             ]
             |> Uri.to_string in
-  H.a ~a:[H.a_href url] [H.txt txt]
+  B.level [
+    B.button ~a_class:["is-link"]
+      ~a:[H.a_href url]
+      txt
+  ]
 
 
 let body config ~offset:(time,offset) ~errors ~posts (user: Database.LocalUser.t option) req =
@@ -71,9 +75,11 @@ let body config ~offset:(time,offset) ~errors ~posts (user: Database.LocalUser.t
     [Navbar.build user req];
     Option.map (fun _ -> [build_post ~errors req]) user
     |> Option.value ~default:[];
-    (match offset with 0 -> [] | _ -> [build_url config time offset "prev" (-1)]);
-    build_posts_list posts;
-    (match posts with _ :: _ -> [build_url config time offset "next" 1]  | _ -> []);
+    [B.container @@ List.concat [
+       (match offset with 0 -> [] | _ -> [build_url config time offset "prev" (-1)]);
+       [B.container @@ build_posts_list posts];
+       (match posts with _ :: _ -> [build_url config time offset "next" 1]  | _ -> []);
+     ]];
     [Navbar.script];
     [noscript "Javascript may be required (but don't worry, it's all Libre my friend!)"]
   ]

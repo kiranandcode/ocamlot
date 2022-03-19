@@ -1,4 +1,26 @@
 @charset "utf-8";
+
+$primary: #ee6a1a;
+$link: #1982C4;
+$info: #1982C4;
+$success: #0CCE6B;
+$warning: #eed41a;
+$danger: #ee1a34;
+
+$body-background-color: #000E26;// #faf8f3;
+/* $body-background-color: #002a32; */
+
+$scheme-main: #ee6a1a; // #7b3409; // #000E26;
+$scheme-main-bis: #0D47A1; // #ee6a1a; //#002855;
+// $scheme-main-ter: #FF822E; //#003672;
+$input-background-color: #000E26;
+
+$dark: #faf8f3;
+$text: #faf8f3;
+$label-color: #faf8f3;
+$title-color: #faf8f3;
+$input-color: #faf8f3;
+
 @import "./bulma/bulma.sass";
 
 // $divider-margin-size: 10px;
