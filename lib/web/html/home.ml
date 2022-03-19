@@ -52,7 +52,7 @@ let build_posts_list (posts : Database.Post.t list) =
     H.p [H.txt @@ DP.post_source post]
   ]
 
-let build_url config time offset incr =
+let build_url config time offset txt incr =
   let url = Configuration.Url.home_url config
             |> Fun.flip Uri.with_query [
               "time", 
@@ -63,7 +63,7 @@ let build_url config time offset incr =
               "offset", [Int.to_string (offset + incr)]
             ]
             |> Uri.to_string in
-  H.a ~a:[H.a_href url] [H.txt "next"]
+  H.a ~a:[H.a_href url] [H.txt txt]
 
 
 let body config ~offset:(time,offset) ~errors ~posts (user: Database.LocalUser.t option) req =
@@ -71,9 +71,9 @@ let body config ~offset:(time,offset) ~errors ~posts (user: Database.LocalUser.t
     [Navbar.build user req];
     Option.map (fun _ -> [build_post ~errors req]) user
     |> Option.value ~default:[];
-    (match offset with 0 -> [] | _ -> [build_url config time offset (-1)]);
+    (match offset with 0 -> [] | _ -> [build_url config time offset "prev" (-1)]);
     build_posts_list posts;
-    (match posts with [] -> [build_url config time offset 1]  | _ -> []);
+    (match posts with _ :: _ -> [build_url config time offset "next" 1]  | _ -> []);
     [Navbar.script];
     [noscript "Javascript may be required (but don't worry, it's all Libre my friend!)"]
   ]
