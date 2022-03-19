@@ -1,4 +1,10 @@
 
+
+let home_url config =
+  Params.domain config
+  |> Fun.flip Uri.with_path "/home"
+
+
 let user_base_url config =
   Params.domain config
   |> Fun.flip Uri.with_path "/users"

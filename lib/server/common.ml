@@ -1,15 +1,10 @@
 open Containers
+module APConstants = Activitypub.Constants
 
-(*
-
-('a -> Dream.response Lwt.t) -> Dream.response Lwt.t
-
-('a -> 'b) -> 'a -> 'b
-
-*)
 let (let>) x f = x f
 let (let+) x f = Lwt.bind x f
 let (let+!) x f = Lwt_result.bind x f
+let (>|=) x f = Lwt_result.map x f
 
 let internal_error = Dream.respond ~status:`Internal_Server_Error "Internal server error"
 let bad_request = Dream.respond ~status:`Bad_Request "Bad Request"

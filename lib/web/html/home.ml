@@ -42,18 +42,44 @@ let build_post ?(errors=[]) req =
       ]]
   ]
 
+let build_posts_list (posts : Database.Post.t list) =
+  let module DP = Database.Post in
+  Fun.flip List.map posts @@ fun post ->
+  B.media ~left:[ ] [
+    H.p [(H.txt (DP.summary post |> Option.value ~default:""))];
+    H.a ~a:[H.a_href (DP.url post)] [H.txt @@ (DP.published post |> CalendarLib.Printer.Calendar.to_string)];
+    H.br ();
+    H.p [H.txt @@ DP.post_source post]
+  ]
 
-let body ~errors (user: Database.LocalUser.t option) req =
+let build_url config time offset incr =
+  let url = Configuration.Url.home_url config
+            |> Fun.flip Uri.with_query [
+              "time", 
+                       (Ptime.of_float_s
+                          (CalendarLib.Calendar.to_unixfloat time))
+                       |> Option.map (Ptime.to_rfc3339 ~tz_offset_s:0)
+                       |> Option.to_list ;
+              "offset", [Int.to_string (offset + incr)]
+            ]
+            |> Uri.to_string in
+  H.a ~a:[H.a_href url] [H.txt "next"]
+
+
+let body config ~offset:(time,offset) ~errors ~posts (user: Database.LocalUser.t option) req =
   H.body ~a:[H.a_class ["has-navbar-fixed-top"]] @@ List.concat [
     [Navbar.build user req];
     Option.map (fun _ -> [build_post ~errors req]) user
-      |> Option.value ~default:[];
+    |> Option.value ~default:[];
+    (match offset with 0 -> [] | _ -> [build_url config time offset (-1)]);
+    build_posts_list posts;
+    (match posts with [] -> [build_url config time offset 1]  | _ -> []);
     [Navbar.script];
     [noscript "Javascript may be required (but don't worry, it's all Libre my friend!)"]
   ]
 
 
-let build ~errors user req =
+let build config ~offset ~errors ~posts user req =
   let head = Components.build_header ~title:"Home" () in
-  let body = body ~errors user req in
+  let body = body config ~offset ~errors ~posts user req in
   Utils.build_document head body

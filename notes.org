@@ -408,7 +408,9 @@ CLOSED: [2022-03-13 Sun 10:41]
 *** post to server using signed 
 ** DONE Update follow table to include (date created, date updated, & pending)
 CLOSED: [2022-03-18 Fri 05:55]
-** TODO Update Resolver.follow to add pending entry to database
+** DONE Update Resolver.follow to add pending entry to database
+CLOSED: [2022-03-18 Fri 08:01]
+** TODO update home page to look good + post
 ** TODO Write function to handle post of accept follow objects
 *** Write single SQL function to update entry in following database, using remote actor url + local user username
 *** when decoding accept follow object in inbox

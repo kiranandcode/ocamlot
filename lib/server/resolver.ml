@@ -1,27 +1,6 @@
 open Containers
 open Common
 
-(* let string_safe line elt kont =
- *   match elt with
- *   | `String str -> kont str
- *   | _ ->
- *     Lwt.return (Error (Int.to_string line ^ "could not convert " ^ Yojson.Safe.to_string elt ^ " into a string"))
- * 
- * let member_safe line name elt kont =
- *   match elt with
- *   | `Assoc ls -> begin match List.assoc_opt ~eq:String.(=) name ls with
- *     | Some res -> kont res
- *     | None ->
- *       Lwt.return (Error (Int.to_string line ^ "could not deref " ^ name ^ " from: " ^ Yojson.Safe.to_string elt))      
- *   end
- *   | _ -> Lwt.return (Error (Int.to_string line ^ "could not deref " ^ name ^ " from: " ^ Yojson.Safe.to_string elt)) *)
-
-let activity_json_header =
-  ("Accept", Activitypub.Constants.ContentType.activity_json)
-
-let json_rd_header =
-  ("Accept", Activitypub.Constants.Webfinger.json_rd)
-
 let req_post ~headers url body =
   let body = Cohttp_lwt.Body.of_string body in
   try
@@ -33,7 +12,6 @@ let req_post ~headers url body =
     Lwt_result.return pair
   with exn -> Lwt.return (Result.of_exn exn)
 
-
 let req ~headers url =
   try
     let+ pair =
@@ -43,12 +21,29 @@ let req ~headers url =
     Lwt_result.return pair
   with exn -> Lwt.return (Result.of_exn exn)
 
+let signed_req f (key_id, priv_key) uri body_str =
+  let current_time = Ptime_clock.now () in
+  let headers =
+    Http_sig.build_signed_headers
+      ~current_time ~method_:"POST" ~body_str
+      ~headers:(Http_sig.StringMap.of_list [
+        "Content-Type", APConstants.ContentType.ld_json_activity_streams
+      ]) ~key_id ~priv_key ~uri
+    |> Cohttp.Header.of_list in
+  f ~headers uri body_str
+
+let signed_post key uri body =
+  signed_req req_post key uri body
+
 let activity_req ?(headers=[]) url =
-  req ~headers:(activity_json_header :: headers) url
+  let activity_header =
+    ("Accept", APConstants.ContentType.activity_json) in
+  req ~headers:(activity_header :: headers) url
 
 let json_rd_req ?(headers=[]) url =
+  let json_rd_header =
+    ("Accept", APConstants.Webfinger.json_rd) in
   req ~headers:(json_rd_header :: headers) url
-
 
 let lookup_request url =
   (* NOTE: Not obvious, but you need to specify accept headers, else pleroma will return html *)
@@ -61,7 +56,6 @@ let lookup_request url =
     |> X509.Public_key.decode_pem
     |> Result.map_err (fun (`Msg err) -> err) in
   Lwt.return pub_key
-
 
 let resolve_remote_user ~username ~domain db : (Database.RemoteUser.t, string) Lwt_result.t =
   let extract_self_link query =
@@ -132,49 +126,36 @@ let build_follow_request config local remote db =
       Database.Activity.id_to_string id
       |> Configuration.Url.activity_endpoint config
       |> Uri.to_string in
-    Activitypub.Types.{
-      id;
-      actor=local_actor_url;
-      cc = [];
-      to_ = [ remote_actor_url ];
-      object_=remote_actor_url;
-      state = Some `Pending;
-    }  in
+    Activitypub.Types.{ id; actor=local_actor_url;
+      cc = []; to_ = [ remote_actor_url ];
+      object_=remote_actor_url; state = Some `Pending; }  in
   let data = Activitypub.Encode.follow follow_request in
+  let+! _ =
+    let+! author = Database.Actor.of_local (Database.LocalUser.self local) db in
+    let+! target = Database.Actor.of_remote (Database.RemoteUser.self remote) db in
+    Database.Follow.create_follow
+      ~url:(Configuration.Url.activity_endpoint config (Database.Activity.id_to_string id)
+            |> Uri.to_string)
+      ~public_id:(Database.Activity.id_to_string id)
+      ~author ~target ~pending:true
+      ~created:(CalendarLib.Calendar.now ()) db in
   let+! _ = Database.Activity.create ~id ~data db in
-  Lwt_result.return data
+  Lwt_result.return (data |> Yojson.Safe.to_string)
 
 let follow_remote_user config
       (local: Database.LocalUser.t)
       ~username ~domain db: (unit,string) Lwt_result.t =
   let+! remote = resolve_remote_user ~username ~domain db in
-  let+! follow = build_follow_request config local remote db in
-  let current_time = Ptime_clock.now () in
-  let+ () = Lwt.pause () in
-  let body_str = Yojson.Safe.to_string follow in
+  let+! follow_request = build_follow_request config local remote db in
   let uri = Database.RemoteUser.inbox remote in
-  let headers =
-    Http_sig.build_signed_headers
-      ~current_time ~method_:"POST" ~body_str
-      ~headers:(Http_sig.StringMap.of_list [
-        "Content-Type",
-        Activitypub.Constants.ContentType.ld_json_activity_streams
-      ])
-      ~key_id:(
-        Database.LocalUser.username local
-        |> Configuration.Url.user_key config
-        |> Uri.to_string)
-      ~priv_key:(Database.LocalUser.privkey local)
-      ~uri
-    |> Cohttp.Header.of_list in
-
-  let+! (resp,body) = req_post ~headers uri body_str in
-
-  Dream.log "follow request resp was:\n%a" Cohttp.Response.pp_hum resp;
-
-  let+ body = Cohttp_lwt.Body.to_string body in
-  (* NOTE: not obvious, body is ignored  *)
-  Dream.log "response body was %s" body;
-
-  Lwt.return_ok ()
+  let key_id =
+    Database.LocalUser.username local
+    |> Configuration.Url.user_key config
+    |> Uri.to_string in
+  let priv_key =
+    Database.LocalUser.privkey local in
+  let+! resp, _  = signed_post (key_id, priv_key) uri follow_request in
+  match resp.status with
+  | `OK -> Lwt_result.return ()
+  | _ -> Lwt_result.fail "request failed"
 
