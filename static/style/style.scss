@@ -28,3 +28,7 @@ $input-color: #faf8f3;
 // @import "./bulma-divider/index.sass";
 
 
+.is-logo img {
+    max-height: 2.75rem !important;
+    width: auto !important;
+}

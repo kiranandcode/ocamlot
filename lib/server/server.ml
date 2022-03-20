@@ -99,7 +99,7 @@ let () =
   let database_path =  "sqlite3://:../../test.db" in
   let config =
     Configuration.Params.create
-      ~database_path ~domain:"ocamlot.nfshost.com" in
+      ~database_path ~domain:(* "ocamlot.nfshost.com" *)"localhost:4000" in
   Worker.init config;
   Dream.run ~port:4000
   @@ Dream.logger

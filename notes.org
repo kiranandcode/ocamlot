@@ -410,7 +410,77 @@ CLOSED: [2022-03-13 Sun 10:41]
 CLOSED: [2022-03-18 Fri 05:55]
 ** DONE Update Resolver.follow to add pending entry to database
 CLOSED: [2022-03-18 Fri 08:01]
-** TODO update home page to look good + post
+** DONE update home page to look good + post
+CLOSED: [2022-03-19 Sat 15:44]
+** TODO Neaten up home page
+*** TODO Update home page get to resolve the users for each post as well
+** TODO Complete Follow request implementation
+*** TODO add field to local user, manually accept follow requests
+*** TODO handle follows
+**** TODO on post to inbox with follow request
+***** resolve local user
+***** resolve remote user
+***** create follow request from local to remote
+***** check if local user account is manually accept follow requests
+***** if not manual, send accept follow tasks to worker
+****** TODO define accept follow task in worker.ml
+******* takes a follow
+******* calculates inbox url of remote user
+******* create an accept follow request activity, add it to activities db
+******* send out follow request to inbox url
+******* update status of follow request to be not pending
+#+begin_src json
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://ocamlot.xyz/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ],
+  "actor": "https://ocamlot.xyz/users/example",
+  "cc": [],
+  "id": "https://ocamlot.xyz/activities/c99c2ba5-3ec0-412d-8cd0-2788867b7f67",
+  "object": {
+    "actor": "https://ocamlot.nfshost.com/users/example",
+    "id": "https://ocamlot.nfshost.com/activity/7612618e-7c66-4792-b410-e4c971f5de51",
+    "object": "https://ocamlot.xyz/users/example",
+    "type": "Follow"
+  },
+  "to": [
+    "https://ocamlot.nfshost.com/users/example"
+  ],
+  "type": "Accept"
+}
+#+end_src
+
+**** TODO on post to inbox with follow request accept
+***** resolve local user
+***** resolve remote user
+***** lookup follow request in table, if not found ignore 
+***** update status to follow true
+**** TODO add page to view followers
+**** TODO add page to view follow requests
+***** on post of follow public id, send accept follow task to worker
+**** try out unfollowing from ocamlot and see what happens
+** TODO Handle posts
+*** on submit post on home page 
+*** on post to inbox with note
+** TODO Add field to config that points to image storage path
+** TODO add image uploads database table
+*** id
+*** hash
+*** name
+** TODO modify user database schema with
+*** is_admin
+*** manually_accept_follow_requests
+*** avatar image id
+** TODO add profile page for local users - /users/example
+*** if user = local user, enable edit button
+** TODO add profile edit page
+
+
+** TODO Update navbar of logged in with dms/home/local/twkn
 ** TODO Write function to handle post of accept follow objects
 *** Write single SQL function to update entry in following database, using remote actor url + local user username
 *** when decoding accept follow object in inbox

@@ -9,5 +9,5 @@ let create ~domain ~database_path = {
   database_path;
 }
 
-let domain v = Uri.make ~scheme:"https" ~host:v.domain ()
+let domain v = Uri.of_string ("http://" ^ v.domain)
 let database_path v = v.database_path

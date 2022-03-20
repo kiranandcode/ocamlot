@@ -28,7 +28,7 @@ let notification ?(classes=[]) elts =
     ((H.button ~a:[H.a_class ["delete"]] []) :: elts)
 
 let build_post ?(errors=[]) req =
-  H.div ~a:[H.a_class ["hero"]] [
+  H.div ~a:[H.a_class ["tile"]] [
     H.div ~a:[H.a_class ["container"; "hero-body"]] @@ List.concat [
       [H.h1 ~a:[H.a_class ["title"]] [H.txt "Welcome to OCamlot!"]];
       (List.map (fun err -> notification ~classes:["is-danger"; "is-light"] [H.txt err]) errors);
@@ -39,47 +39,57 @@ let build_post ?(errors=[]) req =
         B.level [
           form req ~label:"Follow: " ~field:"follow" ~placeholder:"username@domain.tld"
         ];
-      ]]
-  ]
+      ]]]
 
 let build_posts_list (posts : Database.Post.t list) =
   let module DP = Database.Post in
   Fun.flip List.map posts @@ fun post ->
-  B.media ~left:[ ] [
-    H.p [(H.txt (DP.summary post |> Option.value ~default:""))];
-    H.a ~a:[H.a_href (DP.url post)] [H.txt @@ (DP.published post |> CalendarLib.Printer.Calendar.to_string)];
-    H.br ();
-    H.p [H.txt @@ DP.post_source post]
+  B.media ~left:[
+    B.image ~a_class:["is-64x64"]
+      ~src:"https://ocamlot.xyz/images/avi.png"
+      ~alt:"Example username" ()
+  ] [
+    H.div ~a:[H.a_class ["content"; "is-max-desktop"]] [
+      H.p [(H.txt (DP.summary post |> Option.value ~default:""))];
+      H.a ~a:[H.a_href (DP.url post)] [
+        H.txt @@ (DP.published post
+                  |> CalendarLib.Printer.Calendar.to_string)];
+      H.br ();
+      H.p [H.txt @@ DP.post_source post]
+    ];
   ]
 
 let build_url config time offset txt incr =
   let url = Configuration.Url.home_url config
             |> Fun.flip Uri.with_query [
               "time", 
-                       (Ptime.of_float_s
-                          (CalendarLib.Calendar.to_unixfloat time))
-                       |> Option.map (Ptime.to_rfc3339 ~tz_offset_s:0)
-                       |> Option.to_list ;
-              "offset", [Int.to_string (offset + incr)]
-            ]
+              (Ptime.of_float_s
+                 (CalendarLib.Calendar.to_unixfloat time))
+              |> Option.map (Ptime.to_rfc3339 ~tz_offset_s:0)
+              |> Option.to_list ;
+              "offset", [Int.to_string (offset + incr)]]
             |> Uri.to_string in
   B.level [
-    B.button ~a_class:["is-link"]
-      ~a:[H.a_href url]
-      txt
+    H.div ~a:[H.a_class ["level-item"]] [
+      B.button ~a_class:["is-link"]
+        ~a:[H.a_href url]
+        txt
+    ]
   ]
 
 
 let body config ~offset:(time,offset) ~errors ~posts (user: Database.LocalUser.t option) req =
   H.body ~a:[H.a_class ["has-navbar-fixed-top"]] @@ List.concat [
     [Navbar.build user req];
-    Option.map (fun _ -> [build_post ~errors req]) user
-    |> Option.value ~default:[];
-    [B.container @@ List.concat [
-       (match offset with 0 -> [] | _ -> [build_url config time offset "prev" (-1)]);
-       [B.container @@ build_posts_list posts];
-       (match posts with _ :: _ -> [build_url config time offset "next" 1]  | _ -> []);
-     ]];
+    [B.container [H.div ~a:[H.a_class ["tile"; "is-ancestor"]] @@ List.concat [
+       Option.map (fun _ -> [build_post ~errors req]) user |> Option.value ~default:[];
+       [H.div ~a:[H.a_class ["tile"]]
+          [B.container @@ List.concat [
+             (match offset with 0 -> [] | _ -> [build_url config time offset "prev" (-1)]);
+             [B.container @@ build_posts_list posts];
+             (match posts with _ :: _ -> [build_url config time offset "next" 1]  | _ -> []);
+           ]]];
+     ]]];
     [Navbar.script];
     [noscript "Javascript may be required (but don't worry, it's all Libre my friend!)"]
   ]
