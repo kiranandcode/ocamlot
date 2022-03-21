@@ -109,7 +109,7 @@ let state = function
   | `Cancelled -> E.string "cancelled"
 
 
-let follow ({ id; actor; cc; object_; to_; state=st }: Types.follow) =
+let follow ({ id; actor; cc; object_; to_; state=st; raw=_ }: Types.follow) =
   ap_obj "Follow" [
     "id" @ id <: E.string;
     "actor" @ actor <: E.string;

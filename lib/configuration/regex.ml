@@ -1,6 +1,9 @@
 let local_username =
   Re.(rep1 (alt [rg 'a' 'z'; rg '0' '9'; rg 'A' 'Z'; char '_'; char '.'; char '-']))
 
+let uuid =
+  Re.(rep1 (alt [rg 'a' 'z'; rg '0' '9'; rg 'A' 'Z'; char '-']))
+
 
 let user_tag _config =
   Re.(seq [
@@ -23,5 +26,13 @@ let local_user_id_format config =
     str (Url.user_base_url config |> Uri.to_string);
     char '/';
     group local_username;
+    opt (char '/')
+  ])
+
+let activity_format config =
+  Re.(seq [
+    str (Url.activity_base_endpoint config |> Uri.to_string);
+    char '/';
+    group uuid;
     opt (char '/')
   ])

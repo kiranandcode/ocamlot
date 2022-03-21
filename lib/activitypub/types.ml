@@ -97,6 +97,7 @@ type follow = {
   to_: string list;
   object_: string;
   state: [`Pending | `Cancelled ] option;
+  raw: yojson;
 } [@@deriving show, eq]
 
 type tag = {

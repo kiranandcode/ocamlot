@@ -422,18 +422,19 @@ CLOSED: [2022-03-20 Sun 10:37]
 *** DONE add field to local user, manually accept follow requests
 CLOSED: [2022-03-20 Sun 12:10]
 *** TODO handle follows
-**** TODO on post to inbox with follow request
-***** resolve local user
-***** resolve remote user
-***** create follow request from local to remote
-***** check if local user account is manually accept follow requests
-***** if not manual, send accept follow tasks to worker
-****** TODO define accept follow task in worker.ml
-******* takes a follow
-******* calculates inbox url of remote user
-******* create an accept follow request activity, add it to activities db
-******* send out follow request to inbox url
-******* update status of follow request to be not pending
+**** Backend
+***** TODO on post to inbox with follow request
+****** resolve local user
+****** resolve remote user
+****** create follow request from local to remote
+****** check if local user account is manually accept follow requests
+****** if not manual, send accept follow tasks to worker
+******* TODO define accept follow task in worker.ml
+******** takes a follow
+******** calculates inbox url of remote user
+******** create an accept follow request activity, add it to activities db
+******** send out follow request to inbox url
+******** update status of follow request to be not pending
 #+begin_src json
 {
   "@context": [
@@ -459,15 +460,17 @@ CLOSED: [2022-03-20 Sun 12:10]
 }
 #+end_src
 
-**** TODO on post to inbox with follow request accept
-***** resolve local user
-***** resolve remote user
-***** lookup follow request in table, if not found ignore 
-***** update status to follow true
+***** TODO on post to inbox with follow request accept
+****** resolve local user
+****** resolve remote user
+****** lookup follow request in table, if not found ignore 
+****** update status to follow true
+**** Frontend
 **** TODO add page to view followers
 **** TODO add page to view follow requests
 ***** on post of follow public id, send accept follow task to worker
 **** try out unfollowing from ocamlot and see what happens
+
 ** TODO Handle posts
 *** on submit post on home page 
 *** on post to inbox with note

@@ -163,8 +163,9 @@ let follow =
   and* object_ = field "object" id
   and* state = field_opt "state" (string >>= function "pending" -> succeed `Pending
                                                     | "cancelled" -> succeed `Cancelled
-                                                    | _ -> fail "unknown status") in
-  succeed ({actor; cc; to_; id; object_; state}: Types.follow)
+                                                    | _ -> fail "unknown status")
+  and* raw = value in
+  succeed ({actor; cc; to_; id; object_; state; raw}: Types.follow)
 
 let announce obj =
   let open D in

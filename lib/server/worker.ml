@@ -2,10 +2,16 @@
 open Common
 
 type task =
-  | Follow of {
+  | LocalFollow of {
     local: Database.LocalUser.t;
     username: string;
     domain: string;
+  }
+  | RemoteFollow of {
+    id: string;                    (* url of the follow object *)
+    remote: string;                (* url of remote actor making the follow *)
+    target: Database.LocalUser.t;  (* url of local actor being followed *)
+    data: Yojson.Safe.t;           (* raw data of the follow object *)
   }
   | Post of {
       user: Database.LocalUser.t;
@@ -20,7 +26,15 @@ open struct
     let+ task = Lwt_mvar.take worker_var in
     let+ () = Lwt_unix.sleep 2.0 in
     match task with
-    | Follow {local; username; domain} ->
+    | RemoteFollow { id; remote; target; data } ->
+      let+ res = Resolver.follow_local_user config id remote target data db in
+      begin match res with
+      | Ok () -> worker db config
+      | Error e ->
+        Dream.error (fun log -> log "error in worker: %s" e);
+        worker db config
+      end
+    | LocalFollow {local; username; domain} ->
       let+ res = Resolver.follow_remote_user config local ~username ~domain db in
       begin match res with
       | Ok () -> worker db config

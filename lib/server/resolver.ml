@@ -57,7 +57,9 @@ let lookup_request url =
     |> Result.map_err (fun (`Msg err) -> err) in
   Lwt.return pub_key
 
-let resolve_remote_user ~username ~domain db : (Database.RemoteUser.t, string) Lwt_result.t =
+let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
+  : (Database.RemoteUser.t, string) Lwt_result.t =
+  let+! domain = Uri.host webfinger_uri |> Result.of_opt |> Lwt.return in
   let extract_self_link query =
     query.Activitypub.Types.Webfinger.links
     |> List.find_map (function
@@ -67,33 +69,25 @@ let resolve_remote_user ~username ~domain db : (Database.RemoteUser.t, string) L
       | _ -> None)
     |> Result.of_opt
     |> Lwt.return in
-
-  let+! result = Database.RemoteUser.lookup_remote_user_by_address ~username ~domain db in
+  let+! result = local_lookup db in
   match result with
     Some v -> Lwt.return_ok v
   | None ->
     (* remote user not found *)
     (* webfinger to find user url *)
     let+! remote_user_url =
-      let webfinger_uri = 
-        Format.sprintf "https://%s/.well-known/webfinger?resource=acct:%s@%s"
-          domain username domain
-        |> Uri.of_string in
-      let+! (resp, body) = json_rd_req webfinger_uri in
-      Dream.log "response to webfinger was %a" Cohttp.Response.pp_hum resp;
+      let+! (_, body) = json_rd_req webfinger_uri in
       let+ body = Cohttp_lwt.Body.to_string body in
       let+! query_res = body
                         |> Activitypub.Decode.(decode_string Webfinger.query_result)
                         |> Lwt.return in
       extract_self_link query_res in
     (* retrieve json *)
-    let+! (resp, body) = activity_req remote_user_url in
-    Dream.log "response to retrieving data was %a" Cohttp.Response.pp_hum resp;
+    let+! (_, body) = activity_req remote_user_url in
     let+ body = Cohttp_lwt.Body.to_string body in
     let+! person_res = body
-                       |>  Activitypub.Decode.(decode_string person)
+                       |> Activitypub.Decode.(decode_string person)
                        |> Lwt.return in
-    Dream.log "remote user was %a" Activitypub.Types.pp_person person_res;
     let+! remote_instance = Database.RemoteInstance.create_instance domain db in
     let+! () = Database.RemoteInstance.record_instance_reachable remote_instance db in
     let+! username = person_res.preferred_username
@@ -114,6 +108,48 @@ let resolve_remote_user ~username ~domain db : (Database.RemoteUser.t, string) L
       ~instance:(Database.RemoteInstance.self remote_instance)
       ~url:url db
 
+let resolve_remote_user ~username ~domain db =
+  resolve_remote_user_with_webfinger
+    ~local_lookup:(Database.RemoteUser.lookup_remote_user_by_address ~username ~domain)
+    ~webfinger_uri:(Uri.make
+                      ~scheme:"https"
+                      ~host:domain
+                      ~path:"/.well-known/webfinger"
+                      ~query:["resource", [Printf.sprintf "acct:%s@%s" username domain]] ()
+                   ) db
+
+let resolve_remote_user_by_url url db =
+  let url' = Uri.to_string url in
+  resolve_remote_user_with_webfinger
+    ~local_lookup:(Database.RemoteUser.lookup_remote_user_by_url url')
+    ~webfinger_uri:(
+      url
+      |> Fun.flip Uri.with_path "/.well-known/webfinger"
+      |> Fun.flip Uri.with_query' ["resource", url']
+      |> Fun.flip Uri.with_scheme (Some "https")
+    ) db
+  
+let create_accept_follow config follow remote local db =
+  let local_user =
+    Configuration.Url.user config (Database.LocalUser.username local)
+    |> Uri.to_string in
+  let id = Database.Activity.fresh_id () in
+  let accept = 
+  ({
+    id=Database.Activity.id_to_string id;
+    actor=local_user;
+    published=Some (Ptime_clock.now ());
+    obj=({
+      id=Database.Follow.url follow;
+      actor=Database.RemoteUser.url remote;
+      cc=[]; to_=[local_user]; state=None; raw=`Null;
+      object_=local_user;
+    }: Activitypub.Types.follow); raw=`Null;
+  }:_ Activitypub.Types.accept) in
+  let accept = Activitypub.Encode.(accept follow) accept in
+  let+ _ = Database.Activity.create ~id ~data:accept db in
+  Lwt_result.return accept
+
 let build_follow_request config local remote db =
   let id = Database.Activity.fresh_id () in
   let local_actor_url = 
@@ -126,9 +162,12 @@ let build_follow_request config local remote db =
       Database.Activity.id_to_string id
       |> Configuration.Url.activity_endpoint config
       |> Uri.to_string in
-    Activitypub.Types.{ id; actor=local_actor_url;
+    Activitypub.Types.{
+      id; actor=local_actor_url;
       cc = []; to_ = [ remote_actor_url ];
-      object_=remote_actor_url; state = Some `Pending; }  in
+      object_=remote_actor_url; state = Some `Pending;
+      raw=`Null
+    }  in
   let data = Activitypub.Encode.follow follow_request in
   let+! _ =
     let+! author = Database.Actor.of_local (Database.LocalUser.self local) db in
@@ -158,4 +197,40 @@ let follow_remote_user config
   match resp.status with
   | `OK -> Lwt_result.return ()
   | _ -> Lwt_result.fail "request failed"
+
+let accept_local_follow config follow remote local db =
+  let+! accept_follow = create_accept_follow config follow remote local db in
+  let uri = Database.RemoteUser.inbox remote in
+  let key_id =
+    Database.LocalUser.username local
+    |> Configuration.Url.user_key config
+    |> Uri.to_string in
+  let priv_key =
+    Database.LocalUser.privkey local in
+  let+! resp, _  = signed_post (key_id, priv_key) uri
+                     (Yojson.Safe.to_string accept_follow) in
+  match resp.status with
+  | `OK ->
+    let+! () =
+      Database.Follow.update_follow_pending_status ~timestamp:(CalendarLib.Calendar.now ())
+        (Database.Follow.self follow) false db in
+    Lwt_result.return ()
+  | _ -> Lwt_result.fail "request failed"
+
+let follow_local_user config follow_url remote_url local_user data db =
+  let+! remote = resolve_remote_user_by_url (Uri.of_string remote_url) db in
+  let+! follow = 
+    let+! author =
+      Database.Actor.of_remote (Database.RemoteUser.self remote) db in
+    let+! target =
+      Database.Actor.of_local (Database.LocalUser.self local_user) db in
+    Database.Follow.create_follow
+      ~raw_data:(Yojson.Safe.to_string data)
+      ~url:follow_url ~author ~target ~pending:true
+      ~created:(CalendarLib.Calendar.now ()) db in
+  let+! () =
+    if not @@ Database.LocalUser.manually_accept_follows local_user
+    then accept_local_follow config follow remote local_user db
+    else Lwt_result.return () in
+  Lwt_result.return ()
 
