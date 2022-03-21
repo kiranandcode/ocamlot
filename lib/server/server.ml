@@ -108,9 +108,14 @@ let () =
   let database_path =  "sqlite3://:../../test.db" in
   let config =
     Configuration.Params.create
-      ~database_path ~domain:(* "ocamlot.nfshost.com" *)"localhost:4000" in
+      ~database_path ~domain:(* "ocamlot.nfshost.com" *)(* "localhost:4000" *)
+      "testing.ocamlot.xyz"
+  in
   Worker.init config;
-  Dream.run ~port:4000
+  Dream.run
+    ~certificate_file:"/etc/letsencrypt/live/testing.ocamlot.xyz/fullchain.pem"
+    ~key_file:"/etc/letsencrypt/live/testing.ocamlot.xyz/privkey.pem"
+    ~port:443
   @@ Dream.logger
   @@ Dream.sql_pool database_path
   @@ Dream.sql_sessions

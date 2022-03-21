@@ -25,7 +25,8 @@ opam install dune \
      ppx_deriving\
      argon2 sqlite3 x509 ptime bos tyxml \
      cohttp-lwt-unix \
-     containers 
+     containers  \
+     calendar caqti-type-calendar uuidm
 
 # 7. download activitypub server
 git clone https://gitlab.com/gopiandcode/activitypub-server.git
