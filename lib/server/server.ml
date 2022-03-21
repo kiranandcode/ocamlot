@@ -112,10 +112,7 @@ let () =
       "testing.ocamlot.xyz"
   in
   Worker.init config;
-  Dream.run
-    ~certificate_file:"/etc/letsencrypt/live/testing.ocamlot.xyz/fullchain.pem"
-    ~key_file:"/etc/letsencrypt/live/testing.ocamlot.xyz/privkey.pem"
-    ~port:443
+  Dream.run ~port:4000
   @@ Dream.logger
   @@ Dream.sql_pool database_path
   @@ Dream.sql_sessions
