@@ -6,8 +6,14 @@ type t = {
   id: int64;                           (* UNIQUE Id of user *)
   username: string;                    (* username (fixed) *)
   password_hash: string;               (* password (hash) *)
+
   display_name: string option;         (* display name *)
   about: string option;                (* about text *)
+
+  manually_accept_follows: bool;       (* whether the account manually
+                                          accepts *)
+  is_admin: bool;                      (* account is admin? *)
+
   pubkey: X509.Public_key.t;                  (* public key *)
   privkey: X509.Private_key.t;                (* private key *)
 }
@@ -29,31 +35,75 @@ let privkey : X509.Private_key.t T.t =
   build_enc X509.Private_key.(encode_pem, decode_pem)
 
 let t : t T.t =
-  let encode {id;username;password_hash;display_name; about; pubkey; privkey} =
-    Ok (id, username, password_hash, (display_name, about, pubkey, privkey)) in
-  let decode (id, username, password_hash, (display_name, about, pubkey, privkey)) =
-    Ok {id;username;password_hash;display_name; about; pubkey; privkey} in
+  let encode {id;username;password_hash;display_name; about;
+              manually_accept_follows; is_admin; pubkey; privkey} =
+    Ok (id, username, password_hash,
+        (display_name, about, manually_accept_follows,
+         (is_admin, pubkey, privkey))) in
+  let decode (id, username, password_hash,
+              (display_name, about, manually_accept_follows,
+               (is_admin, pubkey, privkey))) =
+    Ok {id;username;password_hash;display_name; about;
+        manually_accept_follows; is_admin; pubkey; privkey} in
   T.Std.custom ~encode ~decode
-    T.Std.(tup4 int64 string string (tup4 (option string) (option string) pubkey privkey))
-
+    T.Std.(tup4 int64 string string
+             (tup4 (option string) (option string) bool
+                (tup3 bool pubkey privkey)))
 
 let create_user_request =
-  Caqti_request.exec ~oneshot:false T.Std.(tup4 string string pubkey privkey) {| INSERT INTO LocalUser (username, password, pubkey, privkey)  VALUES (?, ?, ?, ?) |}
+  Caqti_request.exec ~oneshot:false
+    T.Std.(tup4 string string (option string) 
+             (tup4 bool bool pubkey privkey))
+{|
+INSERT INTO LocalUser (username, password, about, manually_accept_follows, is_admin, pubkey, privkey)
+ VALUES (?, ?, ?, ?, ?, ?, ?) |}
 
 let find_user_request =
-  Caqti_request.find ~oneshot:false T.Std.string t {| SELECT id, username, password, display_name, about, pubkey, privkey FROM LocalUser WHERE username = ?  |}
+  Caqti_request.find ~oneshot:false T.Std.string t {|
+SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
+FROM LocalUser
+WHERE username = ?  |}
 
 let resolve_user_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 t {| SELECT id, username, password, display_name, about, pubkey, privkey FROM LocalUser WHERE id = ?  |}
+  Caqti_request.find ~oneshot:false T.Std.int64 t {|
+SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
+FROM LocalUser
+WHERE id = ?  |}
+
+
+let update_about_request =
+  Caqti_request.exec ~oneshot:false T.(tup2 string int64) {|
+UPDATE LocalUser
+SET about = ?
+WHERE id = ?
+|}
+
+let update_is_admin_request =
+  Caqti_request.exec ~oneshot:false T.(tup2 bool int64) {|
+UPDATE LocalUser
+SET is_admin = ?
+WHERE id = ?
+|}
+
+let update_manually_accept_follows_request =
+  Caqti_request.exec ~oneshot:false T.(tup2 bool int64) {|
+UPDATE LocalUser
+SET manually_accept_follows = ?
+WHERE id = ?
+|}
 
 
 let resolve_user id (module DB: DB) = DB.find resolve_user_request id |> flatten_error
 
-let create_user ~username ~password (module DB: DB) =
+let create_user ?about ?(is_admin=false) ?(manually_accepts_follows=false)
+      ~username ~password (module DB: DB) =
   let+ password_hash = Password.hash ~pwd:password in
   let priv_key = X509.Private_key.generate `RSA in
   let pub_key = X509.Private_key.public priv_key in
-  let* () = flatten_error @@ DB.exec create_user_request (username, password_hash, pub_key, priv_key) in
+  let* () = flatten_error @@
+    DB.exec create_user_request
+      (username, password_hash, about,
+       (manually_accepts_follows, is_admin, pub_key, priv_key)) in
   flatten_error @@ DB.find find_user_request username
 
 let login_user ~username ~password (module DB: DB) =
@@ -70,18 +120,32 @@ let lookup_user ~username (module DB: DB) =
   let* user = flatten_error @@ DB.find_opt find_user_request username in
   R.return user
 
-
 let lookup_user_exn ~username (module DB: DB) =
   let* user = flatten_error @@ DB.find find_user_request username in
   R.return user
 
+let update_about ((user_id, _): t Link.t) about (module DB: DB) =
+  flatten_error @@
+  DB.exec update_about_request (about, user_id)
+
+let update_manually_accept_follows
+      ((user_id, _): t Link.t) manually_accept_follows (module DB: DB) =
+  flatten_error @@
+  DB.exec update_manually_accept_follows_request
+    (manually_accept_follows, user_id)
+
+let update_is_admin ((user_id, _): t Link.t) is_admin (module DB: DB) =
+  flatten_error @@
+  DB.exec update_is_admin_request (is_admin, user_id)
+
 let self user : t Link.t = (user.id, resolve_user)
 let username user = user.username
-
+let about user = user.about
 let pubkey user =
   user.pubkey
   |> X509.Public_key.encode_pem
   |> Cstruct.to_string
-
+let is_admin user = user.is_admin
+let manually_accept_follows user = user.manually_accept_follows
 let privkey user = user.privkey
 

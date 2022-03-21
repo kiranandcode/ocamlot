@@ -63,7 +63,8 @@ let build user req =
                 | Some _ -> [
                     H.form ~a:[H.a_action "/logout"; H.a_method `Post] [
                       Utils.csrf_tag req;
-                      H.input ~a:[H.a_class ["button"; "is-danger"];  H.a_value "Log-out"; H.a_input_type `Submit] ();
+                      H.input ~a:[H.a_class ["button"; "is-outlined"; "is-inverted"; "is-danger"];
+                                  H.a_value "Log-out"; H.a_input_type `Submit] ();
                     ]
                   ]                  
                 | None ->

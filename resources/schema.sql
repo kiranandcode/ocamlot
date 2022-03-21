@@ -16,12 +16,15 @@ CREATE TABLE Activity (
 -- table for local users
 CREATE TABLE LocalUser (
    id INTEGER PRIMARY KEY,
-   username TEXT UNIQUE NOT NULL,      -- username
-   password TEXT NOT NULL,             -- password hash + salt
-   display_name TEXT,                  -- display name - if null then username
-   about TEXT,                         -- about text for user
-   pubkey TEXT NOT NULL,               -- public key for user
-   privkey TEXT NOT NULL               -- secret key for user
+   username TEXT UNIQUE NOT NULL,              -- username
+   password TEXT NOT NULL,                     -- password hash + salt
+   display_name TEXT,                          -- display name - if null then username
+   about TEXT,                                 -- about text for user
+   manually_accept_follows BOOLEAN NOT NULL,   -- whether the user is an admin
+   is_admin BOOLEAN NOT NULL,                  -- whether the user is an admin
+
+   pubkey TEXT NOT NULL,                       -- public key for user
+   privkey TEXT NOT NULL                       -- secret key for user
 );
 CREATE index idxLocalUser_username on LocalUser(username);
 

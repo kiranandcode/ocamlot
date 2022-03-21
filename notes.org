@@ -412,10 +412,15 @@ CLOSED: [2022-03-18 Fri 05:55]
 CLOSED: [2022-03-18 Fri 08:01]
 ** DONE update home page to look good + post
 CLOSED: [2022-03-19 Sat 15:44]
-** TODO Neaten up home page
-*** TODO Update home page get to resolve the users for each post as well
+** DONE Neaten up home pjage
+CLOSED: [2022-03-20 Sun 09:02]
+*** DONE Update home page get to resolve the users for each post as well
+CLOSED: [2022-03-20 Sun 09:02]
+** DONE Fix logout button style
+CLOSED: [2022-03-20 Sun 10:37]
 ** TODO Complete Follow request implementation
-*** TODO add field to local user, manually accept follow requests
+*** DONE add field to local user, manually accept follow requests
+CLOSED: [2022-03-20 Sun 12:10]
 *** TODO handle follows
 **** TODO on post to inbox with follow request
 ***** resolve local user

@@ -75,7 +75,7 @@ let handle_inbox_post req =
       Dream.log "received a delete object!";
       Dream.respond ~status:`Not_Implemented "lol"
     | `Accept _ ->
-      Dream.log "received an accept object!";
+       Dream.log "received an accept object!";
       Dream.respond ~status:`Not_Implemented "lol"
     | `Like _ ->
       Dream.log "received a like object!";

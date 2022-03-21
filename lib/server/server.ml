@@ -48,7 +48,16 @@ let handle_get_home config req =
       Database.Post.collect_post_feed
         ~offset:(time, 10, 10 * offset) user in
   let posts = posts |> Result.get_or ~default:[] in
+  let+ posts =
+    Dream.sql req @@ fun db ->
+    Lwt_list.map_s (fun post ->
+      let author = Database.Post.author post in
+      let+! author = Database.Link.resolve author db in
+      Lwt_result.return (author, post)
+    ) posts in
 
+  let posts = Result.flatten_l posts |> Result.get_or ~default:[] in
+  
   Dream.html (Html.Home.build config ~offset:(time, offset) ~errors ~posts user req)
 
 

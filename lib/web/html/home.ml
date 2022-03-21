@@ -41,21 +41,39 @@ let build_post ?(errors=[]) req =
         ];
       ]]]
 
-let build_posts_list (posts : Database.Post.t list) =
+let build_posts_list config posts =
   let module DP = Database.Post in
-  Fun.flip List.map posts @@ fun post ->
+  Fun.flip List.map posts @@ fun ((author: Database.Actor.t), post) ->
   B.media ~left:[
     B.image ~a_class:["is-64x64"]
       ~src:"https://ocamlot.xyz/images/avi.png"
       ~alt:"Example username" ()
   ] [
-    H.div ~a:[H.a_class ["content"; "is-max-desktop"]] [
-      H.p [(H.txt (DP.summary post |> Option.value ~default:""))];
-      H.a ~a:[H.a_href (DP.url post)] [
+    H.div ~a:[H.a_class ["content"; "is-max-desktop"]] @@ List.concat [
+      [(match author with
+       | Database.Actor.Local l ->
+         H.a ~a:[H.a_href (
+           Database.LocalUser.username l
+           |> Configuration.Url.user config
+           |> Uri.to_string
+         )]
+           [H.txt (Database.LocalUser.display_name l)]
+       | Database.Actor.Remote r ->
+         H.a ~a:[H.a_href (Database.RemoteUser.url r)] [
+           H.txt (Database.RemoteUser.display_name r)
+         ]
+      )];
+      [H.a ~a:[H.a_href (DP.url post)] [
         H.txt @@ (DP.published post
                   |> CalendarLib.Printer.Calendar.to_string)];
-      H.br ();
-      H.p [H.txt @@ DP.post_source post]
+       H.br ()];
+      match DP.summary post with
+      | None ->
+        [H.p [H.txt @@ DP.post_source post]]
+      | Some summary ->
+        [H.p [(H.txt summary)];
+        H.br ();
+        H.p [H.txt @@ DP.post_source post]]
     ];
   ]
 
@@ -86,7 +104,7 @@ let body config ~offset:(time,offset) ~errors ~posts (user: Database.LocalUser.t
        [H.div ~a:[H.a_class ["tile"]]
           [B.container @@ List.concat [
              (match offset with 0 -> [] | _ -> [build_url config time offset "prev" (-1)]);
-             [B.container @@ build_posts_list posts];
+             [B.container @@ build_posts_list config posts];
              (match posts with _ :: _ -> [build_url config time offset "next" 1]  | _ -> []);
            ]]];
      ]]];
