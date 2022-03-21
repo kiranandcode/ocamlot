@@ -483,8 +483,6 @@ CLOSED: [2022-03-20 Sun 12:10]
 ** TODO add profile page for local users - /users/example
 *** if user = local user, enable edit button
 ** TODO add profile edit page
-
-
 ** TODO Update navbar of logged in with dms/home/local/twkn
 ** TODO Write function to handle post of accept follow objects
 *** Write single SQL function to update entry in following database, using remote actor url + local user username
