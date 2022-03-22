@@ -1,6 +1,6 @@
 open Common
 
-let build _req user =
+let build  _req (following, followers) user =
   H.div ~a:[H.a_class ["hero"]] [
     H.div ~a:[H.a_class ["container"]] [
       H.div ~a:[H.a_class ["card"]] [
@@ -22,8 +22,23 @@ let build _req user =
             ]
           ];
           H.div ~a:[H.a_class ["content"]] [
-            H.txt "Lorem ipsum dolor sit amet, consectetur adipiscing \
-                   elit. Phasellus nec iaculis mauris."
+            Database.LocalUser.about user
+            |> Option.value ~default:"Apparently, this person likes to keep an air of mystery about themselves"
+            |> H.txt
+          ];
+          H.div ~a:[H.a_class ["level"]] [
+            H.div ~a:[H.a_class ["level-item"]] [
+              H.div ~a:[H.a_class ["container"]] [
+                H.b [H.txt "Followers"];
+                H.p [H.txt (Int.to_string followers)];
+              ]
+            ];
+            H.div ~a:[H.a_class ["level-item"]] [
+              H.div ~a:[H.a_class ["container"]] [
+                H.b [H.txt "Following"]; 
+                H.p [H.txt (Int.to_string following)];
+              ]
+            ]
           ]
         ]
       ]
@@ -31,16 +46,16 @@ let build _req user =
   ]
 
 
-let body (current_user: Database.LocalUser.t option) (user: Database.LocalUser.t) req =
+let body ~stats:(following,followers) (current_user: Database.LocalUser.t option) (user: Database.LocalUser.t) req =
   H.body ~a:[H.a_class ["has-navbar-fixed-top"]] @@ List.concat [
     [Navbar.build current_user req];
-    [build req user];
+    [build req (following,followers) user];
     [Navbar.script];
     [noscript "Javascript may be required (but don't worry, it's all Libre my friend!)"]
   ]
 
 
-let build current_user user req =
-  let head = Components.build_header ~title:"Home" () in
-  let body = body current_user user req in
+let build ~following ~followers current_user user req =
+  let head = Components.build_header ~title:(Database.LocalUser.display_name user) () in
+  let body = body ~stats:(following,followers) current_user user req in
   Utils.build_document head body

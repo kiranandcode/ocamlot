@@ -4,11 +4,13 @@ module APConstants = Activitypub.Constants
 let (let>) x f = x f
 let (let+) x f = Lwt.bind x f
 let (let+!) x f = Lwt_result.bind x f
-let (>|=) x f = Lwt_result.map x f
+let (>|=) x f = Lwt_result.map f x
+let (>>=) x f = Lwt_result.bind x f
 
 let internal_error = Dream.respond ~status:`Internal_Server_Error "Internal server error"
 let bad_request = Dream.respond ~status:`Bad_Request "Bad Request"
 let not_acceptable = Dream.respond ~status:`Not_Acceptable "Bad Request"
+let redirect req to_ = Dream.redirect req to_
 let not_found ?(msg="Not found") () = Dream.respond ~status:`Not_Found msg
 
 let activity_json json =
@@ -42,6 +44,10 @@ let or_not_found ?msg vl knt =
 
 let or_bad_reqeust vl knt =
   or_else ~else_:bad_request vl knt
+
+let or_redirect ~req ~to_ vl knt =
+  or_else ~else_:(Dream.redirect req to_) vl knt
+
 
 let holds_or_bad_request vl knt =
   or_bad_reqeust (if vl then Some () else None) knt

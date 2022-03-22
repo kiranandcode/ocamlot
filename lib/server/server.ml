@@ -81,7 +81,7 @@ let handle_post_home config =
       | None -> Dream.log "did not match anything!"
       | Some (username, domain) ->
         Option.iter (fun current_user ->
-          Worker.(send req @@ Follow {local=current_user; username; domain}))
+          Worker.(send req @@ LocalFollow {local=current_user; username; domain}))
           user;
         Dream.log "follow %s at %s" username domain
       end;
@@ -91,7 +91,7 @@ let handle_post_home config =
       let> user = Common.with_current_user req in
       begin
         Option.iter (fun current_user ->
-          Worker.(send req @@ Post {user=current_user; content=post}))
+          Worker.(send req @@ LocalPost {user=current_user; content=post}))
           user;
       end;
       Dream.log "toasting %s" post;
@@ -108,9 +108,7 @@ let () =
   let database_path =  "sqlite3://:../../test.db" in
   let config =
     Configuration.Params.create
-      ~database_path ~domain:(* "ocamlot.nfshost.com" *)(* "localhost:4000" *)
-      "testing.ocamlot.xyz"
-  in
+      ~database_path ~domain:"testing.ocamlot.xyz" in
   Worker.init config;
   Dream.run ~port:4000
   @@ Dream.logger
@@ -118,11 +116,8 @@ let () =
   @@ Dream.sql_sessions
   @@ Dream.router [
     Webfinger.route config;
-
     Authentication.route;
-
     Actor.route config;
-
     Activity.route config;
 
     Dream.get "/home" @@ (handle_get_home config);

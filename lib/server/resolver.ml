@@ -198,7 +198,7 @@ let follow_remote_user config
   | `OK -> Lwt_result.return ()
   | _ -> Lwt_result.fail "request failed"
 
-let accept_local_follow config follow remote local db =
+let accept_remote_follow config follow remote local db =
   let+! accept_follow = create_accept_follow config follow remote local db in
   let uri = Database.RemoteUser.inbox remote in
   let key_id =
@@ -217,6 +217,27 @@ let accept_local_follow config follow remote local db =
     Lwt_result.return ()
   | _ -> Lwt_result.fail "request failed"
 
+let accept_local_follow _config follow ~target:remote ~author:local db =
+  let+! () =
+    let+! follow_remote = Database.Link.resolve (Database.Follow.target follow) db
+      >>= function Database.Actor.Remote r -> Lwt.return_ok (Database.RemoteUser.url r)
+                 | _ -> Lwt.return_error "invalid user" in
+    if String.equal (Database.RemoteUser.url remote) follow_remote
+    then Lwt.return_ok ()
+    else Lwt.return_error "inconsistent follow" in
+  let+! () =
+    let+! follow_local = Database.Link.resolve (Database.Follow.author follow) db
+      >>= function Database.Actor.Local l -> Lwt.return_ok (Database.LocalUser.username l)
+                 | _ -> Lwt.return_error "invalid user" in
+    if String.equal (Database.LocalUser.username local) follow_local
+    then Lwt.return_ok ()
+    else Lwt.return_error "inconsistent follow" in
+  let+ _ =
+    Database.Follow.update_follow_pending_status ~timestamp:(CalendarLib.Calendar.now ())
+      (Database.Follow.self follow) false db in
+  Lwt_result.return ()
+
+
 let follow_local_user config follow_url remote_url local_user data db =
   let+! remote = resolve_remote_user_by_url (Uri.of_string remote_url) db in
   let+! follow = 
@@ -230,7 +251,7 @@ let follow_local_user config follow_url remote_url local_user data db =
       ~created:(CalendarLib.Calendar.now ()) db in
   let+! () =
     if not @@ Database.LocalUser.manually_accept_follows local_user
-    then accept_local_follow config follow remote local_user db
+    then accept_remote_follow config follow remote local_user db
     else Lwt_result.return () in
   Lwt_result.return ()
 

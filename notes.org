@@ -423,13 +423,15 @@ CLOSED: [2022-03-20 Sun 10:37]
 CLOSED: [2022-03-20 Sun 12:10]
 *** TODO handle follows
 **** Backend
-***** TODO on post to inbox with follow request
+***** DONE on post to inbox with follow request
+CLOSED: [2022-03-22 Tue 05:11]
 ****** resolve local user
 ****** resolve remote user
 ****** create follow request from local to remote
 ****** check if local user account is manually accept follow requests
 ****** if not manual, send accept follow tasks to worker
-******* TODO define accept follow task in worker.ml
+******* DONE define accept follow task in worker.ml
+CLOSED: [2022-03-22 Tue 05:11]
 ******** takes a follow
 ******** calculates inbox url of remote user
 ******** create an accept follow request activity, add it to activities db
@@ -460,15 +462,16 @@ CLOSED: [2022-03-20 Sun 12:10]
 }
 #+end_src
 
-***** TODO on post to inbox with follow request accept
+***** DONE on post to inbox with follow request accept
+CLOSED: [2022-03-22 Tue 05:11]
 ****** resolve local user
 ****** resolve remote user
 ****** lookup follow request in table, if not found ignore 
 ****** update status to follow true
 **** Frontend
-**** TODO add page to view followers
-**** TODO add page to view follow requests
-***** on post of follow public id, send accept follow task to worker
+***** TODO add page to view followers
+***** TODO add page to view follow requests
+****** on post of follow public id, send accept follow task to worker
 **** try out unfollowing from ocamlot and see what happens
 
 ** TODO Handle posts

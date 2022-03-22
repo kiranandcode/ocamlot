@@ -238,6 +238,25 @@ module Follow : sig
     Actor.t Link.t ->
     (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
 
+  val count_following:
+    Actor.t Link.t ->
+    (module Caqti_lwt.CONNECTION) -> (int, string) Lwt_result.t
+
+  val collect_following:
+    ?offset:CalendarLib.Calendar.t * int * int ->
+    Actor.t Link.t ->
+    (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
+  val count_followers:
+    Actor.t Link.t ->
+    (module Caqti_lwt.CONNECTION) -> (int, string) Lwt_result.t
+
+  val collect_followers:
+    ?offset:CalendarLib.Calendar.t * int * int ->
+    Actor.t Link.t ->
+    (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
+
   val delete_follow:
     t Link.t -> (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
 

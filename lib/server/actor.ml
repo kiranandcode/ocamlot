@@ -13,7 +13,30 @@ let handle_actor_get config req =
   | None -> Dream.respond ~status:`Not_Acceptable "{}"
   | Some `HTML ->
     let> current_user = Common.with_current_user req in
-    Dream.html (Html.Profile.build current_user user req)
+    let> following, followers =
+      Dream.sql req (fun db ->
+        let+! user = Database.Actor.of_local (Database.LocalUser.self user) db in
+        let+! following = Database.Follow.count_following user db in
+        let+! followers = Database.Follow.count_followers user db in
+        Lwt.return_ok (following, followers)
+      ) |> or_errorP ~err:internal_error ~req in
+
+    (* let timestamp = Dream.query req "start"
+     *                 |> Fun.flip Option.bind (fun v -> Ptime.of_rfc3339 v |> Result.to_opt)
+     *                 |> Option.map (fun (t, _, _) -> t)
+     *                 |> Option.value ~default:(Ptime_clock.now ())
+     *                 |> Ptime.to_float_s
+     *                 |> CalendarLib.Calendar.from_unixfloat in
+     * let offset = Dream.query req "offset"
+     *              |> Fun.flip Option.bind Int.of_string
+     *              |> Option.value ~default:0 in
+     * let> follows =
+     *   Dream.sql req (fun db ->
+     *     let+! current_user = Database.Actor.of_local (Database.LocalUser.self user) db in
+     *     Database.Follow.collect_follows_for_actor ~offset:(timestamp, 10, offset * 10) current_user db)
+     *   |> or_errorP ~err:internal_error ~req in *)
+
+    Dream.html (Html.Profile.build current_user ~following ~followers user req)
   | Some `JSON ->
     activity_json
       (user
@@ -28,6 +51,13 @@ let enforce_is_true vl kont =
   if vl
   then kont ()
   else Dream.respond ~status:`Not_Acceptable {|{"error": "invalid request"}|}
+
+let extract_local_username config url =
+  let (let+) x f = Option.bind x f in
+  let user_re = Configuration.Regex.local_user_id_format config in
+  let+ matches = Re.exec_opt (Re.compile user_re) url in
+  Re.Group.get_opt matches 1
+    
 
 let handle_inbox_post config req =
   Dream.log "POST to %s/inbox" (Dream.param req "username");
@@ -52,47 +82,18 @@ let handle_inbox_post config req =
     match obj with
     | `Accept { id=_; actor=_; published=_;
                 obj=`Follow { id; actor; cc=_; to_=_; object_; state=_; raw=_ }; raw=_ } ->
-      let accept_re = Configuration.Regex.activity_format config in
-      let user_re = Configuration.Regex.local_user_id_format config in
-      let> accept = Re.exec_opt (Re.compile accept_re) id
-                    |> or_not_acceptable ~msg:"malformed accept id" in
-      let accept = Re.Group.get accept 1 in
-      let> accept = Database.Activity.id_from_string accept |> or_bad_reqeust in
-      let> activity =
-        Dream.sql req Database.Activity.(find accept) 
-        |> or_errorP ~req in
-      let> _ = activity |> or_not_found ~msg:"follow not found" in
-      let> user = Re.exec_opt (Re.compile user_re) actor
-                  |> or_not_acceptable ~msg:"Malformed user id" in
-      let username = Re.Group.get user 1 in
+
       let> follow = Dream.sql req (Database.Follow.lookup_follow_by_url id)
-                    |> or_errorP ~req in
-      let> follow = follow |> or_not_found ~msg:"follow request not found" in
-      let> follow_target =
-        Dream.sql req (Database.Follow.target follow |> Database.Link.resolve)
-        |> or_errorP ~req in
-      let> _ =
-        follow_target
-        |> (function
-            Database.Actor.Remote r -> Some (Database.RemoteUser.url r)
-          | Database.Actor.Local _ -> None)
-        |> Option.filter (String.equal object_)
-        |> or_not_acceptable ~msg:"follow does not match" in
-      let> follow_author =
-        Dream.sql req (Database.Follow.author follow |> Database.Link.resolve)
-        |> or_errorP ~req in
-      let> _ =
-        follow_author
-        |> (function
-            Database.Actor.Local l -> Some (Database.LocalUser.username l)
-          | Database.Actor.Remote _ -> None)
-        |> Option.filter (String.equal username)
-        |> or_not_acceptable ~msg:"follow does not match" in
-      let> () =
-        Dream.sql req (Database.Follow.update_follow_pending_status
-                         ~timestamp:(CalendarLib.Calendar.now ())
-                         (Database.Follow.self follow) false)
-        |> or_errorP ~req in
+                    |> or_errorP ~req ~err:not_acceptable in
+      let> follow = follow |> or_not_found in
+      let> remote = Dream.sql req (Database.RemoteUser.lookup_remote_user_by_url object_)
+                   |> or_errorP ~req ~err:not_acceptable in
+      let> remote = remote |> or_not_found in
+      let> local = extract_local_username config actor |> or_not_acceptable in
+      let> local = Dream.sql req (Database.LocalUser.lookup_user ~username:local)
+                  |> or_errorP ~req in
+      let> local = local |> or_not_found in
+      Worker.(send req (RecordAcceptLocalFollow {follow; author=local; target=remote;}));
       Dream.respond ~status:`OK "Ok"
     | `Follow ({ id; actor; cc=_; to_=_; object_; state=(Some `Pending | None); raw }:
                  Activitypub.Types.follow) ->

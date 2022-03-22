@@ -72,7 +72,7 @@ let collect_related_follows_request =
   Caqti_request.find ~oneshot:false T.Std.(tup2 int64 int64) t {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
-WHERE target_id = ? OR author_id = ?
+WHERE (target_id = ? OR author_id = ?) AND pending = TRUE
 ORDER BY DATETIME(COALESCE(updated, created)) DESC
 |}
 
@@ -82,10 +82,66 @@ let collect_related_follows_offset_request =
  {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
-WHERE (target_id = ? OR author_id = ?) AND DATETIME(COALESCE(updated, created)) <= ?
+WHERE (target_id = ? OR author_id = ?) AND DATETIME(COALESCE(updated, created)) <= ? AND pending = TRUE
 ORDER BY DATETIME(COALESCE(updated, created)) DESC
 LIMIT ? OFFSET ?
 |}
+
+let count_following_request =
+  Caqti_request.find ~oneshot:false T.Std.int64 T.Std.int {|
+SELECT COUNT(*)
+FROM Follows
+WHERE author_id = ? AND pending = FALSE
+ORDER BY DATETIME(COALESCE(updated, created)) DESC
+|}
+
+let collect_following_request =
+  Caqti_request.find ~oneshot:false T.Std.int64 t {|
+SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
+FROM Follows
+WHERE author_id = ? AND pending = FALSE
+ORDER BY DATETIME(COALESCE(updated, created)) DESC
+|}
+
+let collect_following_offset_request =
+  Caqti_request.find ~oneshot:false
+    T.Std.(tup4 int64 timestamp int int) t
+ {|
+SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
+FROM Follows
+WHERE author_id = ? AND DATETIME(COALESCE(updated, created)) <= ? AND pending = FALSE
+ORDER BY DATETIME(COALESCE(updated, created)) DESC
+LIMIT ? OFFSET ?
+|}
+
+let count_followers_request =
+  Caqti_request.find ~oneshot:false T.Std.int64 T.Std.int {|
+SELECT COUNT(*)
+FROM Follows
+WHERE target_id = ? AND pending = FALSE
+ORDER BY DATETIME(COALESCE(updated, created)) DESC
+|}
+
+
+let collect_followers_request =
+  Caqti_request.find ~oneshot:false T.Std.int64 t {|
+SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
+FROM Follows
+WHERE target_id = ? AND pending = FALSE
+ORDER BY DATETIME(COALESCE(updated, created)) DESC
+|}
+
+let collect_followers_offset_request =
+  Caqti_request.find ~oneshot:false
+    T.Std.(tup4 int64 timestamp int int) t
+ {|
+SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
+FROM Follows
+WHERE target_id = ? AND DATETIME(COALESCE(updated, created)) <= ? AND pending = FALSE
+ORDER BY DATETIME(COALESCE(updated, created)) DESC
+LIMIT ? OFFSET ?
+|}
+
 
 let delete_follow_request =
   Caqti_request.exec ~oneshot:false T.Std.int64 {|
@@ -137,6 +193,35 @@ let collect_follows_for_actor ?offset ((actor_id, _): Actor.t Link.t) (module DB
     DB.collect_list collect_related_follows_offset_request
       (actor_id, actor_id, timestamp, (limit, offset))
     |> flatten_error
+
+let count_following ((actor_id, _): Actor.t Link.t) (module DB: DB) =
+  DB.find count_following_request actor_id
+  |> flatten_error
+
+let collect_following ?offset ((actor_id, _): Actor.t Link.t) (module DB: DB) =
+  match offset with
+  | None ->
+    DB.collect_list collect_following_request (actor_id)
+    |> flatten_error
+  | Some (timestamp, limit, offset) ->
+    DB.collect_list collect_following_offset_request
+      (actor_id, timestamp, limit, offset)
+    |> flatten_error
+
+let count_followers ((actor_id, _): Actor.t Link.t) (module DB: DB) =
+  DB.find count_followers_request actor_id
+  |> flatten_error
+
+let collect_followers ?offset ((actor_id, _): Actor.t Link.t) (module DB: DB) =
+  match offset with
+  | None ->
+    DB.collect_list collect_followers_request actor_id
+    |> flatten_error
+  | Some (timestamp, limit, offset) ->
+    DB.collect_list collect_followers_offset_request
+      (actor_id, timestamp, limit, offset)
+    |> flatten_error
+
 
 let self t : t Link.t = t.id, resolve_follow
 let public_id t = t.public_id
