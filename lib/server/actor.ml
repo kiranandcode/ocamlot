@@ -168,7 +168,7 @@ let handle_inbox_post config req =
       Dream.respond ~status:`Not_Acceptable "??"
     | `Create _ ->
       Dream.log "received a create object!";
-      Dream.respond ~status:`Not_Implemented "lol"
+      Dream.respond ~status:`OK "ok"
     | `Announce _ ->
       Dream.log "received an announce object!";
       Dream.respond ~status:`Not_Implemented "lol"
