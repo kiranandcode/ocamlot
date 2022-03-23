@@ -469,7 +469,8 @@ CLOSED: [2022-03-22 Tue 05:11]
 ****** lookup follow request in table, if not found ignore 
 ****** update status to follow true
 **** Frontend
-***** TODO add page to view followers
+***** DONE add page to view followers
+CLOSED: [2022-03-23 Wed 02:20]
 ***** TODO add page to view follow requests
 ****** on post of follow public id, send accept follow task to worker
 **** try out unfollowing from ocamlot and see what happens

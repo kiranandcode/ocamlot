@@ -1,6 +1,16 @@
 open Common
 
-let build  _req (following, followers, posts) user =
+let state_link config user state =
+  Configuration.Url.user_profile_page config
+    (Database.LocalUser.username user)
+  |> Fun.flip Uri.with_query [ "state", [state] ]
+  |> Uri.to_string
+
+let followers_link config user = state_link config user "followers"
+let following_link config user = state_link config user "following"
+let posts_link config user = state_link config user "post"
+
+let build  _req config (following, followers, posts) user =
   H.div ~a:[H.a_class ["hero"]] [
     H.div ~a:[H.a_class ["container"]] [
       H.div ~a:[H.a_class ["card"]] [
@@ -28,21 +38,30 @@ let build  _req (following, followers, posts) user =
           ];
           H.div ~a:[H.a_class ["level"]] [
             H.div ~a:[H.a_class ["level-item"]] [
-              H.div ~a:[H.a_class ["container"]] [
-                H.b [H.txt "Followers"];
-                H.p [H.txt (Int.to_string followers)];
+              H.a ~a:[H.a_class ["button"; "is-primary";];
+                      H.a_href (followers_link config user)] [
+                H.div ~a:[H.a_class ["container"]] [
+                  H.b [H.txt "Followers"];
+                  H.p [H.txt (Int.to_string followers)];
+                ]
               ]
             ];
             H.div ~a:[H.a_class ["level-item"]] [
-              H.div ~a:[H.a_class ["container"]] [
-                H.b [H.txt "Following"]; 
-                H.p [H.txt (Int.to_string following)];
+              H.a ~a:[H.a_class ["button"; "is-primary"];
+                      H.a_href (following_link config user)] [
+                H.div ~a:[H.a_class ["container"]] [
+                  H.b [H.txt "Following"]; 
+                  H.p [H.txt (Int.to_string following)];
+                ]
               ]
             ];
             H.div ~a:[H.a_class ["level-item"]] [
-              H.div ~a:[H.a_class ["container"]] [
-                H.b [H.txt "Toasts"]; 
-                H.p [H.txt (Int.to_string posts)];
+              H.a ~a:[H.a_class ["button"; "is-primary"];
+                      H.a_href (posts_link config user) ] [
+                H.div ~a:[H.a_class ["container"]] [
+                  H.b [H.txt "Toasts"]; 
+                  H.p [H.txt (Int.to_string posts)];
+                ]
               ]
             ]            
           ]
@@ -51,18 +70,21 @@ let build  _req (following, followers, posts) user =
     ]
   ]
 
+let build_raw_url config user state time offset incr =
+  Configuration.Url.user_profile_page config
+    (Database.LocalUser.username user)
+  |> Fun.flip Uri.with_query [
+    "state", [state];
+    "time", 
+    (Ptime.of_float_s
+       (CalendarLib.Calendar.to_unixfloat time))
+    |> Option.map (Ptime.to_rfc3339 ~tz_offset_s:0)
+    |> Option.to_list ;
+    "offset", [Int.to_string (offset + incr)]]
+  |> Uri.to_string
+
 let build_url config user state time offset txt incr =
-  let url = Configuration.Url.user_profile_page config
-              (Database.LocalUser.username user)
-            |> Fun.flip Uri.with_query [
-              "state", [state];
-              "time", 
-              (Ptime.of_float_s
-                 (CalendarLib.Calendar.to_unixfloat time))
-              |> Option.map (Ptime.to_rfc3339 ~tz_offset_s:0)
-              |> Option.to_list ;
-              "offset", [Int.to_string (offset + incr)]]
-            |> Uri.to_string in
+  let url = build_raw_url config user state time offset incr  in
   B.level [
     H.div ~a:[H.a_class ["level-item"]] [
       B.button ~a_class:["is-link"]
@@ -107,7 +129,7 @@ let body config ~state ~stats:(following,followers,posts)
       (current_user: Database.LocalUser.t option) (user: Database.LocalUser.t) req =
   H.body ~a:[H.a_class ["has-navbar-fixed-top"]] @@ List.concat [
     [Navbar.build current_user req];
-    [build req (following,followers,posts) user];
+    [build req config (following,followers,posts) user];
     [(build_contents config user req state)];
     [Navbar.script];
     [noscript "Javascript may be required (but don't worry, it's all Libre my friend!)"]
