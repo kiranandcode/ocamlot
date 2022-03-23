@@ -1,5 +1,6 @@
 open Containers
 open Common
+module StringSet = Set.Make(String)
 
 let with_user req then_ =
   let load_user req username = Dream.sql req (Database.LocalUser.lookup_user ~username) in
@@ -149,6 +150,24 @@ let handle_inbox_post config req =
       let> target = local |> or_not_found ~msg:"User not found" in
       Worker.(send req (RemoteFollow {id; remote=actor; target; data=raw}));
       Dream.respond ~status:`OK "ok"
+    | `Create {
+      id=_; actor=_; published=_; to_=_; cc=_;
+      direct_message; obj=`Note {
+        id; actor;
+        to_; cc; in_reply_to=_;
+        content; sensitive; source; summary;
+        published; tags; raw
+      }; raw=_
+    } ->
+      Worker.(send req (CreateNote {
+        id; author=actor; to_; cc; sensitive; direct_message;
+        content; source; summary; published; tags; data=raw
+      }));
+      
+
+      Dream.log "received a create object!";
+      Dream.respond ~status:`Not_Implemented "lol"
+
     | `Follow _ ->
       Dream.respond ~status:`Not_Acceptable "??"
     | `Create _ ->

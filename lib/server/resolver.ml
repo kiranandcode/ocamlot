@@ -244,7 +244,6 @@ let accept_local_follow _config follow ~target:remote ~author:local db =
       (Database.Follow.self follow) false db in
   Lwt_result.return ()
 
-
 let follow_local_user config follow_url remote_url local_user data db =
   let+! remote = resolve_remote_user_by_url (Uri.of_string remote_url) db in
   let+! follow = 
