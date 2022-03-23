@@ -136,7 +136,7 @@ let create_accept_follow config follow remote local db =
   let id = Database.Activity.fresh_id () in
   let accept = 
   ({
-    id=Database.Activity.id_to_string id;
+    id=Configuration.Url.activity_endpoint config (Database.Activity.id_to_string id) |> Uri.to_string;
     actor=local_user;
     published=Some (Ptime_clock.now ());
     obj=({
