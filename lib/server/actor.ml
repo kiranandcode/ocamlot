@@ -163,11 +163,7 @@ let handle_inbox_post config req =
         id; author=actor; to_; cc; sensitive; direct_message;
         content; source; summary; published; tags; data=raw
       }));
-      
-
-      Dream.log "received a create object!";
-      Dream.respond ~status:`Not_Implemented "lol"
-
+      Dream.respond ~status:`OK "ok"
     | `Follow _ ->
       Dream.respond ~status:`Not_Acceptable "??"
     | `Create _ ->
