@@ -13,30 +13,74 @@ let handle_actor_get config req =
   | None -> Dream.respond ~status:`Not_Acceptable "{}"
   | Some `HTML ->
     let> current_user = Common.with_current_user req in
-    let> following, followers =
+    let> following, followers, posts =
       Dream.sql req (fun db ->
         let+! user = Database.Actor.of_local (Database.LocalUser.self user) db in
         let+! following = Database.Follow.count_following user db in
         let+! followers = Database.Follow.count_followers user db in
-        Lwt.return_ok (following, followers)
+        let+! posts = Database.Post.count_posts_by_author user db in
+        Lwt.return_ok (following, followers,posts)
       ) |> or_errorP ~err:internal_error ~req in
 
-    (* let timestamp = Dream.query req "start"
-     *                 |> Fun.flip Option.bind (fun v -> Ptime.of_rfc3339 v |> Result.to_opt)
-     *                 |> Option.map (fun (t, _, _) -> t)
-     *                 |> Option.value ~default:(Ptime_clock.now ())
-     *                 |> Ptime.to_float_s
-     *                 |> CalendarLib.Calendar.from_unixfloat in
-     * let offset = Dream.query req "offset"
-     *              |> Fun.flip Option.bind Int.of_string
-     *              |> Option.value ~default:0 in
-     * let> follows =
+    let timestamp = Dream.query req "start"
+                    |> Fun.flip Option.bind (fun v -> Ptime.of_rfc3339 v |> Result.to_opt)
+                    |> Option.map (fun (t, _, _) -> t)
+                    |> Option.value ~default:(Ptime_clock.now ())
+                    |> Ptime.to_float_s
+                    |> CalendarLib.Calendar.from_unixfloat in
+    let offset = Dream.query req "offset"
+                 |> Fun.flip Option.bind Int.of_string
+                 |> Option.value ~default:0 in
+
+    let> state =
+      Dream.sql req begin fun db ->
+        let+! user = Database.Actor.of_local (Database.LocalUser.self user) db in
+        match Dream.query req "state" with
+        | Some "followers" ->
+          let+! follows = 
+            Database.Follow.collect_followers
+              ~offset:(timestamp, 10, offset * 10) user db in
+          let+ follows =
+            Lwt_list.map_s (fun follow ->
+              let target = Database.Follow.target follow in
+              let+! target = Database.Link.resolve target db in
+              Lwt.return_ok (follow, target)) follows in
+          let+! follows = Lwt.return @@ Result.flatten_l follows in
+          Lwt.return_ok (`Followers (timestamp, offset, follows))
+        | Some "following" ->
+          let+! follows = 
+            Database.Follow.collect_following
+              ~offset:(timestamp, 10, offset * 10) user db in
+          let+ follows =
+            Lwt_list.map_s (fun follow ->
+              let target = Database.Follow.target follow in
+              let+! target = Database.Link.resolve target db in
+              Lwt.return_ok (follow, target)) follows in
+          let+! follows = Lwt.return @@ Result.flatten_l follows in
+          Lwt.return_ok (`Following (timestamp, offset, follows))
+        | Some "post" | _ ->
+
+          let+! posts =
+            Database.Post.collect_posts_by_author
+              ~offset:(timestamp, 10, offset * 10) user db in
+          let+ posts = Lwt_list.map_s (fun post ->
+            let author = Database.Post.author post in
+            let+! author = Database.Link.resolve author db in
+            Lwt_result.return (author, post)
+          ) posts in
+          let+! posts = Lwt.return @@ Result.flatten_l posts in
+          Lwt.return_ok (`Posts (timestamp, offset, posts))
+      end
+      |> or_errorP ~req ~err:internal_error in
+
+    (* let> follows =
      *   Dream.sql req (fun db ->
      *     let+! current_user = Database.Actor.of_local (Database.LocalUser.self user) db in
      *     Database.Follow.collect_follows_for_actor ~offset:(timestamp, 10, offset * 10) current_user db)
      *   |> or_errorP ~err:internal_error ~req in *)
 
-    Dream.html (Html.Profile.build current_user ~following ~followers user req)
+
+    Dream.html (Html.Profile.build config current_user ~state ~posts ~following ~followers user req)
   | Some `JSON ->
     activity_json
       (user

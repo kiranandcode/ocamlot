@@ -143,7 +143,11 @@ module Post : sig
   val lookup_post_by_public_id_exn :
     string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
+  val count_posts_by_author: 
+    Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (int, string) Lwt_result.t
+
   val collect_posts_by_author:
+    ?offset:CalendarLib.Calendar.t * int * int ->
     Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
 
   val add_post_tag:

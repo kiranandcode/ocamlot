@@ -58,17 +58,35 @@ WHERE url = ?
 |}
 
 
-let collect_posts_by_author_request =
-  Caqti_request.collect ~oneshot:false T.Std.int64 t {|
-SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
+let count_posts_by_author_request =
+  Caqti_request.find ~oneshot:false T.Std.int64 T.Std.int {|
+SELECT COUNT(*)
 FROM Posts
 WHERE author_id = ?
 |}
 
+let collect_posts_by_author_request =
+  Caqti_request.collect ~oneshot:false T.Std.int64 t {|
+SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
+FROM Posts
+WHERE author_id = ? AND is_public = TRUE
+ORDER BY DATETIME(published) DESC
+|}
+
+let collect_posts_by_author_offset_request =
+  Caqti_request.collect ~oneshot:false T.Std.(tup4 int64 timestamp int int) t {|
+SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
+FROM Posts
+WHERE author_id = ? AND DATETIME(published) <= ? AND is_public = TRUE
+ORDER BY DATETIME(published) DESC
+LIMIT ? OFFSET ?
+|}
+
+
 let resolve_post_request =
   Caqti_request.find ~oneshot:false T.Std.int64 t {|
 SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
-nFROM Posts
+FROM Posts
 WHERE id = ?
 |}
 
@@ -289,8 +307,16 @@ let lookup_post_by_public_id public_id (module DB: DB) =
 let lookup_post_by_public_id_exn public_id (module DB: DB) =
   DB.find lookup_post_by_public_id_request public_id |> flatten_error
 
-let collect_posts_by_author ((author_id, _) : Actor.t Link.t) (module DB: DB) =
-  DB.collect_list collect_posts_by_author_request author_id |> flatten_error
+let count_posts_by_author ((author_id, _) : Actor.t Link.t) (module DB: DB) =
+  DB.find count_posts_by_author_request author_id |> flatten_error  
+
+let collect_posts_by_author ?offset ((author_id, _) : Actor.t Link.t) (module DB: DB) =
+  match offset with
+  | None ->
+    DB.collect_list collect_posts_by_author_request author_id |> flatten_error
+  | Some (start, limit, offset) ->
+    DB.collect_list collect_posts_by_author_offset_request (author_id, start, limit, offset)
+    |> flatten_error    
 
 let post_to ((id, _): t Link.t) (module DB: DB) : (Actor.t Link.t list, string) R.t =
   let* ls = DB.collect_list collect_post_to_request id

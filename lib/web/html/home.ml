@@ -43,39 +43,7 @@ let build_post ?(errors=[]) req =
 
 let build_posts_list config posts =
   let module DP = Database.Post in
-  Fun.flip List.map posts @@ fun ((author: Database.Actor.t), post) ->
-  B.media ~left:[
-    B.image ~a_class:["is-64x64"]
-      ~src:"https://ocamlot.xyz/images/avi.png"
-      ~alt:"Example username" ()
-  ] [
-    H.div ~a:[H.a_class ["content"; "is-max-desktop"]] @@ List.concat [
-      [(match author with
-       | Database.Actor.Local l ->
-         H.a ~a:[H.a_href (
-           Database.LocalUser.username l
-           |> Configuration.Url.user config
-           |> Uri.to_string
-         )]
-           [H.txt (Database.LocalUser.display_name l)]
-       | Database.Actor.Remote r ->
-         H.a ~a:[H.a_href (Database.RemoteUser.url r)] [
-           H.txt (Database.RemoteUser.display_name r)
-         ]
-      )];
-      [H.a ~a:[H.a_href (DP.url post)] [
-        H.txt @@ (DP.published post
-                  |> CalendarLib.Printer.Calendar.to_string)];
-       H.br ()];
-      match DP.summary post with
-      | None ->
-        [H.p [H.txt @@ DP.post_source post]]
-      | Some summary ->
-        [H.p [(H.txt summary)];
-        H.br ();
-        H.p [H.txt @@ DP.post_source post]]
-    ];
-  ]
+  Fun.flip List.map posts @@ Post.build config
 
 let build_url config time offset txt incr =
   let url = Configuration.Url.home_url config
