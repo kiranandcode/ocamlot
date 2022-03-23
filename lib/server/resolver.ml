@@ -207,7 +207,9 @@ let accept_remote_follow config follow remote local db =
     |> Uri.to_string in
   let priv_key =
     Database.LocalUser.privkey local in
-  print_endline @@ Printf.sprintf "sending accept follow request to %s" (Uri.to_string uri);
+  print_endline @@ Printf.sprintf "sending accept follow request to %s\n\ndata is %s"
+                     (Uri.to_string uri)
+                     (Yojson.Safe.to_string accept_follow) ;
   let+! resp, body  = signed_post (key_id, priv_key) uri
                      (Yojson.Safe.to_string accept_follow) in
   let+ _ = Cohttp_lwt.Body.to_string body in
