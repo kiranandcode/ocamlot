@@ -112,6 +112,7 @@ let handle_inbox_post config req =
   let> () = request_is_verified |> holds_or ~else_:not_acceptable in
   let+ body = Dream.body req in
   Dream.log "DATA: %s" body;
+  print_endline @@  Yojson.Safe.pretty_to_string (Yojson.Safe.from_string body);
   let follow =
     Decoders_yojson.Safe.Decode.decode_string
       Activitypub.Decode.(obj) body in

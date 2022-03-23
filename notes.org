@@ -480,7 +480,6 @@ CLOSED: [2022-03-23 Wed 02:20]
 ****** add function to view follow requests
 ****** on post of follow public id, send accept follow task to worker
 **** try out unfollowing from ocamlot and see what happens
-
 ** TODO Handle posts
 *** on submit post on home page 
 *** on post to inbox with note
