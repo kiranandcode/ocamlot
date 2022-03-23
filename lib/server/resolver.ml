@@ -213,7 +213,8 @@ let accept_remote_follow config follow remote local db =
 
   let+! resp, body  = signed_post (key_id, priv_key) uri
                      (Yojson.Safe.to_string accept_follow) in
-  let+ _ = Cohttp_lwt.Body.to_string body in
+  let+ body = Cohttp_lwt.Body.to_string body in
+  print_endline @@ Printf.sprintf "response from server was %s" body;
   match resp.status with
   | `OK ->
     let+! () =
