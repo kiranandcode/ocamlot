@@ -471,7 +471,13 @@ CLOSED: [2022-03-22 Tue 05:11]
 **** Frontend
 ***** DONE add page to view followers
 CLOSED: [2022-03-23 Wed 02:20]
+***** TODO Add button to profile tracking follow status of user, and on click, post follow form to server
+****** TODO add local follow task on post, with users username + local domain
+****** TODO add internal handling for local follows where domain matches config.domain
 ***** TODO add page to view follow requests
+****** on home page, below post, add button to view direct messages, follow requests
+****** add follow request.ml to web to render follow requests
+****** add function to view follow requests
 ****** on post of follow public id, send accept follow task to worker
 **** try out unfollowing from ocamlot and see what happens
 
