@@ -13,6 +13,26 @@ let user config username =
   Params.domain config
   |> Fun.flip  Uri.with_path ("/users/" ^ username)
 
+let user_followers config username =
+  Params.domain config
+  |> Fun.flip  Uri.with_path ("/users/" ^ username ^ "/followers")
+
+let user_followers_page config username ~start_time ~offset =
+  Params.domain config
+  |> Fun.flip  Uri.with_path ("/users/" ^ username ^ "/followers")
+  |> Fun.flip Uri.with_query' ["page", offset;
+                               "start", start_time ]
+
+let user_following  config username =
+  Params.domain config
+  |> Fun.flip  Uri.with_path ("/users/" ^ username ^ "/following")
+
+let user_following_page config username ~start_time ~offset =
+  Params.domain config
+  |> Fun.flip  Uri.with_path ("/users/" ^ username ^ "/following")
+  |> Fun.flip Uri.with_query' ["page", offset;
+                               "start", start_time ]
+
 let user_key config username =
   Params.domain config
   |> Fun.flip  Uri.with_path ("/users/" ^ username)

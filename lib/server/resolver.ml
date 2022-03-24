@@ -261,3 +261,120 @@ let follow_local_user config follow_url remote_url local_user data db =
     else Lwt_result.return () in
   Lwt_result.return ()
 
+let build_followers_collection_page config start_time offset user db =
+  let+! followers, total_count =
+    let+! user = Database.Actor.of_local (Database.LocalUser.self user) db in
+    let+! followers =
+    Database.Follow.collect_followers
+      ~offset:(start_time, 10, offset * 10) user db in
+    let+! total_count =
+      Database.Follow.count_followers user db in
+    Lwt.return_ok (followers, total_count) in
+
+  let+ followers =
+    Lwt_list.map_s (fun follow ->
+      Database.Follow.author follow
+      |> Fun.flip Database.Link.resolve db
+    ) followers in
+  let+! followers = Lwt.return @@ Result.flatten_l followers in
+  let followers =
+    List.map (function
+        Database.Actor.Local u ->
+        Configuration.Url.user config (Database.LocalUser.username u)
+        |> Uri.to_string
+      | Database.Actor.Remote r ->
+        Database.RemoteUser.url r
+    ) followers in
+  let+! start_time =
+    (CalendarLib.Calendar.to_unixfloat start_time
+                   |> Ptime.of_float_s
+                   |> Option.map (Ptime.to_rfc3339 ~tz_offset_s:0)
+                   |> Result.of_opt
+                   |> Lwt.return) in
+  let id =
+    Configuration.Url.user_followers_page config (Database.LocalUser.username user)
+      ~start_time ~offset:(Int.to_string offset)
+    |> Uri.to_string in
+
+  let next =
+    Configuration.Url.user_followers_page config (Database.LocalUser.username user)
+      ~start_time ~offset:(Int.to_string (offset + 1))
+    |> Uri.to_string in
+
+  let prev =
+    Configuration.Url.user_followers_page config (Database.LocalUser.username user)
+      ~start_time ~offset:(Int.to_string (offset - 1))
+    |> Uri.to_string in
+
+  let part_of =
+    Configuration.Url.user_followers config (Database.LocalUser.username user)
+    |> Uri.to_string in
+
+  Lwt.return_ok ({
+    id;
+    prev=if offset > 0 then Some prev else None;
+    next = if total_count < offset * 10 then None else Some next;
+    is_ordered = true;
+    items = followers;
+    part_of=Some part_of;
+    total_items=Some total_count;
+  } : string Activitypub.Types.ordered_collection_page)
+
+let build_following_collection_page config start_time offset user db =
+  let+! following, total_count =
+    let+! user = Database.Actor.of_local (Database.LocalUser.self user) db in
+    let+! following =
+    Database.Follow.collect_following
+      ~offset:(start_time, 10, offset * 10) user db in
+    let+! total_count =
+      Database.Follow.count_following user db in
+    Lwt.return_ok (following, total_count) in
+
+  let+ following =
+    Lwt_list.map_s (fun follow ->
+      Database.Follow.author follow
+      |> Fun.flip Database.Link.resolve db
+    ) following in
+  let+! following = Lwt.return @@ Result.flatten_l following in
+  let following =
+    List.map (function
+        Database.Actor.Local u ->
+        Configuration.Url.user config (Database.LocalUser.username u)
+        |> Uri.to_string
+      | Database.Actor.Remote r ->
+        Database.RemoteUser.url r
+    ) following in
+  let+! start_time =
+    (CalendarLib.Calendar.to_unixfloat start_time
+                   |> Ptime.of_float_s
+                   |> Option.map (Ptime.to_rfc3339 ~tz_offset_s:0)
+                   |> Result.of_opt
+                   |> Lwt.return) in
+  let id =
+    Configuration.Url.user_following_page config (Database.LocalUser.username user)
+      ~start_time ~offset:(Int.to_string offset)
+    |> Uri.to_string in
+
+  let next =
+    Configuration.Url.user_following_page config (Database.LocalUser.username user)
+      ~start_time ~offset:(Int.to_string (offset + 1))
+    |> Uri.to_string in
+
+  let prev =
+    Configuration.Url.user_following_page config (Database.LocalUser.username user)
+      ~start_time ~offset:(Int.to_string (offset - 1))
+    |> Uri.to_string in
+
+  let part_of =
+    Configuration.Url.user_following config (Database.LocalUser.username user)
+    |> Uri.to_string in
+
+  Lwt.return_ok ({
+    id;
+    prev=if offset > 0 then Some prev else None;
+    next = if total_count < offset * 10 then None else Some next;
+    is_ordered = true;
+    items = following;
+    part_of=Some part_of;
+    total_items=Some total_count;
+  } : string Activitypub.Types.ordered_collection_page)

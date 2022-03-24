@@ -31,8 +31,8 @@ module LocalUser = struct
       public_key = convert_pubkey config actor;
       manually_approves_followers = false;
       discoverable = true;
-      followers = None;
-      following = None;
+      followers = Some (uri (Configuration.Url.user_followers config username));
+      following = Some (uri (Configuration.Url.user_following config username));
       icon = None;
       raw = `Null
     }

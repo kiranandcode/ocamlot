@@ -474,11 +474,16 @@ CLOSED: [2022-03-23 Wed 02:20]
 ***** TODO Add button to profile tracking follow status of user, and on click, post follow form to server
 ****** TODO add local follow task on post, with users username + local domain
 ****** TODO add internal handling for local follows where domain matches config.domain
-***** TODO add page to view follow requests
+***** DONE add page to view follow requests
+CLOSED: [2022-03-24 Thu 15:21]
 ****** on home page, below post, add button to view direct messages, follow requests
 ****** add follow request.ml to web to render follow requests
 ****** add function to view follow requests
 ****** on post of follow public id, send accept follow task to worker
+***** TODO Add ordered collection endpoint to users/username/followers
+****** get to users/username/followers, if no offset, return ordered collection page
+****** if ordered collection page
+***** TODO Update user activitypub to reference followers and following endpoint
 **** try out unfollowing from ocamlot and see what happens
 ** TODO Handle posts
 *** on submit post on home page 
