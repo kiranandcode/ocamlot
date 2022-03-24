@@ -102,14 +102,6 @@ let handle_actor_get config req =
           Lwt.return_ok (`Posts (timestamp, offset, posts))
       end
       |> or_errorP ~req ~err:internal_error in
-
-    (* let> follows =
-     *   Dream.sql req (fun db ->
-     *     let+! current_user = Database.Actor.of_local (Database.LocalUser.self user) db in
-     *     Database.Follow.collect_follows_for_actor ~offset:(timestamp, 10, offset * 10) current_user db)
-     *   |> or_errorP ~err:internal_error ~req in *)
-
-
     Dream.html (Html.Profile.build config current_user ~state ~posts ~following ~followers user req)
   | Some `JSON ->
     activity_json
