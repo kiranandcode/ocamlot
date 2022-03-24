@@ -16,6 +16,31 @@ let or_raw conv = function
   | `Raw v -> v
   | `Value v -> conv v
 
+(** * Collections  *)
+let ordered_collection_page enc
+      ({ id; prev; next; is_ordered; items; part_of; total_items }:
+         _ Types.ordered_collection_page) =
+  ap_obj "OrderedCollectionPage" [
+    "id" @ id <: E.string;
+    "next" @? next <: E.string;
+    "prev" @? prev <: E.string;
+    "partOf" @? part_of <: E.string;
+    "totalItems" @? total_items <: E.int;
+    (match is_ordered with
+     | true -> "orderedItems"
+     | false -> "items")  @ items <: E.list enc
+  ]
+
+let ordered_collection enc
+      ({ id; total_items; contents }: _ Types.ordered_collection) =
+  ap_obj "OrderedCollection" [
+    "id" @? id <: E.string;
+    "totalItems" @ total_items <: E.int;
+    match contents with
+    | `First page -> "first" @ page <: ordered_collection_page enc
+    | `Items (true, items) -> "orderedItems" @ items <: E.list enc
+    | `Items (false, items) -> "items" @ items <: E.list enc
+  ]
 
 (** * Events *)
 

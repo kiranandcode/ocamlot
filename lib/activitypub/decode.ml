@@ -5,6 +5,28 @@ let decode_string enc vl = D.decode_string enc vl |> Result.map_err D.string_of_
 
 let id = D.(one_of ["string", string; "id", field "id" string])
 
+let ordered_collection_page obj =
+  let open D in
+  let* () = field "type" @@ constant ~msg:"Expected OrderedCollectionPage (received %s)" "OrderedCollectionPage"
+  and* id = field "id" string
+  and* next = field_opt "next" id
+  and* prev = field_opt "prev" id
+  and* part_of = field_opt "partOf" string
+  and* total_items = field_opt "totalItems" int
+  and* (is_ordered, items) = items obj in
+  succeed ({id; next; prev; part_of; total_items; is_ordered; items}: _ Types.ordered_collection_page)
+
+let ordered_collection obj =
+  let open D in
+  let* () = field "type" @@ constant ~msg:"Expected OrderedCollection (received %s)" "OrderedCollection"
+  and* id = field_opt "id" string
+  and* total_items = field "totalItems" int
+  and* contents =
+    one_of [
+      "items", map (fun v -> `Items v) (items obj);
+      "first", map (fun v -> `First v) (field "first" (ordered_collection_page obj))
+    ] in
+  succeed ({id; total_items; contents}: _ Types.ordered_collection)
 
 let mention =
   let open D in

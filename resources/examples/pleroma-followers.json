@@ -1,0 +1,23 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://ocamlot.xyz/schemas/litepub-0.1.jsonld",
+        {
+            "@language": "und"
+        }
+    ],
+    "first": {
+        "id": "https://ocamlot.xyz/users/example/followers?page=1",
+        "next": "https://ocamlot.xyz/users/example/followers?page=2",
+        "orderedItems": [
+            "https://ocamlot.nfshost.com/users/example",
+            "https://ocamlot.xyz/users/atestaccount"
+        ],
+        "partOf": "https://ocamlot.xyz/users/example/followers",
+        "totalItems": 2,
+        "type": "OrderedCollectionPage"
+    },
+    "id": "https://ocamlot.xyz/users/example/followers",
+    "totalItems": 2,
+    "type": "OrderedCollection"
+}

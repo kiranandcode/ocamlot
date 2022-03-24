@@ -34,3 +34,14 @@ let field_or_default field' decoder default =
 let list_ignoring_unknown ty =
   let open D in
   list (maybe ty) >|= fun v -> List.filter_map Fun.id v
+
+let items obj =
+  let open D in
+  one_of [
+    ("ordered items",
+     let* items = field "orderedItems" (list obj) in
+     succeed (true, items));
+    "items",
+    let* items = field "items" (list obj) in
+    succeed (false, items)
+  ]

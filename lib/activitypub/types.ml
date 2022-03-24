@@ -2,6 +2,27 @@ type yojson = Yojson.Safe.t
 let pp_yojson fmt vl = Yojson.Safe.pretty_print fmt vl
 let equal_yojson l r = Yojson.Safe.equal l r
 
+(** * Collections *)
+type 'a ordered_collection_page = {
+  id: string;
+  prev: string option;
+  next: string option;
+  is_ordered: bool;
+  items: 'a list;
+  part_of: string option;
+  total_items: int option;
+} [@@deriving show, eq]
+
+
+type 'a ordered_collection = {
+  id: string option;
+  total_items: int;
+  contents: [
+    | `Items of (bool * 'a list)
+    | `First of 'a ordered_collection_page
+  ]
+} [@@deriving show, eq]
+
 (** * Events *)
 type 'a create = {
   id: string;
