@@ -486,12 +486,17 @@ CLOSED: [2022-03-24 Thu 16:23]
 ****** if ordered collection page
 ***** DONE Update user activitypub to reference followers and following endpoint
 CLOSED: [2022-03-24 Thu 16:23]
-**** try out unfollowing from ocamlot and see what happens
 **** TODO Update post to track all three of direct message, public, sensitive, followers only
 **** TODO Debug why things break in pleroma
+**** TODO try out unfollowing from ocamlot and see what happens
 ** TODO Handle posts
 *** on submit post on home page 
 *** on post to inbox with note
+** TODO Handle likes
+** TODO Handle boosts
+** TODO Handle blocks
+** TODO Handle reports
+** TODO Handle attachments
 ** TODO Add field to config that points to image storage path
 ** TODO add image uploads database table
 *** id
