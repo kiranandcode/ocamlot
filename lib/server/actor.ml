@@ -253,7 +253,10 @@ let handle_followers_get config req =
            followers_collection_page
     else Activitypub.Encode.ordered_collection (Decoders_yojson.Safe.Encode.string)
            ({
-             id = None;
+             id = Some (
+               Configuration.Url.user_followers config (Database.LocalUser.username user)
+               |> Uri.to_string
+             );
              total_items=followers_collection_page.total_items
                          |> Option.get_exn_or "invalid assumption";
              contents=`First followers_collection_page; 
@@ -286,7 +289,10 @@ let handle_following_get config req =
            following_collection_page
     else Activitypub.Encode.ordered_collection (Decoders_yojson.Safe.Encode.string)
            ({
-             id = None;
+             id = Some (
+               Configuration.Url.user_following config (Database.LocalUser.username user)
+               |> Uri.to_string
+             );
              total_items=following_collection_page.total_items
                          |> Option.get_exn_or "invalid assumption";
              contents=`First following_collection_page; 
