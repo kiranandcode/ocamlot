@@ -22,6 +22,10 @@
   #+end_src
 - Containers can then access each other by using the IP address assigned to them in the docker subnetwork
 - This is useful for connecting from pgadmin to a postgres
+* Hiccups
+** Followers/Following should be returned by actor endpoint
+** Everything should have an id, else things will break
+** Accept headers should be specified when looking up elements, else things will fail
 * Overview
 consists of two layers:
  - server to server federation
@@ -471,9 +475,6 @@ CLOSED: [2022-03-22 Tue 05:11]
 **** Frontend
 ***** DONE add page to view followers
 CLOSED: [2022-03-23 Wed 02:20]
-***** TODO Add button to profile tracking follow status of user, and on click, post follow form to server
-****** TODO add local follow task on post, with users username + local domain
-****** TODO add internal handling for local follows where domain matches config.domain
 ***** DONE add page to view follow requests
 CLOSED: [2022-03-24 Thu 15:21]
 ****** on home page, below post, add button to view direct messages, follow requests
@@ -486,12 +487,26 @@ CLOSED: [2022-03-24 Thu 16:23]
 ****** if ordered collection page
 ***** DONE Update user activitypub to reference followers and following endpoint
 CLOSED: [2022-03-24 Thu 16:23]
-**** TODO Update post to track all three of direct message, public, sensitive, followers only
-**** TODO Debug why things break in pleroma
+***** TODO Add button to profile tracking follow status of user, and on click, post follow form to server
+****** TODO add local follow task on post, with users username + local domain
+****** TODO add internal handling for local follows where domain matches config.domain
+**** DONE Debug why things break in pleroma
+CLOSED: [2022-03-25 Fri 15:43]
+**** TODO Update follow code to track whether there exists a follow with user already
+***** TODO Add partial index unique constraint
+**** TODO handle undo follow
 **** TODO try out unfollowing from ocamlot and see what happens
+**** TODO Write function to handle post of reject follow objects
+***** first check reject.object.id is in activity database
+***** then remove following request from table
+***** (optional)? once posting added, 
 ** TODO Handle posts
-*** on submit post on home page 
-*** on post to inbox with note
+*** TODO Update post to track all three of direct message, public, sensitive, followers only
+*** TODO on submit post on home page 
+**** TODO collect all followers
+*** DONE on post to inbox with note
+CLOSED: [2022-03-25 Fri 15:46]
+** TODO Add code to check activitypub origins (id of object must be of the same host as parent of object) 
 ** TODO Handle likes
 ** TODO Handle boosts
 ** TODO Handle blocks
@@ -510,7 +525,8 @@ CLOSED: [2022-03-24 Thu 16:23]
 *** if user = local user, enable edit button
 ** TODO add profile edit page
 ** TODO Update navbar of logged in with dms/home/local/twkn
-** TODO Write function to handle post of accept follow objects
+** DONE Write function to handle post of accept follow objects
+CLOSED: [2022-03-25 Fri 15:47]
 *** Write single SQL function to update entry in following database, using remote actor url + local user username
 *** when decoding accept follow object in inbox
 *** first, check accept.object.id. id is in activity database
@@ -518,9 +534,6 @@ CLOSED: [2022-03-24 Thu 16:23]
 *** retrieve url in to field, extract username from url
 *** lookup local user by username
 *** then update following relation between remote user, local user
-** TODO Write function to handle post of reject follow objects
-*** first check reject.object.id is in activity database
-*** then remove following request from table
-*** (optional)? once posting added, 
 ** TODO Write function to handle post of note objects
 *** update code to handle full tables, cc, to etc.
+
