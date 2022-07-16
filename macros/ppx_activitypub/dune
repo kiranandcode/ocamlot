@@ -1,0 +1,6 @@
+(library (name ppx_activitypub)
+ (kind ppx_deriver)
+ (libraries containers ppxlib)
+ (preprocess (pps ppxlib.metaquot))
+ (ppx_runtime_libraries decoders decoders-yojson ptime)
+)
