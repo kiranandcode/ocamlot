@@ -19,16 +19,32 @@ let t =
     T.Std.(tup3 int64 string (option timestamp))
 
 let create_instance_request =
-  Caqti_request.exec ~oneshot:false T.Std.(tup2 string (option timestamp)) {| INSERT OR IGNORE INTO RemoteInstance (url, last_unreachable)  VALUES (?, ?) |}
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  tup2 string (option timestamp) -->. unit @:- {|
+INSERT OR IGNORE INTO RemoteInstance (url, last_unreachable)  VALUES (?, ?)
+|}
 
 let resolve_instance_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 t {| SELECT id, url, last_unreachable FROM RemoteInstance WHERE id = ?  |}
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->! t @:- {|
+SELECT id, url, last_unreachable FROM RemoteInstance WHERE id = ?
+|}
 
 let lookup_instance_request =
-  Caqti_request.find ~oneshot:false T.Std.string t {| SELECT id, url, last_unreachable FROM RemoteInstance WHERE url = ?  |}
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  string -->! t @:- {|
+SELECT id, url, last_unreachable FROM RemoteInstance WHERE url = ?
+ |}
 
 let update_instance_request =
-  Caqti_request.exec ~oneshot:false T.Std.(tup2 (option timestamp) int64) {| UPDATE RemoteInstance SET last_unreachable = ? WHERE id = ?  |}
+    let open Caqti_type.Std in
+    let open Caqti_request.Infix in
+    tup2 (option timestamp) int64 -->. unit @:- {|
+UPDATE RemoteInstance SET last_unreachable = ? WHERE id = ?
+|}
 
 let resolve_instance id (module DB: DB) =
   DB.find resolve_instance_request id

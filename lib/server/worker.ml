@@ -1,6 +1,9 @@
 open Containers
 open Common
 
+let sanitize res = res |> Lwt_result.map_error (fun e -> `Error e)
+(* let (let+!) x f = Lwt_result.bind (sanitize x) f *)
+
 type task =
   | CreateNote of {
     id: string;
@@ -47,18 +50,20 @@ open struct
 
   let worker_var = Lwt_mvar.create_empty ()
 
-  let rec worker db config =
+  let rec worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) config =
     let+ task = Lwt_mvar.take worker_var in
-    let+ () = Lwt_unix.sleep 2.0 in
     match task with
     | CreateNote { id; author; to_; cc;
                    sensitive; direct_message;
                    source; summary; content;
                    published; tags; data; } ->
       let+ res =
+        let> db = fun f -> Caqti_lwt.Pool.use f pool in
         let+! author =
-          let+! author = Resolver.resolve_remote_user_by_url (Uri.of_string author) db in
-          Database.Actor.of_remote (Database.RemoteUser.self author) db  in
+          let+! author = Resolver.resolve_remote_user_by_url (Uri.of_string author) db
+                         |> sanitize in
+          Database.Actor.of_remote (Database.RemoteUser.self author) db  |> sanitize
+        in
         let+ is_public, to_ =
           Lwt_list.fold_left_s (fun (is_public, tgts) -> function
             | "https://www.w3.org/ns/activitystreams#Public" -> Lwt.return (true, tgts)
@@ -68,7 +73,7 @@ open struct
                 match Re.exec_opt user_re target with
                 | None ->
                   let+! remote_user = Resolver.resolve_remote_user_by_url (Uri.of_string target) db in
-                  Database.Actor.of_remote (Database.RemoteUser.self remote_user) db 
+                  Database.Actor.of_remote (Database.RemoteUser.self remote_user) db
                 | Some matches ->
                   let username = Re.Group.get matches 1 in
                   let+! local_user = Database.LocalUser.lookup_user_exn ~username db in
@@ -85,7 +90,7 @@ open struct
                 match Re.exec_opt user_re target with
                 | None ->
                   let+! remote_user = Resolver.resolve_remote_user_by_url (Uri.of_string target) db in
-                  Database.Actor.of_remote (Database.RemoteUser.self remote_user) db 
+                  Database.Actor.of_remote (Database.RemoteUser.self remote_user) db
                 | Some matches ->
                   let username = Re.Group.get matches 1 in
                   let+! local_user = Database.LocalUser.lookup_user_exn ~username db in
@@ -107,7 +112,7 @@ open struct
                 match Re.exec_opt user_re href with
                 | None ->
                   let+! remote_user = Resolver.resolve_remote_user_by_url (Uri.of_string href) db in
-                  Database.Actor.of_remote (Database.RemoteUser.self remote_user) db 
+                  Database.Actor.of_remote (Database.RemoteUser.self remote_user) db
                 | Some matches ->
                   let username = Re.Group.get matches 1 in
                   let+! local_user = Database.LocalUser.lookup_user_exn ~username db in
@@ -123,69 +128,96 @@ open struct
         let+! post = 
           Database.Post.create_post
             ?summary ~url:id  ~published ~author ~is_public ~post_source
-            ~raw_data:(Yojson.Safe.to_string data) db in
-        let+! () = Database.Post.add_post_tos (Database.Post.self post) to_ db in
-        let+! () = Database.Post.add_post_ccs (Database.Post.self post) cc db in
-        let+! () = Database.Post.add_post_tags (Database.Post.self post) tags db in
-        let+! () = Database.Post.add_post_mentions (Database.Post.self post) mentions db in
+            ~raw_data:(Yojson.Safe.to_string data) db |> sanitize in
+        let+! () = Database.Post.add_post_tos (Database.Post.self post) to_ db |> sanitize in
+        let+! () = Database.Post.add_post_ccs (Database.Post.self post) cc db |> sanitize in
+        let+! () = Database.Post.add_post_tags (Database.Post.self post) tags db |> sanitize in
+        let+! () = Database.Post.add_post_mentions (Database.Post.self post) mentions db |> sanitize in
 
         Lwt_result.return ()
       in
       begin match res with
-      | Ok () -> worker db config
+      | Ok () -> worker pool config
       | Error e ->
+        let e = match e with
+          | #Caqti_error.t as e -> Caqti_error.show e
+          | `Error e -> e in
         Dream.error (fun log -> log "error in worker: %s" e);
-        worker db config
+        worker pool config
       end        
     | AcceptRemoteFollow {follow; author; target} ->
-      let+ res = Resolver.accept_remote_follow config follow author target db in
+      let+ res =
+        let> db = fun f -> Caqti_lwt.Pool.use f pool in
+        Resolver.accept_remote_follow config follow author target db |> sanitize in
       begin match res with
-      | Ok () -> worker db config
+      | Ok () -> worker pool config
       | Error e ->
+        let e = match e with
+          | #Caqti_error.t as e -> Caqti_error.show e
+          | `Error e -> e in
         Dream.error (fun log -> log "error in worker: %s" e);
-        worker db config
+        worker pool config
       end
     | RecordAcceptLocalFollow {follow; author; target} ->
-      let+ res = Resolver.accept_local_follow config follow ~author ~target db in
+      let+ res =
+        let> db = fun f -> Caqti_lwt.Pool.use f pool in
+        Resolver.accept_local_follow config follow ~author ~target db |> sanitize in
       begin match res with
-      | Ok () -> worker db config
+      | Ok () -> worker pool config
       | Error e ->
+        let e = match e with
+          | #Caqti_error.t as e -> Caqti_error.show e
+          | `Error e -> e in
         Dream.error (fun log -> log "error in worker: %s" e);
-        worker db config
+        worker pool config
       end
     | RemoteFollow { id; remote; target; data } ->
-      let+ res = Resolver.follow_local_user config id remote target data db in
+      let+ res =
+        let> db = fun f -> Caqti_lwt.Pool.use f pool in
+        Resolver.follow_local_user config id remote target data db |> sanitize in
       begin match res with
-      | Ok () -> worker db config
+      | Ok () -> worker pool config
       | Error e ->
+        let e = match e with
+          | #Caqti_error.t as e -> Caqti_error.show e
+          | `Error e -> e in
         Dream.error (fun log -> log "error in worker: %s" e);
-        worker db config
+        worker pool config
       end
     | LocalFollow {local; username; domain} ->
-      let+ res = Resolver.follow_remote_user config local ~username ~domain db in
+      let+ res =
+        let> db = fun f -> Caqti_lwt.Pool.use f pool in
+        Resolver.follow_remote_user config local ~username ~domain db |> sanitize in
       begin match res with
-      | Ok () -> worker db config
+      | Ok () -> worker pool config
       | Error e ->
+        let e = match e with
+          | #Caqti_error.t as e -> Caqti_error.show e
+          | `Error e -> e in
         Dream.error (fun log -> log "error in worker: %s" e);
-        worker db config
+        worker pool config
       end
     | LocalPost {user; content} ->
       let id = Database.Activity.fresh_id () in
       let+ post = 
+        let> db = fun f -> Caqti_lwt.Pool.use f pool in
         let+! author = (Database.Actor.of_local
-                          (Database.LocalUser.self user) db) in
+                          (Database.LocalUser.self user) db) |> sanitize in
         Database.Post.create_post
           ~public_id:(Database.Activity.id_to_string id)
           ~url:(Configuration.Url.activity_endpoint config
                   (Database.Activity.id_to_string id)
                 |> Uri.to_string)
           ~author ~is_public:true ~post_source:content
-          ~published:(CalendarLib.Calendar.now ()) db in
+          ~published:(CalendarLib.Calendar.now ()) db |> sanitize in
       match post with
-      | Ok _ -> worker db config
+      | Ok _ -> worker pool config
       | Error e ->
+        let e = match e with
+          | #Caqti_error.t as e -> Caqti_error.show e
+          | `Error e -> e in
         Dream.error (fun log -> log "error in worker: %s" e);
-        worker db config
+        worker pool config
 
 end
 
@@ -193,11 +225,14 @@ let send _req task  =
   Lwt.async (fun () -> Lwt_mvar.put worker_var task)
 
 let init config =
+  let pool = 
+    let vl = ref None in
+    ignore @@ Dream.sql_pool  Configuration.Params.(database_path config) (fun req ->
+      vl :=(Dream__sql.Sql.Message.field req Dream__sql.Sql.pool_field);
+      Dream.html ""
+    ) (Dream.request "");
+    match !vl with
+    | None -> raise (Failure "worker failed to acquire access to pool")
+    | Some pool -> pool  in
   Lwt.async @@ fun () ->
-    let+ db =
-      config
-      |> Configuration.Params.database_path
-      |> Uri.of_string
-      |> Caqti_lwt.connect in
-    let db = Result.get_exn db in
-    worker db config
+  worker (pool :> (Caqti_lwt.connection, [Caqti_error.t | `Error of string] ) Caqti_lwt.Pool.t) config

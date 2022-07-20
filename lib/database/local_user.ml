@@ -51,42 +51,52 @@ let t : t T.t =
                 (tup3 bool pubkey privkey)))
 
 let create_user_request =
-  Caqti_request.exec ~oneshot:false
-    T.Std.(tup4 string string (option string) 
-             (tup4 bool bool pubkey privkey))
-{|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  tup4 string string (option string) (tup4 bool bool pubkey privkey)
+    -->. unit @:- {|
 INSERT INTO LocalUser (username, password, about, manually_accept_follows, is_admin, pubkey, privkey)
  VALUES (?, ?, ?, ?, ?, ?, ?) |}
 
 let find_user_request =
-  Caqti_request.find ~oneshot:false T.Std.string t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  string -->! t @:- {|
 SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
 FROM LocalUser
 WHERE username = ?  |}
 
 let resolve_user_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->! t @:- {|
 SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
 FROM LocalUser
 WHERE id = ?  |}
 
 
 let update_about_request =
-  Caqti_request.exec ~oneshot:false T.(tup2 string int64) {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  tup2 string int64 -->. unit @:- {|
 UPDATE LocalUser
 SET about = ?
 WHERE id = ?
 |}
 
 let update_is_admin_request =
-  Caqti_request.exec ~oneshot:false T.(tup2 bool int64) {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  tup2 bool int64 -->. unit @:- {|
 UPDATE LocalUser
 SET is_admin = ?
 WHERE id = ?
 |}
 
 let update_manually_accept_follows_request =
-  Caqti_request.exec ~oneshot:false T.(tup2 bool int64) {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  tup2 bool int64 -->. unit @:- {|
 UPDATE LocalUser
 SET manually_accept_follows = ?
 WHERE id = ?

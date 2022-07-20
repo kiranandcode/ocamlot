@@ -1,3 +1,4 @@
+[@@@warning "-36-39"]
 open Containers
 open Utils
 
@@ -33,13 +34,18 @@ let t : t T.t =
 
 
 let create_activity_request =
-  Caqti_request.exec ~oneshot:false t {| INSERT OR IGNORE INTO Activity (id, raw_data)  VALUES (?, ?) |}
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  t -->. unit @:- {| INSERT OR IGNORE INTO Activity (id, raw_data)  VALUES (?, ?) |}
 
 let find_activity_request =
-  Caqti_request.find ~oneshot:false uuid t {| SELECT id, raw_data FROM Activity WHERE id = ?  |}
+  let open Caqti_request.Infix in
+  uuid -->! t @:- {| SELECT id, raw_data FROM Activity WHERE id = ?  |}
 
 let update_activity_request =
-  Caqti_request.exec ~oneshot:false T.Std.(tup2 yojson uuid) {| UPDATE OR IGNORE Activity SET raw_data = ? WHERE id = ? |}
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  tup2 yojson uuid -->. unit @:- {| UPDATE OR IGNORE Activity SET raw_data = ? WHERE id = ? |}
 
 let data {id=_;data} = data
 let id {id;data=_} = id

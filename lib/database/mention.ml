@@ -20,22 +20,30 @@ let t =
     T.Std.(tup4 (option string) string (option string) (tup2 int64 int64))
 
 let create_mention_request =
-  Caqti_request.exec ~oneshot:false t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  t -->. unit @:- {|
 INSERT OR IGNORE INTO Mentions (public_id, url, raw_data, post_id, actor_id) VALUES (?, ?, ?, ?, ?)
 |}
 
 let collect_mentions_by_post_id_request =
-  Caqti_request.collect ~oneshot:false T.Std.int64 t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->* t @:- {|
 SELECT public_id, url, raw_data, post_id, actor_id FROM Mentions WHERE post_id = ?
 |}
 
 let lookup_mentions_by_url_request =
-  Caqti_request.find ~oneshot:false T.Std.string t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  string -->! t @:- {|
 SELECT public_id, url, raw_data, post_id, actor_id FROM Mentions WHERE url = ?
 |}
 
 let lookup_mentions_by_public_id_request =
-  Caqti_request.find ~oneshot:false T.Std.string t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  string -->! t @:- {|
 SELECT public_id, url, raw_data, post_id, actor_id FROM Mentions WHERE public_id = ?
 |}
 

@@ -43,14 +43,19 @@ let t =
                 (tup2 (option string) string))))
 
 let create_remote_user_request =
-  Caqti_request.exec ~oneshot:false T.Std.(tup4 string int64 (option string)
-                                             (tup4 string (option string) (option string)
-                                             (tup4 (option string) (option string) (option string) string))) {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  (tup4 string int64 (option string)
+     (tup4 string (option string) (option string)
+        (tup4 (option string) (option string) (option string) string))) -->. unit @:-
+    {|
 INSERT INTO RemoteUser (username, instance_id, display_name, url, inbox, outbox, followers, following, summary, public_key_pem)  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 |}
 
 let lookup_remote_user_by_address_request =
-  Caqti_request.find ~oneshot:false T.Std.(tup2 string string) t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  tup2 string string -->! t @:- {|
 SELECT
     RemoteUser.id,
     RemoteUser.username,
@@ -68,21 +73,29 @@ WHERE RemoteInstance.url = ? AND RemoteUser.username = ?
 |}
 
 let lookup_remote_user_by_url_request =
-  Caqti_request.find ~oneshot:false T.Std.string t
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  string -->! t @:-
     {| SELECT id, username, instance_id, display_name, url, inbox, outbox, followers, following, summary, public_key_pem FROM RemoteUser WHERE url = ?  |}
 
 let resolve_remote_user_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 t
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->! t @:-
     {| SELECT id, username, instance_id, display_name, url, inbox, outbox, followers, following, summary, public_key_pem FROM RemoteUser WHERE id = ?  |}
 
 let retrieve_known_user_list_reqest =
-  Caqti_request.collect ~oneshot:false T.Std.unit T.Std.(tup3 string string string) {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  unit -->* tup3 string string string @:- {|
 SELECT RemoteUser.username, RemoteInstance.url, RemoteUser.url FROM RemoteUser 
 JOIN RemoteInstance on RemoteUser.instance_id = RemoteInstance.id
 |}
 
 let collect_remote_users_request =
-  Caqti_request.collect ~oneshot:false T.Std.int64 t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->* t @:- {|
 -- select users from remote users
 SELECT
     RU.id,
@@ -113,7 +126,9 @@ ORDER BY RU.id ASC
 |}
 
 let collect_remote_users_offset_request =
-  Caqti_request.collect ~oneshot:false T.Std.(tup3 int64 int int) t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  tup3 int64 int int -->* t @:- {|
 -- select users from remote users
 SELECT
     RU.id,
