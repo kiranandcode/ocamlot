@@ -1,7 +1,7 @@
 [@@@warning "-33"]
 open Containers
 open Common
-
+module Runner = Runner
 let failwith ~req err = let+ () = Common.Error.set req err in Dream.redirect req "/home"
 let holds_or_else ~req red vl kont = match vl with false -> failwith ~req red | true -> kont ()
 let ok_or_else ~req red vl kont = match vl with Error e -> failwith ~req (red ^ e) | Ok v -> kont v
@@ -109,8 +109,9 @@ let () =
   let config =
     Configuration.Params.create
       ~database_path ~domain:"testing.ocamlot.xyz" in
-  Worker.init config;
-  Dream.run ~port:4000
+  let worker = Worker.init config in
+  Runner.run ~workers:[worker]
+    ~port:4000
   @@ Dream.logger
   @@ Dream.sql_pool database_path
   @@ Dream.sql_sessions

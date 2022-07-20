@@ -234,5 +234,5 @@ let init config =
     match !vl with
     | None -> raise (Failure "worker failed to acquire access to pool")
     | Some pool -> pool  in
-  Lwt.async @@ fun () ->
+  let+ () = Lwt.return () in
   worker (pool :> (Caqti_lwt.connection, [Caqti_error.t | `Error of string] ) Caqti_lwt.Pool.t) config
