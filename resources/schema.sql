@@ -4,13 +4,13 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE dream_session (
   id TEXT PRIMARY KEY,
   label TEXT NOT NULL,
-  expires_at REAL NOT NULL,
+  expires_at REAL NOT NULL /* date */,
   payload TEXT NOT NULL
 );
 
 CREATE TABLE Activity (
   id TEXT PRIMARY KEY,                 -- uuid of the activity
-  raw_data BLOB NOT NULL               -- json data
+  raw_data BLOB NOT NULL /* yojson */  -- json data
 );
 
 -- table for local users

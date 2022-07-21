@@ -19,7 +19,7 @@ type column_constraint =
 
 type column = {
   name: string;
-  ty: ty;
+  ty: ty * string option;
   constraints: column_constraint list;
 }
 [@@deriving show]
@@ -208,12 +208,28 @@ let column_constraint =
     unique;
   ]
 
+let comment_spec =
+  let* _ = string "/*" in
+  fix (fun kont ->
+    let* str = take_till (function '*' -> true | _ -> false) <* char '*' in
+    let* term = String.of_char <$> any_char in
+    match term with
+    | "/" -> return str
+    | c ->
+      let* remain_str = kont in
+      return @@ str ^ "*" ^ c ^ remain_str
+  )
+
 
 let column_def =
   let* name = identifier in
   let* ty = ws *> ty in
   let* constraints = ws *> sep_by ws column_constraint in
-  return {name; ty; constraints}
+  let* info = choice [
+    (ws *> comment_spec >>= fun s -> return (Some (String.trim s)));
+    return None
+  ] in
+  return {name; ty=(ty, info); constraints}
 
 let action =
   choice [
