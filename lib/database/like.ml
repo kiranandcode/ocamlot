@@ -23,22 +23,27 @@ let t =
     T.Std.(tup4 int64 (option string) string (tup4 (option string) timestamp int64 int64))
 
 let resolve_like_by_id_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->! t @:- {|
 SELECT id, public_id, url, raw_data, published, post_id, actor_id FROM Likes WHERE id = ?
 |}
 
 
 let create_like_request =
-  Caqti_request.exec ~oneshot:false
-    T.Std.(tup4 (option string) string (option string)
-             (tup3 timestamp int64 int64)) {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  (tup4 (option string) string (option string)
+     (tup3 timestamp int64 int64)) -->. unit @:- {|
 INSERT OR IGNORE
 INTO Likes (public_id, url, raw_data, published, post_id, actor_id)
 VALUES (?, ?, ?, ?, ?, ?)
 |}
 
 let collect_likes_by_post_id_request =
-  Caqti_request.collect ~oneshot:false T.Std.int64 t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->* t @:- {|
 SELECT id, public_id, url, raw_data, published, post_id, actor_id
 FROM Likes
 WHERE post_id = ?
@@ -46,7 +51,9 @@ ORDER BY datetime(published)
 |}
 
 let collect_likes_by_actor_id_request =
-  Caqti_request.collect ~oneshot:false T.Std.int64 t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->* t @:- {|
 SELECT id, public_id, url, raw_data, published, post_id, actor_id
 FROM Likes
 WHERE actor_id = ?
@@ -54,7 +61,9 @@ ORDER BY datetime(published)
 |}
 
 let collect_likes_by_actor_id_offset_request =
-  Caqti_request.collect ~oneshot:false T.Std.(tup4 int64 timestamp int int) t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  (tup4 int64 timestamp int int) -->* t @:- {|
 SELECT id, public_id, url, raw_data, published, post_id, actor_id
 FROM Likes
 WHERE actor_id = ? AND published <= ?
@@ -64,14 +73,18 @@ LIMIT ? OFFSET ?
 
 
 let lookup_like_by_url_request =
-  Caqti_request.find ~oneshot:false T.Std.string t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  string -->! t @:- {|
 SELECT id, public_id, url, raw_data, published, post_id, actor_id
 FROM Likes
 WHERE url = ?
 |}
 
 let lookup_like_by_public_id_request =
-  Caqti_request.find ~oneshot:false T.Std.string t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  string -->! t @:- {|
 SELECT id, public_id, url, raw_data, published, post_id, actor_id
 FROM Likes
 WHERE public_id = ?

@@ -17,15 +17,17 @@ let t =
     T.Std.(tup2 int64 string)
 
 let create_tag_request =
-  Caqti_request.exec ~oneshot:false
-    T.Std.string
-    {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  string -->. unit @:- {|
 INSERT OR IGNORE INTO Tags (tag_name) VALUES (?)
 |}
 
 let find_tag_by_name_request =
-  Caqti_request.find ~oneshot:false
-    T.Std.string t
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+
+  string -->! t @:-
     {|
 SELECT tag_id, tag_name
 FROM Tags
@@ -33,8 +35,9 @@ WHERE tag_name = ?
 |}
 
 let resolve_tag_request =
-  Caqti_request.find ~oneshot:false
-    T.Std.int64 t
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->! t @:-
     {|
 SELECT tag_id, tag_name
 FROM Tags

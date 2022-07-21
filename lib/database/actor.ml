@@ -5,20 +5,31 @@ type t =
   | Remote of Remote_user.t
 
 let lookup_local_id_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 T.Std.int64 {| SELECT id FROM Actor WHERE local_id = ? |}
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+
+  int64 -->! int64 @:- {| SELECT id FROM Actor WHERE local_id = ? |}
 
 let lookup_remote_id_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 T.Std.int64 {| SELECT id FROM Actor WHERE remote_id = ? |}
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->! int64 @:- {| SELECT id FROM Actor WHERE remote_id = ? |}
 
 let resolve_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 T.Std.(tup2 (option int64) (option int64))
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->! tup2 (option int64) (option int64) @:-
     {| SELECT local_id, remote_id FROM Actor WHERE id = ? |}
 
 let create_local_user_request =
-  Caqti_request.exec ~oneshot:false T.Std.int64 {| INSERT OR IGNORE INTO Actor (local_id)  VALUES (?) |}
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->. unit @:- {| INSERT OR IGNORE INTO Actor (local_id)  VALUES (?) |}
 
 let create_remote_user_request =
-  Caqti_request.exec ~oneshot:false T.Std.int64 {| INSERT OR IGNORE INTO Actor (remote_id)  VALUES (?) |}
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->. unit @:- {| INSERT OR IGNORE INTO Actor (remote_id)  VALUES (?) |}
 
 let resolve id (module DB: DB) =
   let* result = DB.find resolve_request id |> flatten_error in

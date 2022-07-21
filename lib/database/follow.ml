@@ -33,10 +33,11 @@ let t =
                 (tup3 (option timestamp) int64 int64)))
 
 let create_follow =
-  Caqti_request.exec ~oneshot:false
-    T.Std.(tup4 (option string) string (option string)
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+ (tup4 (option string) string (option string)
              (tup4 bool timestamp (option timestamp)
-                (tup2 int64 int64)))
+                (tup2 int64 int64))) -->. unit @:-
     {|
 INSERT OR IGNORE
 INTO Follows (public_id, url, raw_data, pending, created, updated, author_id, target_id)
@@ -44,32 +45,42 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 |}
 
 let lookup_follow_by_public_id_request =
-  Caqti_request.find ~oneshot:false T.Std.string t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  string -->! t @:- {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE public_id = ?
 |}
 
 let lookup_follow_by_url_request =
-  Caqti_request.find ~oneshot:false T.Std.string t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  string -->! t @:- {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE url = ?
 |}
 
 let update_follow_pending_request =
-  Caqti_request.exec ~oneshot:false T.Std.(tup3 bool timestamp int64)
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  tup3 bool timestamp int64 -->. unit @:-
     {| UPDATE Follows SET pending = ?, updated = ? WHERE id = ?  |}
 
 let resolve_follow_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->! t @:- {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE id = ?
 |}
 
 let collect_related_follows_request =
-  Caqti_request.find ~oneshot:false T.Std.(tup2 int64 int64) t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  (tup2 int64 int64) -->! t @:- {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE (target_id = ? OR author_id = ?) AND pending = TRUE
@@ -77,8 +88,9 @@ ORDER BY DATETIME(COALESCE(updated, created)) DESC
 |}
 
 let collect_related_follows_offset_request =
-  Caqti_request.find ~oneshot:false
-    T.Std.(tup4 int64 int64 timestamp (tup2 int int)) t
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  (tup4 int64 int64 timestamp (tup2 int int)) -->! t @:-
  {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
@@ -88,7 +100,9 @@ LIMIT ? OFFSET ?
 |}
 
 let count_following_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 T.Std.int {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->! T.Std.int @:- {|
 SELECT COUNT(*)
 FROM Follows
 WHERE author_id = ? AND pending = FALSE
@@ -96,7 +110,9 @@ ORDER BY DATETIME(COALESCE(updated, created)) DESC
 |}
 
 let collect_following_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->* t @:- {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE author_id = ? AND pending = FALSE
@@ -104,8 +120,9 @@ ORDER BY DATETIME(COALESCE(updated, created)) DESC
 |}
 
 let collect_following_offset_request =
-  Caqti_request.find ~oneshot:false
-    T.Std.(tup4 int64 timestamp int int) t
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  (tup4 int64 timestamp int int) -->* t @:-
  {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
@@ -115,7 +132,9 @@ LIMIT ? OFFSET ?
 |}
 
 let count_followers_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 T.Std.int {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->! int @:- {|
 SELECT COUNT(*)
 FROM Follows
 WHERE target_id = ? AND pending = FALSE
@@ -124,7 +143,9 @@ ORDER BY DATETIME(COALESCE(updated, created)) DESC
 
 
 let collect_followers_request =
-  Caqti_request.find ~oneshot:false T.Std.int64 t {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->* t @:- {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE target_id = ? AND pending = FALSE
@@ -132,8 +153,9 @@ ORDER BY DATETIME(COALESCE(updated, created)) DESC
 |}
 
 let collect_followers_offset_request =
-  Caqti_request.find ~oneshot:false
-    T.Std.(tup4 int64 timestamp int int) t
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  (tup4 int64 timestamp int int) -->* t @:-
  {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
@@ -144,7 +166,9 @@ LIMIT ? OFFSET ?
 
 
 let delete_follow_request =
-  Caqti_request.exec ~oneshot:false T.Std.int64 {|
+  let open Caqti_type.Std in
+  let open Caqti_request.Infix in
+  int64 -->. unit @:- {|
 DELETE FROM Follows
 WHERE id = ?
 LIMIT 1
