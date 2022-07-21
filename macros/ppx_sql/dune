@@ -1,0 +1,5 @@
+(library (name ppx_sql)
+ (kind ppx_rewriter)
+ (libraries containers ppxlib caqti)
+ (preprocess (pps ppxlib.metaquot))
+)

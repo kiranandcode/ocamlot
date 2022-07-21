@@ -1,0 +1,3 @@
+(executable (name sql)
+ (preprocess (pps ppx_deriving.show))
+ (libraries containers angstrom))
