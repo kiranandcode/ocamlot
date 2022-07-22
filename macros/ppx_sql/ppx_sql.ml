@@ -80,6 +80,58 @@ let check_declaration (columns: Sql.Types.column list) (seen_fields: StringSet.t
       Utils.structure_err ~loc "ppx_sql expected type %s for field %s, but found type %s"
         col_ty label_declaration.pld_name.txt ty
 
+let extract_schema_name ~f ~loc decl =
+  match decl.ptype_kind with
+  | Ptype_abstract |Ptype_record _ |Ptype_open | Ptype_variant ([] | _ :: _ :: _) ->
+    Utils.structure_err ~loc "ppx_sql sql.generate expects a constructor [SQL [@schema <schema name>]]"
+  | Ptype_variant [{ pcd_vars=(_ :: _); pcd_loc=loc; _ }]
+  | Ptype_variant [{ pcd_attributes=([] | _ :: _ :: _); pcd_loc=loc; _ }]
+  | Ptype_variant [{ pcd_res=Some _; pcd_loc=loc; _ }]
+  | Ptype_variant [{ pcd_args = Pcstr_tuple (_ :: _); pcd_loc=loc; _ }]
+  | Ptype_variant [{ pcd_args = Pcstr_record (_ :: _); pcd_loc=loc; _ }] ->
+    Utils.structure_err ~loc "ppx_sql sql.generate expects a constructor [SQL [@schema <schema name>]]"
+  | Ptype_variant [{ pcd_name={txt=name; loc}; _ }] when not (String.equal name "SQL") ->
+    Utils.structure_err ~loc "ppx_sql sql.generate expects a constructor [SQL [@schema <schema name>]]"
+  | Ptype_variant [{ pcd_attributes=attributes; pcd_loc=loc; _ }] ->
+    extract_attr ~f ~loc attributes
+
+let build_schema ~loc name (table: Sql.Types.table) : type_declaration =
+  let build_field_decl (col: Sql.Types.column) : label_declaration =
+    Ast_builder.Default.label_declaration
+      ~loc ~name:{txt=Option.value
+                        ~default:col.name
+                        col.mapped_name; loc}
+      ~mutable_:Immutable ~type_:col.ty in
+  Ast_builder.Default.type_declaration ~loc ~name
+    ~params:[] ~cstrs:[]
+    ~private_:Public ~manifest:None
+    ~kind:(Ptype_record (List.map build_field_decl table.columns))
+
+let generate_rule =
+  let check
+        ~(ctxt:Expansion_context.Extension.t)
+        (attrs: Ppxlib__Import.attributes)
+        (decl: type_declaration) : structure_item list =
+    let loc = Expansion_context.Extension.extension_point_loc ctxt in
+    let+ cached = Utils.Structure.some_or_fail_expr ~loc !schema_data
+                    ~else_:"attempt to use sql.generate without specifying a SQL schema first." in
+    let+ schema_name = extract_schema_name ~loc decl in
+    let+ cached_table =
+      Utils.Structure.some_or_fail_expr ~loc
+        (List.find_opt (fun s -> String.equal s.Sql.Types.name schema_name) cached)
+        ~else_:"ppx_sql was unable to find a table named %s in the \
+                supplied schema. Hint: supported name %s" schema_name
+        (List.map (fun s -> s.Sql.Types.name) cached |> String.concat ", ") in
+    [Ast_builder.Default.pstr_type ~loc Recursive
+       [(build_schema ~loc decl.ptype_name cached_table)]] in
+  let extension =
+    Extension.V3.declare_inline "sql.generate"
+      Extension.Context.structure_item
+      Ast_pattern.(pstr (pstr_type recursive ((type_declaration_attributes __ __) ^:: nil) ^:: nil))
+      check in
+  Ppxlib.Context_free.Rule.extension extension
+
+
 let check_rule =
   let check
         ~(ctxt:Expansion_context.Extension.t)
@@ -90,19 +142,22 @@ let check_rule =
                     ~else_:"attempt to use sql.check without specifying a SQL schema first." in
     let+ schema_name = extract_attr ~loc attrs in
     let+ cached_table =
-      Utils.Structure.some_or_fail_expr ~loc (List.find_opt (fun s -> String.equal s.Sql.Types.name schema_name) cached)
-        ~else_:"ppx_sql was unable to find a table named %s in the supplied schema. Hint: supported name %s" schema_name
+      Utils.Structure.some_or_fail_expr ~loc
+        (List.find_opt (fun s -> String.equal s.Sql.Types.name schema_name) cached)
+        ~else_:"ppx_sql was unable to find a table named %s in the \
+                supplied schema. Hint: supported name %s" schema_name
         (List.map (fun s -> s.Sql.Types.name) cached |> String.concat ", ") in
     let+ loc, ty_name, fields = extract_rows ~loc decl in
     let+ seen_fields =
       Utils.foldM ~f:(check_declaration cached_table.columns) StringSet.empty fields in
-    let missing_fields = List.filter (fun (s: Sql.Types.column) -> not @@ StringSet.mem s.name seen_fields)
-                           cached_table.columns
-                         |> function [] -> Ok () | ls ->
-                           Error (
-                             "missing fields for columns " ^
-                             (List.map (fun (s: Sql.Types.column) -> s.name) cached_table.columns |> String.concat ", ")
-                           ) in
+    let missing_fields =
+      List.filter (fun (s: Sql.Types.column) -> not @@ StringSet.mem s.name seen_fields)
+        cached_table.columns
+      |> function [] -> Ok () | ls ->
+        Error (
+          "missing fields for columns " ^
+          (List.map (fun (s: Sql.Types.column) -> s.name) cached_table.columns |> String.concat ", ")
+        ) in
     let+ () = Utils.Structure.ok_or_fail_expr ~loc missing_fields
                 ~else_:"ppx_sql failed to validate type" in
     [Ast_builder.Default.pstr_type ~loc rec_flag [decl]] in
@@ -117,6 +172,7 @@ let () =
   Driver.register_transformation
     ~rules:[
       setup_rule;
+      generate_rule;
       check_rule
     ]
     "ppx_sql"

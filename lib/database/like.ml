@@ -2,17 +2,7 @@ open Utils
 let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:Like *)
-type%sql.check[@schema "Likes"] t = {
-  id: int64;                              (* internal id of the like *)
-
-  public_id: string option;               (* public id of the mention object if made externally *)
-  url: string;                            (* url of the mention  *)
-  raw_data: string option;                (* raw json of the mention if external  *)
-
-  published: CalendarLib.Calendar.t;      (* published date *)
-  post_id: int64;                         (* post being liked *)
-  actor_id: int64;                        (* actor doing the liking *)
-}
+type%sql.generate t = SQL [@schema "Likes"]
 
 let t =
   let encode {id; public_id; url; raw_data; published; post_id; actor_id} =

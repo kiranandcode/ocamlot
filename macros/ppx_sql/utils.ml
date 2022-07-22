@@ -1,29 +1,30 @@
+open Containers
 open Ppxlib
 
 let read_file path =
   match open_in path with
   | ic ->
-    Fun.protect ~finally:(fun () -> In_channel.close_noerr ic) (fun () ->
-      Some (In_channel.input_all ic)
+    Fun.protect ~finally:(fun () -> close_in_noerr ic) (fun () ->
+      Some (IO.read_all ic)
     )
   | exception Not_found | exception Sys_error _ ->
     None
 
 
 let expression_err ~loc =
-  Format.ksprintf (fun s ->
+  Format.ksprintf ~f:(fun s ->
     Ast_builder.Default.pexp_extension ~loc (Ppxlib.Location.error_extensionf ~loc "%s" s)
   )
 
 let structure_item_err ~loc =
   let module B = (val Ast_builder.make loc) in
-  Format.ksprintf (fun s ->
+  Format.ksprintf ~f:(fun s ->
     B.pstr_extension (Ppxlib.Location.error_extensionf ~loc "%s" s) []
   )
 
 let structure_err ~loc =
   let module B = (val Ast_builder.make loc) in
-  Format.ksprintf (fun s ->
+  Format.ksprintf ~f:(fun s ->
     [B.pstr_extension (Ppxlib.Location.error_extensionf ~loc "%s" s) []]
   )
 
@@ -61,7 +62,7 @@ let foldM ~f init ls ~f:then_ =
 module Expr = struct
 
   let ok_or_fail_expr ~f ~loc x ~else_ =
-    Format.ksprintf (fun s -> 
+    Format.ksprintf ~f:(fun s -> 
       match x with
       | Ok x -> f x
       | Error e ->
@@ -71,7 +72,7 @@ module Expr = struct
     ) else_
 
   let some_or_fail_expr ~f ~loc x ~else_ =
-    Format.ksprintf (fun s -> 
+    Format.ksprintf ~f:(fun s -> 
       match x with
       | Some x -> f x
       | None ->
@@ -85,7 +86,7 @@ end
 module Structure_item = struct
 
   let ok_or_fail_expr ~f ~loc x ~else_ =
-    Format.ksprintf (fun s -> 
+    Format.ksprintf ~f:(fun s -> 
       match x with
       | Ok x -> f x
       | Error e ->
@@ -95,7 +96,7 @@ module Structure_item = struct
     ) else_
 
   let some_or_fail_expr ~f ~loc x ~else_ =
-    Format.ksprintf (fun s -> 
+    Format.ksprintf ~f:(fun s -> 
       match x with
       | Some x -> f x
       | None ->
@@ -109,7 +110,7 @@ end
 module Structure = struct
 
   let ok_or_fail_expr ~f ~loc x ~else_ =
-    Format.ksprintf (fun s -> 
+    Format.ksprintf ~f:(fun s -> 
       match x with
       | Ok x -> f x
       | Error e ->
@@ -119,7 +120,7 @@ module Structure = struct
     ) else_
 
   let some_or_fail_expr ~f ~loc x ~else_ =
-    Format.ksprintf (fun s -> 
+    Format.ksprintf ~f:(fun s -> 
       match x with
       | Some x -> f x
       | None ->

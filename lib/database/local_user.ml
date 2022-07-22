@@ -3,22 +3,9 @@ open Utils
 
 let () = declare_schema "../../resources/schema.sql"
 
+
 (* see ./resources/schema.sql:LocalUser *)
-type%sql.check[@schema "LocalUser"] t = {
-  id: int64;                           (* UNIQUE Id of user *)
-  username: string;                    (* username (fixed) *)
-  password_hash: string;               (* password (hash) *)
-
-  display_name: string option;         (* display name *)
-  about: string option;                (* about text *)
-
-  manually_accept_follows: bool;       (* whether the account manually
-                                          accepts *)
-  is_admin: bool;                      (* account is admin? *)
-
-  pubkey: X509.Public_key.t;                  (* public key *)
-  privkey: X509.Private_key.t;                (* private key *)
-}
+type%sql.generate t = SQL [@schema "LocalUser"]
 
 let build_enc (to_cstr, from_cstr)  =
   let encode v = Ok (Cstruct.to_string (to_cstr v)) in

@@ -4,10 +4,7 @@ open Containers
 open Utils
 
 (* see ./resources/schema.sql:Activity *)
-type%sql.check[@schema "Activity"] t = {
-  id: Uuidm.t;                           (* UNIQUE public UUID of activity *)
-  data: Yojson.Safe.t;                   (* raw json data stored at UUID *)
-}
+type%sql.generate t = SQL [@schema "Activity"]
 
 type id = Uuidm.t
 

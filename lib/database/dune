@@ -9,6 +9,6 @@
    ;; database
    caqti-lwt caqti-driver-sqlite3 sqlite3 caqti-type-calendar
  )
- (preprocess (pps ppx_sql metapp.ppx))
+ (preprocess (pps ppx_sql))
  (preprocessor_deps ../../resources/schema.sql)
 )

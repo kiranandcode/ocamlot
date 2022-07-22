@@ -5,10 +5,7 @@ open Utils
 let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:Tag *)
-type%sql.check[@schema "Tags"] t = {
-  id: int64;                              (* unique internal id of the tag *)
-  name: string;                           (* tag value *)
-}
+type%sql.generate t = SQL [@schema "Tags"]
 
 let t =
   let encode { id; name } =

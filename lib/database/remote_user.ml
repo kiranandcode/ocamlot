@@ -5,25 +5,7 @@ open Utils
 let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:RemoteUser *)
-type%sql.check[@schema "RemoteUser"] t = {
-  id: int64;                              (* unique internal id of remote user *)
-  username: string;                       (* username of the user *)
-  instance_id: int64;                     (* id of remote instance  *)
-  display_name: string option;            (* display name of user *)
-  url: string;                            (* url to the user - equiv to their id *)
-
-  inbox: string option;                   (* inbox of the user *)
-  outbox: string option;                  (* outbox of the user *)
-
-  followers: string option;               (* followers url of the user *)
-  following: string option;               (* following url of the user *)
-
-  summary: string option;                 (* summary of the user  *)
-
-  public_key_pem: string;                 (* public key of the user *)
-
-}
-
+type%sql.generate t = SQL [@schema "RemoteUser"]
 
 let t =
   let encode {id;username;instance_id;display_name;url;

@@ -5,19 +5,7 @@ open Utils
 let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:Post *)
-type%sql.check[@schema "Posts"] t = {
-  id: int64;                              (* unique internal id of the post *)
-  public_id: string option;               (* public id of the post if made locally  *)
-  url: string;                            (* url of the post  *)
-  author: int64;                          (* author of the post (may be local, or remote) *)
-
-  is_public: bool;                        (* is the post public *)
-  summary: string option;                 (* summary of the post *)
-  post_source: string;                    (* source of the post *)
-  published: Calendar.t;                  (* date at which the post was published *)
-
-  raw_text: string option;                (* raw json of the post if external  *)
-}
+type%sql.generate t = SQL [@schema "Posts"]
 
 let t =
   let encode {id;public_id;url;author;is_public;summary;post_source;published;raw_text} =
