@@ -2,8 +2,10 @@
 open Containers
 open Utils
 
-(* see ./resources/schema.sql:RemoteInstance *)
-type t = {
+let () = declare_schema "../../resources/schema.sql"
+
+(* see ./resources/schema.sql:RemoteUser *)
+type%sql.check[@schema "RemoteUser"] t = {
   id: int64;                              (* unique internal id of remote user *)
   username: string;                       (* username of the user *)
   instance_id: int64;                     (* id of remote instance  *)

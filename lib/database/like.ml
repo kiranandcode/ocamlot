@@ -1,8 +1,8 @@
 open Utils
-
+let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:Like *)
-type t = {
+type%sql.check[@schema "Likes"] t = {
   id: int64;                              (* internal id of the like *)
 
   public_id: string option;               (* public id of the mention object if made externally *)

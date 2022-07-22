@@ -1,9 +1,10 @@
 [@@@warning "-36-39"]
+let () = declare_schema "../../resources/schema.sql"
 open Containers
 open Utils
 
 (* see ./resources/schema.sql:Activity *)
-type t = {
+type%sql.check[@schema "Activity"] t = {
   id: Uuidm.t;                           (* UNIQUE public UUID of activity *)
   data: Yojson.Safe.t;                   (* raw json data stored at UUID *)
 }

@@ -1,3 +1,3 @@
-(executable (name sql)
+(library (name sql)
  (preprocess (pps ppx_deriving.show))
- (libraries containers angstrom))
+ (libraries compiler-libs.common ppxlib containers angstrom))

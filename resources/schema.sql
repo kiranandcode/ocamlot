@@ -9,30 +9,30 @@ CREATE TABLE dream_session (
 );
 
 CREATE TABLE Activity (
-  id TEXT PRIMARY KEY,                 -- uuid of the activity
-  raw_data BLOB NOT NULL /* yojson */  -- json data
+  id TEXT PRIMARY KEY /* Uuidm.t */,                 -- uuid of the activity
+  raw_data BLOB NOT NULL /* data: Yojson.Safe.t */        -- json data
 );
 
 -- table for local users
 CREATE TABLE LocalUser (
    id INTEGER PRIMARY KEY,
-   username TEXT UNIQUE NOT NULL,              -- username
-   password TEXT NOT NULL,                     -- password hash + salt
-   display_name TEXT,                          -- display name - if null then username
-   about TEXT,                                 -- about text for user
-   manually_accept_follows BOOLEAN NOT NULL,   -- whether the user is an admin
-   is_admin BOOLEAN NOT NULL,                  -- whether the user is an admin
+   username TEXT UNIQUE NOT NULL,                        -- username
+   password TEXT NOT NULL /* password_hash: string */,   -- password hash + salt
+   display_name TEXT,                                    -- display name - if null then username
+   about TEXT,                                           -- about text for user
+   manually_accept_follows BOOLEAN NOT NULL,             -- whether the user is an admin
+   is_admin BOOLEAN NOT NULL,                            -- whether the user is an admin
 
-   pubkey TEXT NOT NULL,                       -- public key for user
-   privkey TEXT NOT NULL                       -- secret key for user
+   pubkey TEXT NOT NULL /* X509.Public_key.t */,         -- public key for user
+   privkey TEXT NOT NULL /* X509.Private_key.t */        -- secret key for user
 );
 CREATE index idxLocalUser_username on LocalUser(username);
 
 -- table for remote instances
 CREATE TABLE RemoteInstance (
-   id INTEGER PRIMARY KEY,             -- internal id used for keeping track of remote instances
-   url TEXT NOT NULL UNIQUE,        -- url of instance
-   last_unreachable  TEXT              -- timestamp of the last time the instance was unreachable, null if never unreachable
+   id INTEGER PRIMARY KEY,                             -- internal id used for keeping track of remote instances
+   url TEXT NOT NULL UNIQUE,                           -- url of instance
+   last_unreachable  TEXT /* Calendar.t option */      -- timestamp of the last time the instance was unreachable, null if never unreachable
 );
 CREATE index idxRemoteInstance_url on RemoteInstance(url);
 
@@ -51,7 +51,7 @@ CREATE TABLE RemoteUser (
    following TEXT,                     -- following url of the user
 
    summary TEXT,                       -- summary string of the user
-   public_key_pem TEXT,                -- public key of the user
+   public_key_pem TEXT NOT NULL,                -- public key of the user
    FOREIGN KEY (instance_id)
        REFERENCES RemoteInstance (id)
        ON UPDATE RESTRICT
@@ -75,19 +75,19 @@ CREATE TABLE Actor (
 
 -- table for posts
 CREATE TABLE Posts (
-   id INTEGER PRIMARY KEY,           -- internal post id, not exposed
-   public_id TEXT,                 -- if post is by an local user, then assign a public id for the url
-   url TEXT NOT NULL UNIQUE,       -- url/id of the post, if local, then /api/posts/<public_id>
-   author_id INTEGER NOT NULL,       -- author of the post
+   id INTEGER PRIMARY KEY,                             -- internal post id, not exposed
+   public_id TEXT,                                     -- if post is by an local user, then assign a public id for the url
+   url TEXT NOT NULL UNIQUE,                           -- url/id of the post, if local, then /api/posts/<public_id>
+   author_id INTEGER NOT NULL /* author: int64 */,                         -- author of the post
 
-   is_public BOOLEAN,                -- is the post public? or only to the mentioned users
+   is_public BOOLEAN NOT NULL,                                  -- is the post public? or only to the mentioned users
 
-   summary TEXT,                     -- subject of the post
-   post_source TEXT NOT NULL,        -- source of the post
+   summary TEXT,                                       -- subject of the post
+   post_source TEXT NOT NULL,                          -- source of the post
 
-   published DATE NOT NULL,          -- date at which post was published
+   published TEXT NOT NULL /* Calendar.t */,           -- date at which post was published
 
-   raw_data BLOB,                    -- if by an external user, then keep raw json of the post
+   raw_data BLOB /* raw_text: string option */,        -- if by an external user, then keep raw json of the post
    FOREIGN KEY (author_id)
       REFERENCES Actor (id)
       ON UPDATE RESTRICT
@@ -97,8 +97,8 @@ CREATE index idxPost_public_id on Posts(public_id);
 
 -- table for post-to value
 CREATE TABLE PostTo (
-   post_id INTEGER,                  -- post in question
-   actor_id INTEGER,                -- target of the post
+   post_id INTEGER NOT NULL,                  -- post in question
+   actor_id INTEGER NOT NULL,                 -- target of the post
 
    PRIMARY KEY (post_id, actor_id)
 
@@ -115,8 +115,8 @@ CREATE TABLE PostTo (
 
 -- table for post-cc value
 CREATE TABLE PostCc (
-   post_id INTEGER,                  -- post in question
-   actor_id INTEGER,                -- target of the post
+   post_id INTEGER NOT NULL,                  -- post in question
+   actor_id INTEGER NOT NULL,                -- target of the post
 
    PRIMARY KEY (post_id, actor_id)
 
@@ -152,8 +152,8 @@ CREATE TABLE Mention (
 
 -- table for Tags
 CREATE TABLE Tags (
-   tag_id INTEGER PRIMARY KEY,          -- tag id
-   tag_name TEXT NOT NULL UNIQUE        -- tag name
+   tag_id INTEGER PRIMARY KEY /* id: int64 */,             -- tag id
+   tag_name TEXT NOT NULL UNIQUE /* name: string */        -- tag name
 );
 CREATE index idxTags_tag_name on Tags(tag_name);
 
@@ -181,7 +181,7 @@ CREATE TABLE Likes (
    post_id INTEGER NOT NULL,       -- post being liked
    actor_id INTEGER NOT NULL,      -- actor doing the liking
 
-   published DATE NOT NULL,        -- date at which like was published
+   published DATE NOT NULL /* CalendarLib.Calendar.t */,        -- date at which like was published
 
    public_id TEXT,                 -- if like by a local user, then assign a public id for the like object
    url TEXT NOT NULL,              -- url of the like object, if local, then /api/likes/<public_id>
@@ -205,15 +205,15 @@ CREATE index idxLikes_public_id on Likes(public_id);
 CREATE TABLE Follows (
    id INTEGER PRIMARY KEY,               -- internal like id, not exposed
    public_id TEXT,                       -- if follow by a local user, then assign a public id for the follow object
-   url TEXT,                             -- url of the follow object, if local then /api/follows/<public_id>
+   url TEXT NOT NULL,                             -- url of the follow object, if local then /api/follows/<public_id>
    raw_data BLOB,                        -- if by an external user, then keep the raw json of the follow object
    pending BOOLEAN NOT NULL,             -- whether the follow request is pending
 
-   created DATE NOT NULL,                -- date at which follow was created
-   updated DATE,                         -- date at which follow was updated if ever
+   created TEXT NOT NULL /* Calendar.t */,                -- date at which follow was created
+   updated TEXT   /* Calendar.t option */,                -- date at which follow was updated if ever
 
-   author_id INTEGER NOT NULL,           -- id of the author of the follow
-   target_id INTEGER NOT NULL,           -- id of the actor being followed
+   author_id INTEGER NOT NULL /* author: int64 */,           -- id of the author of the follow
+   target_id INTEGER NOT NULL /* target: int64 */,           -- id of the actor being followed
 
    FOREIGN KEY (author_id)
       REFERENCES Actor (id)

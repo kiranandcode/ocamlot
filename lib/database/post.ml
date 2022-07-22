@@ -2,8 +2,10 @@
 open Containers
 open Utils
 
+let () = declare_schema "../../resources/schema.sql"
+
 (* see ./resources/schema.sql:Post *)
-type t = {
+type%sql.check[@schema "Posts"] t = {
   id: int64;                              (* unique internal id of the post *)
   public_id: string option;               (* public id of the post if made locally  *)
   url: string;                            (* url of the post  *)

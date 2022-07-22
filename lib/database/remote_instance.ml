@@ -2,8 +2,10 @@
 open Containers
 open Utils
 
+let () = declare_schema "../../resources/schema.sql"
+
 (* see ./resources/schema.sql:RemoteInstance *)
-type t = {
+type%sql.check[@schema "RemoteInstance"] t = {
   id: int64;                              (* unique internal id of user *)
   url: string;                            (* url to instance *)
   mutable last_unreachable: Calendar.t option;    (* time since the sever was unreachable *)

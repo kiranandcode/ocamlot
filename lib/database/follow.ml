@@ -2,16 +2,18 @@
 open Containers
 open Utils
 
+let () = declare_schema "../../resources/schema.sql"
+
 (* see ./resources/schema.sql:Follows *)
-type t = {
+type%sql.check[@schema "Follows"] t = {
   id: int64;                              (* unique internal id of the follow *)
   public_id: string option;               (* public id of the follow object if made locally  *)
   url: string;                            (* url of the follow  *)
   raw_data: string option;                (* raw json of the follow if external  *)
   pending: bool;                          (* whether the request is pending *)
 
-  created: CalendarLib.Calendar.t;        (* date on which follow was created *)
-  updated: CalendarLib.Calendar.t option; (* date on which follow was updated *)
+  created: Calendar.t;        (* date on which follow was created *)
+  updated: Calendar.t option; (* date on which follow was updated *)
 
   author: int64;                          (* author of the follow (may be local, or remote) *)
   target: int64;                          (* target of the follow (may be local, or remote) *)

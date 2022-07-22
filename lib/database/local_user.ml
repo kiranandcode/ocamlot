@@ -1,8 +1,10 @@
 open Containers
 open Utils
 
+let () = declare_schema "../../resources/schema.sql"
+
 (* see ./resources/schema.sql:LocalUser *)
-type t = {
+type%sql.check[@schema "LocalUser"] t = {
   id: int64;                           (* UNIQUE Id of user *)
   username: string;                    (* username (fixed) *)
   password_hash: string;               (* password (hash) *)

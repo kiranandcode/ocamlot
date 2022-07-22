@@ -1,8 +1,12 @@
 
 let () = declare_schema "../../resources/schema.sql"
 
-let () = print_endline [%sql "yello "]
+
+
+type%sql.check[@schema "Activity"] random = {
+  data: int
+}
 
 let () =
-  print_endline [%sql "yello "]
+  print_endline "hello"
 
