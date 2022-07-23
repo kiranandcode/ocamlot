@@ -84,7 +84,6 @@ let extract_schema_name ~f ~loc decl =
   match decl.ptype_kind with
   | Ptype_abstract |Ptype_record _ |Ptype_open | Ptype_variant ([] | _ :: _ :: _) ->
     Utils.structure_err ~loc "ppx_sql sql.generate expects a constructor [SQL [@schema <schema name>]]"
-  | Ptype_variant [{ pcd_vars=(_ :: _); pcd_loc=loc; _ }]
   | Ptype_variant [{ pcd_attributes=([] | _ :: _ :: _); pcd_loc=loc; _ }]
   | Ptype_variant [{ pcd_res=Some _; pcd_loc=loc; _ }]
   | Ptype_variant [{ pcd_args = Pcstr_tuple (_ :: _); pcd_loc=loc; _ }]

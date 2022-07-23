@@ -64,13 +64,13 @@ let verify ~signed_string ~signature pubkey =
     Dream.log "error while verifying: %s" e;
     false
 
+
 let verify_request ~resolve_public_key (req: Dream.request) =
   let (let+) x f = match x with None -> Lwt.return (Ok false) | Some v -> f v in
   let (let*) x f = Lwt_result.bind x f in
   let (let@) x f = Lwt.bind x f in
   let meth = Dream.method_ req |> Dream.method_to_string |> String.lowercase_ascii in
-  let[@warning "-26-depracated"] path =
-    Dream.path req |> String.concat "/" |> fun result -> "/" ^ result in
+  let path = Dream.target req in
   let headers =
     Dream.all_headers req
     |> List.map (Pair.map_fst String.lowercase_ascii)
