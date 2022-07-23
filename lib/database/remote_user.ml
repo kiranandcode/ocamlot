@@ -7,25 +7,6 @@ let () = declare_schema "../../resources/schema.sql"
 (* see ./resources/schema.sql:RemoteUser *)
 type%sql.generate t = SQL [@schema "RemoteUser"]
 
-let t =
-  let encode {id;username;instance_id;display_name;url;
-              inbox;outbox;followers;following;summary;public_key_pem} =
-    Ok (id, username, instance_id,
-        (display_name, url, inbox,
-         (outbox, followers, following,
-         (summary, public_key_pem)))) in
-  let decode (id, username, instance_id,
-        (display_name, url, inbox,
-         (outbox, followers, following,
-         (summary, public_key_pem)))) =
-    Ok {id;username; instance_id;display_name;url;
-        inbox;outbox;followers;following;summary;public_key_pem } in
-  T.Std.custom ~encode ~decode
-    T.Std.(tup4 int64 string int64
-             (tup4 (option string) string (option string)
-                (tup4 (option string) (option string) (option string)
-                (tup2 (option string) string))))
-
 let create_remote_user_request =
   let open Caqti_type.Std in
   let open Caqti_request.Infix in

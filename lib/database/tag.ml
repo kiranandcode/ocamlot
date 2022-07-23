@@ -7,14 +7,6 @@ let () = declare_schema "../../resources/schema.sql"
 (* see ./resources/schema.sql:Tag *)
 type%sql.generate t = SQL [@schema "Tags"]
 
-let t =
-  let encode { id; name } =
-    Ok (id, name) in
-  let decode (id, name) =
-    Ok { id; name } in
-  T.Std.custom ~encode ~decode
-    T.Std.(tup2 int64 string)
-
 let create_tag_request =
   let open Caqti_type.Std in
   let open Caqti_request.Infix in

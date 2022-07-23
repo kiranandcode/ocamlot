@@ -7,37 +7,9 @@ let () = declare_schema "../../resources/schema.sql"
 (* see ./resources/schema.sql:LocalUser *)
 type%sql.generate t = SQL [@schema "LocalUser"]
 
-let build_enc (to_cstr, from_cstr)  =
-  let encode v = Ok (Cstruct.to_string (to_cstr v)) in
-  let decode v =
-    from_cstr (Cstruct.of_string v) |> Result.map_err (function `Msg str -> str) in
-  T.redacted (T.Std.custom ~encode ~decode T.Std.string)
-
 let display_name user =
   user.display_name
-  |> Option.value ~default:user.username 
-
-let pubkey : X509.Public_key.t T.t =
-  build_enc X509.Public_key.(encode_pem, decode_pem)
-
-let privkey : X509.Private_key.t T.t =
-  build_enc X509.Private_key.(encode_pem, decode_pem)
-
-let t : t T.t =
-  let encode {id;username;password_hash;display_name; about;
-              manually_accept_follows; is_admin; pubkey; privkey} =
-    Ok (id, username, password_hash,
-        (display_name, about, manually_accept_follows,
-         (is_admin, pubkey, privkey))) in
-  let decode (id, username, password_hash,
-              (display_name, about, manually_accept_follows,
-               (is_admin, pubkey, privkey))) =
-    Ok {id;username;password_hash;display_name; about;
-        manually_accept_follows; is_admin; pubkey; privkey} in
-  T.Std.custom ~encode ~decode
-    T.Std.(tup4 int64 string string
-             (tup4 (option string) (option string) bool
-                (tup3 bool pubkey privkey)))
+  |> Option.value ~default:user.username
 
 let create_user_request =
   let open Caqti_type.Std in

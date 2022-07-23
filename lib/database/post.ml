@@ -7,21 +7,6 @@ let () = declare_schema "../../resources/schema.sql"
 (* see ./resources/schema.sql:Post *)
 type%sql.generate t = SQL [@schema "Posts"]
 
-let t =
-  let encode {id;public_id;url;author;is_public;summary;post_source;published;raw_text} =
-    Ok (id, public_id, url,
-        (author, is_public, summary,
-         (post_source, published, raw_text))) in
-  let decode
-        (id, public_id, url,
-         (author, is_public, summary,
-          (post_source, published, raw_text)))=
-    Ok {id;public_id;url;author;is_public;summary;post_source;published;raw_text} in
-  T.Std.custom ~encode ~decode
-    T.Std.(tup4 int64 (option string) string
-             (tup4 int64 bool (option string)
-                (tup3 string timestamp (option string))))
-
 let create_post_request =
   let open Caqti_type.Std in
   let open Caqti_request.Infix in

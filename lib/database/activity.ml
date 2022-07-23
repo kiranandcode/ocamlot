@@ -1,34 +1,12 @@
-[@@@warning "-36-39"]
+[@@@warning "-36-39-33"]
 let () = declare_schema "../../resources/schema.sql"
 open Containers
 open Utils
 
-(* see ./resources/schema.sql:Activity *)
-type%sql.generate t = SQL [@schema "Activity"]
-
 type id = Uuidm.t
 
-let uuid: Uuidm.t T.t =
-  let encode id = Ok (Uuidm.to_string id) in
-  let decode id = Uuidm.of_string id |> Option.to_result "uuid failed to decode" in
-  T.Std.custom ~encode ~decode
-    T.Std.(string)
-
-let yojson: Yojson.Safe.t T.t =
-  let encode data = Ok (Yojson.Safe.to_string data) in
-  let decode data =
-    try
-      Ok (Yojson.Safe.from_string data)
-    with exn ->
-      Error (Printexc.to_string exn) in
-  T.Std.custom ~encode ~decode T.Std.(string)
-
-
-let t : t T.t =
-  let encode {id; data} = Ok (id, data) in
-  let decode (id, data) = Ok {id;data} in
-  T.Std.custom ~encode ~decode
-    T.Std.(tup2 uuid yojson)
+(* see ./resources/schema.sql:Activity *)
+type%sql.generate t = SQL [@schema "Activity"]
 
 
 let create_activity_request =

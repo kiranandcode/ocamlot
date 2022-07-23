@@ -7,21 +7,6 @@ let () = declare_schema "../../resources/schema.sql"
 (* see ./resources/schema.sql:Follows *)
 type%sql.generate t = SQL [@schema "Follows"]
 
-let t =
-  let encode { id; public_id; url; raw_data; pending; created; updated; author; target } =
-    Ok (id, public_id, url,
-        (raw_data, pending, created,
-         (updated, author, target))) in
-  let decode (id, public_id, url,
-              (raw_data, pending, created,
-               (updated, author, target))) =
-    Ok { id; public_id; url; raw_data; pending; created; updated; author; target } in
-  T.Std.custom ~encode ~decode
-    T.Std.(tup4 int64 (option string) string
-             (tup4 (option string) bool
-                timestamp
-                (tup3 (option timestamp) int64 int64)))
-
 let create_follow =
   let open Caqti_type.Std in
   let open Caqti_request.Infix in

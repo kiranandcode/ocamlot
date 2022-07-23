@@ -1,16 +1,9 @@
+[@@@warning "-32"]
 open Utils
 let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:Like *)
 type%sql.generate t = SQL [@schema "Likes"]
-
-let t =
-  let encode {id; public_id; url; raw_data; published; post_id; actor_id} =
-    Ok (id, public_id, url, (raw_data, published, post_id, actor_id)) in
-  let decode (id, public_id, url, (raw_data, published, post_id, actor_id)) =
-    Ok {id; public_id; url; raw_data; published; post_id; actor_id} in
-  T.Std.custom ~encode ~decode
-    T.Std.(tup4 int64 (option string) string (tup4 (option string) timestamp int64 int64))
 
 let resolve_like_by_id_request =
   let open Caqti_type.Std in

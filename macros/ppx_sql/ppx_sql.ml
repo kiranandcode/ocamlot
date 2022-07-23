@@ -94,17 +94,7 @@ let extract_schema_name ~f ~loc decl =
   | Ptype_variant [{ pcd_attributes=attributes; pcd_loc=loc; _ }] ->
     extract_attr ~f ~loc attributes
 
-let build_schema ~loc name (table: Sql.Types.table) : type_declaration =
-  let build_field_decl (col: Sql.Types.column) : label_declaration =
-    Ast_builder.Default.label_declaration
-      ~loc ~name:{txt=Option.value
-                        ~default:col.name
-                        col.mapped_name; loc}
-      ~mutable_:Immutable ~type_:col.ty in
-  Ast_builder.Default.type_declaration ~loc ~name
-    ~params:[] ~cstrs:[]
-    ~private_:Public ~manifest:None
-    ~kind:(Ptype_record (List.map build_field_decl table.columns))
+
 
 let generate_rule =
   let check
@@ -122,7 +112,10 @@ let generate_rule =
                 supplied schema. Hint: supported name %s" schema_name
         (List.map (fun s -> s.Sql.Types.name) cached |> String.concat ", ") in
     [Ast_builder.Default.pstr_type ~loc Recursive
-       [(build_schema ~loc decl.ptype_name cached_table)]] in
+       [(Sql.Builder.build_type_from_schema ~loc decl.ptype_name cached_table)];
+     Ast_builder.Default.pstr_value ~loc Asttypes.Nonrecursive [
+       Sql.Builder.build_encoder_from_schema ~loc decl.ptype_name cached_table
+     ]] in
   let extension =
     Extension.V3.declare_inline "sql.generate"
       Extension.Context.structure_item

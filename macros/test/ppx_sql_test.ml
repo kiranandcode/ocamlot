@@ -3,10 +3,8 @@ let () = declare_schema "../../resources/schema.sql"
 
 
 
-type%sql.check[@schema "Activity"] random = {
-  data: int
-}
+type%sql.generate random = SQL [@schema "RemoteUser"]
 
 let () =
-  print_endline "hello"
+  print_endline "random"
 
