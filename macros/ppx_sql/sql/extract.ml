@@ -78,7 +78,7 @@ let process_table_constraints constraints =
 let process loc program =
   List.filter_map (function
     | Ast.CREATE_TABLE {
-      name; columns; constraints; _
+      name; columns; constraints; info; _
     } ->
       let columns = List.map (process_column loc) columns in
       let primary_key, foreign_keys = process_table_constraints constraints in
@@ -87,6 +87,7 @@ let process loc program =
         | None, Some (_, pk) -> Some [pk.name]
         | _ -> None in
       let columns = List.map snd columns in
-      Some {name; columns; primary_key; foreign_keys}
+      let _, ty = extract_type loc (Option.value ~default:name info) in
+      Some {name; ty; columns; primary_key; foreign_keys}
     | _ -> None
   ) program

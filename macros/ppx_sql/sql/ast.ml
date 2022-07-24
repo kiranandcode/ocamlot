@@ -53,7 +53,7 @@ type stmt =
     key: string list;
   }
   | CREATE_TABLE of {
-      name: string;
+      name: string; info: string option;
       if_not_exists: bool;
       columns: column list;
       constraints: table_constraint list;

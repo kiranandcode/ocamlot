@@ -120,6 +120,10 @@ let create_table =
       return false
     ] in
   let* name = ws *> identifier in
+  let* info = choice [
+    ws *> comment_spec >>| Option.some;
+    return None
+  ] in
   let* _ = ws *> char '(' in
   let* columns = ws *> sep_by (ws *> char ',' *> ws) column_def in
   let* table_constraints =
@@ -130,7 +134,7 @@ let create_table =
   let* _ = ws *> char ')' in
   let* _ = ws *> char ';' in
   return @@ CREATE_TABLE {
-    name;
+    name; info;
     if_not_exists;
     columns;
     constraints=table_constraints

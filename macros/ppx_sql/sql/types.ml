@@ -10,7 +10,7 @@ type column = {
 [@@deriving show]
 
 type table = {
-  name: string;
+  name: string; ty: cty;
   primary_key: string list option;
   columns: column list;
   foreign_keys: (string * string * string) list;

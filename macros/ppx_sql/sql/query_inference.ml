@@ -218,7 +218,7 @@ let simplify_types (tables: Types.table list) (tys: Query_type.core_type list) :
     | None -> None
     | Some combined ->
       if List.for_all (Fun.uncurry check_eq) combined
-      then Some ([ty table.name []])
+      then Some ([table.ty])
       else None
   ) tables
   |> Option.value ~default:tys
