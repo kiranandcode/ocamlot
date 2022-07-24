@@ -3,9 +3,6 @@ open Angstrom
 open Query_ast
 open Utils
 
-
-
-
 let int =
   choice ~failure_msg:"expected integer 0|[1-9][0-9]*" [
     (let* c = String.of_char <$> satisfy is_digit_nz in
@@ -15,24 +12,12 @@ let int =
     String.of_char <$> satisfy is_digit;
   ] >>| int_of_string
 
-let identifier =
-  let* c = String.of_char <$> satisfy is_idrfst in
-  let* cs = take_while is_idrcnt in
-  let s = (c ^ cs) in
-  return s
-
-
 let bool =
   choice ~failure_msg:"expected boolean true|false" [
     _TRUE >>| (fun _ -> true);
     _FALSE >>| (fun _ -> false);
 
   ]
-
-
-let next_id =
-  let c = ref 0 in
-  fun () -> let vl = !c in incr c; vl
 
 let column_name =
   choice ~failure_msg:"expected a column name - either table.column or column" [

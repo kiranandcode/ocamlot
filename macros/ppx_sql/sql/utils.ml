@@ -5,6 +5,18 @@ module StringSet = Set.Make (String)
 
 let should_log = ref false
 
+
+let id = ref 0
+let next_id = fun () -> let vl = !id in incr id; vl
+let with_fresh_ids f =
+  let saved_id = !id in
+  id := 0;
+  let res = f () in
+  let max_id = !id in
+  id := saved_id;
+  res, max_id
+
+
 let printf s =
   Format.ksprintf ~f:(fun s ->
     if !should_log then  print_endline s else ()
