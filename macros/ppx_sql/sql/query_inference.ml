@@ -101,7 +101,8 @@ let rec check_where_constraint_unique all_tables (table_map: string StringMap.t)
     let is_primary = match table.primary_key with
       | Some [key] -> String.equal key column
       | _ -> false in
-    col.is_unique || is_primary
+    let is_fk = List.exists (fun (col, _, _) -> String.equal col column) table.foreign_keys in
+    col.is_unique || is_primary || is_fk
   | Query_ast.AND (l, r) ->
     check_where_constraint_unique all_tables table_map tables l ||
     check_where_constraint_unique all_tables table_map tables r
@@ -232,7 +233,7 @@ let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_ty
        match where_constraint with
        | None -> true
        | Some where_constraint ->
-         check_where_constraint_unique tables table_map table_context where_constraint in
+         not @@ check_where_constraint_unique tables table_map table_context where_constraint in
      let ret_ty : Query_type.ret_ty = 
        match values with
        | [STAR] ->

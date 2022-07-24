@@ -14,7 +14,7 @@ let () =
     | Ok query ->
       begin match Sql.Query.infer schema query with
       | ty -> 
-        Format.printf "[%d]: %a\n@." i Sql.Query.Type.pp_ty ty
+        Format.printf "[%d]: %a\n%s@." i Sql.Query.Type.pp_ty ty s
       | exception e ->
         Format.printf "[%d]: exn %s\n" i  (Printexc.to_string e);
         Printexc.print_backtrace stdout;
