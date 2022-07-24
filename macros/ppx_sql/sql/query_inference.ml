@@ -5,6 +5,8 @@ module IntMap = Map.Make(Int)
 
 let int = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident "int"; loc=Location.none} []
 let bool = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident "bool"; loc=Location.none} []
+let ty n args = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident n; loc=Location.none} args
+
 let datetime =
   Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {
     txt=Longident.Ldot (Lident "Calendar", "t");
@@ -197,6 +199,31 @@ and visit_select_query all_tables (table_map: string StringMap.t) (tables: Types
       visit_sql_value value int mapping in
   mapping
 
+let combine_opt ls rs =
+  let rec loop acc ls rs =
+    match ls, rs with
+    | [], (_ :: _)
+    | (_ :: _), [] -> None
+    | [], [] -> Some (List.rev acc)
+    | l :: ls, r :: rs ->
+      loop ((l,r) :: acc) ls rs in
+  loop [] ls rs
+
+let simplify_types (tables: Types.table list) (tys: Query_type.core_type list) : Query_type.core_type list =
+  let check_eq (col: Types.column) (cty: Parsetree.core_type) =
+    let to_string s = Format.to_string Ppxlib.Pprintast.core_type s in
+    String.equal (to_string col.ty) (to_string cty) in
+  List.find_map (fun (table: Types.table) ->
+    match combine_opt table.columns tys with
+    | None -> None
+    | Some combined ->
+      if List.for_all (Fun.uncurry check_eq) combined
+      then Some ([ty table.name []])
+      else None
+  ) tables
+  |> Option.value ~default:tys
+     
+
 let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_type.ty =
   (match query with
    | Query_ast.SELECT {
@@ -241,9 +268,11 @@ let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_ty
            List.concat_map (fun (tbl: Types.table) ->
              List.map (fun (col: Types.column) -> col.ty) tbl.columns
            )  table_context in
+         let tys = simplify_types table_context tys in
          Tuple {many=returning_multiple; tys}
        | tys ->
          let tys = List.map (type_of_sql_query_value tables table_map table_context) tys in
+         let tys = simplify_types table_context tys in
          Tuple {many=returning_multiple; tys} in
      let hole_types = IntMap.empty in
      let hole_types =
@@ -267,7 +296,9 @@ let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_ty
        match IntMap.max_binding_opt hole_types with
        | None -> Unit
        | Some (mb, _) ->
-         Tuple (List.init (mb + 1) (Fun.flip IntMap.find hole_types)) in
+         let tys = (List.init (mb + 1) (Fun.flip IntMap.find hole_types)) in
+         let tys = simplify_types table_context tys in
+         Tuple tys in
      Arrow (arg_types, ret_ty)
    | Query_ast.INSERT { table=table; columns; _ } ->
      let table =
@@ -282,6 +313,7 @@ let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_ty
                table.columns in
            col.ty
          ) columns in
+       let tys = simplify_types tables tys in
        Tuple tys in
      Arrow (arg_ty, ret_ty)
    | Query_ast.UPDATE { table; set; where_constraint; _ } ->
@@ -304,7 +336,9 @@ let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_ty
        match IntMap.max_binding_opt hole_types with
        | None -> Unit
        | Some (mb, _) ->
-         Tuple (List.init (mb + 1) (Fun.flip IntMap.find hole_types)) in
+         let tys = (List.init (mb + 1) (Fun.flip IntMap.find hole_types)) in
+         let tys = simplify_types table_context tys in
+         Tuple tys in
      Arrow (arg_types, ret_ty)
    | Query_ast.DELETE { table; where_constraint; limit } ->
      let table_map = StringMap.empty in
@@ -324,6 +358,8 @@ let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_ty
        match IntMap.max_binding_opt hole_types with
        | None -> Unit
        | Some (mb, _) ->
-         Tuple (List.init (mb + 1) (Fun.flip IntMap.find hole_types)) in
+         let tys = (List.init (mb + 1) (Fun.flip IntMap.find hole_types)) in
+         let tys = simplify_types table_context tys in
+         Tuple tys in
      Arrow (arg_types, ret_ty)
   )

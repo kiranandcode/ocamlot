@@ -104,22 +104,22 @@ let build_caqti_repr ~loc (table: Types.table) =
 
 let build_encoder_from_schema ~loc name (table: Types.table) : Ppxlib.value_binding =
   let open Ppxlib in
-  let pvb_pat : Astlib.Ast_412.Parsetree.pattern =
+  let pvb_pat =
     Ast_builder.Default.(
       ppat_constraint ~loc
         (ppat_var ~loc name)
         (caqti_type ~loc name.txt)
     ) in
-  let pvb_expr : Astlib.Ast_412.Parsetree.expression =
-    let p_enc : Astlib.Ast_412.Parsetree.pattern =
+  let pvb_expr =
+    let p_enc  =
       build_enc_pattern ~loc table in
-    let p_dec : Astlib.Ast_412.Parsetree.pattern =
+    let p_dec  =
       build_dec_pattern ~loc table in
-    let encode_expr : Astlib.Ast_412.Parsetree.expression =
+    let encode_expr =
       build_enc_expr ~loc table in
-    let decode_expr : Astlib.Ast_412.Parsetree.expression =
+    let decode_expr =
       build_dec_expr ~loc table in
-    let caqti_repr : Astlib.Ast_412.Parsetree.expression =
+    let caqti_repr  =
       build_caqti_repr ~loc table in
     [%expr
       let encode [%p p_enc] = Ok [%e encode_expr] in
