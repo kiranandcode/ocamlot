@@ -40,8 +40,8 @@ let keywords = StringSet.of_list [
   "action";
 ]
 
-let _PRAGMA = string_ci "PRAGMA"
-let _OFF = string_ci "OFF"
+let _PRAGMA = string_ci "pragma"
+let _OFF = string_ci "off"
 let _CREATE = string_ci "create"
 let _TABLE = string_ci "table"
 let _INDEX = string_ci "index"
