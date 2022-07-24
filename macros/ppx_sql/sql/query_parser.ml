@@ -1,71 +1,10 @@
 open Containers
 open Angstrom
-open Ast
-
-let is_whitespace = function ' ' | '\n' | '\t' -> true | _ -> false
-let is_alpha = function 'a'..'z' | 'A' .. 'Z' -> true | _ -> false
-let is_digit = function '0'..'9' -> true | _ -> false
-let is_digit_nz = function '1'..'9' -> true | _ -> false
-let is_idrfst = function 'a'..'z'|'A'..'Z' | '_' -> true | _ -> false
-let is_idrcnt = function 'a'..'z'|'A'..'Z' | '_' | '0'..'9' -> true | _ -> false
-
-let ws =
-  fix (fun ws ->
-    choice [
-      satisfy is_whitespace *> skip_while is_whitespace *> ws;
-      string "--" *> take_till (function '\n' -> true | _ -> false) *> char '\n' *> ws;
-      return ""
-    ]
-  )
-let must_ws = satisfy is_whitespace *> ws
-
-let ( <<* ) l r = l <* ws <* r
-let ( !<<* ) l r = l <* must_ws <* r
-let ( *>> ) l r = l *> ws *> r
-let ( *>>> ) l r =
-  let* _ = l *> ws in
-  let (lazy r) = r in
-  r
-let ( *>>! ) l r = l *> must_ws *> r
-
-let not_prefix =
-  let* c = peek_char in
-  if Option.exists is_alpha c
-  then fail "keyword partial match"
-  else return ()
+open Query_ast
+open Utils
 
 
-let _INSERT = string_ci "insert" <* not_prefix
-let _OR = string_ci "or" <* not_prefix
-let _IGNORE = string_ci "ignore" <* not_prefix
-let _INTO = string_ci "into" <* not_prefix
-let _VALUES = string_ci "values" <* not_prefix
-let _SELECT = string_ci "select" <* not_prefix
-let _FROM = string_ci "from" <* not_prefix
-let _WHERE = string_ci "where" <* not_prefix
-let _UPDATE = string_ci "update" <* not_prefix
-let _SET = string_ci "set" <* not_prefix
-let _DATETIME = string_ci "datetime" <* not_prefix
-let _COALESCE = string_ci "coalesce" <* not_prefix
-let _AS = string_ci "as" <* not_prefix
-let _ASC = string_ci "asc" <* not_prefix
-let _DESC = string_ci "desc" <* not_prefix
-let _ORDER = string_ci "order" <* not_prefix
-let _BY = string_ci "by" <* not_prefix
-let _LIMIT = string_ci "limit" <* not_prefix
-let _OFFSET = string_ci "offset" <* not_prefix
-let _OR = string_ci "or" <* not_prefix
-let _AND = string_ci "and" <* not_prefix
-let _TRUE = string_ci "true" <* not_prefix
-let _FALSE = string_ci "false" <* not_prefix
-let _COUNT = string_ci "count" <* not_prefix
-let _DELETE = string_ci "delete" <* not_prefix
-let _JOIN = string_ci "join" <* not_prefix
-let _ON = string_ci "on" <* not_prefix
-let _EXISTS = string_ci "exists" <* not_prefix
-let _IS = string_ci "is" <* not_prefix
-let _NOT = string_ci "not" <* not_prefix
-let _NULL = string_ci "NULL" <* not_prefix
+
 
 let int =
   choice ~failure_msg:"expected integer 0|[1-9][0-9]*" [
@@ -295,23 +234,3 @@ let query =
     select_query <?> "SELECT query";
     delete_query <?> "DELETE query";
   ] <* ws
-
-(* let parse_query s =
- *   parse_string ~consume:Consume.All query (String.trim s) *)
-
-let fail_to_string marks err =
-  String.concat " > " marks ^ ": " ^ err
-
-let state_to_verbose_result = function
-  | Buffered.Partial _ -> Error "incomplete input"
-  | Done (_, v) -> Ok v
-  | Fail (unconsumed, marks, msg) ->
-    let remaining_big_string = (Bigstringaf.sub unconsumed.buf ~off:unconsumed.off ~len:unconsumed.len) in
-    let combined_msg = fail_to_string marks msg ^ "\nUnconsumed:\n" ^ Bigstringaf.to_string remaining_big_string in
-    Error combined_msg
-
-let parse_query s =
-  let state = Buffered.parse query in
-  let state = Buffered.feed state (`String s) in
-  let state = Buffered.feed state `Eof in
-  state_to_verbose_result state
