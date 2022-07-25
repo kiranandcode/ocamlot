@@ -160,11 +160,49 @@ let check_rule =
       check in
   Ppxlib.Context_free.Rule.extension extension
 
+let query_typ_to_fun loc (ty: Sql.Query.Type.ty) query_str =
+  let ty_exp = Sql.Query.Builder.enc_ty ~loc ty in
+  [%expr Caqti_request.Infix.([%e ty_exp] @:- [%e query_str])]
+
+let query_rule =
+
+  let check ~(ctxt:Expansion_context.Extension.t) (pat: pattern) (query_str: label) (loc: location)
+        (n: label option) : structure_item list =
+    let+ cached = Utils.Structure.some_or_fail_expr ~loc !schema_data
+                    ~else_:"attempt to use sql.query without specifying a SQL schema first." in
+    let+ query =
+      Utils.Structure.ok_or_fail_expr ~loc (Sql.Query.parse query_str)
+        ~else_:"ppx_sql failed to parse supplied sql query" in
+    let+ inferred_typ =
+      Utils.Structure.ok_or_fail_expr ~loc (Sql.Query.infer cached query)
+        ~else_:"ppx_sql failed to infer types for supplied sql query" in
+
+    let res_vl = query_typ_to_fun loc inferred_typ
+                   Ast_builder.Default.(pexp_constant ~loc (Pconst_string (query_str, loc, n))) in
+      
+
+    [Ast_builder.Default.pstr_value ~loc Nonrecursive [
+      Ast_builder.Default.value_binding ~loc ~pat ~expr:res_vl
+    ]] in
+    
+  let extension =
+    Extension.V3.declare_inline "sql.query"
+      Extension.Context.structure_item
+      Ast_pattern.(pstr ((pstr_value nonrecursive
+                            (value_binding
+                               ~pat:__
+                               ~expr:(pexp_constant (pconst_string __ __ __))
+                               ^:: nil
+                              )) ^:: nil))
+      check in
+  Ppxlib.Context_free.Rule.extension extension
+
 let () =
   Driver.register_transformation
     ~rules:[
       setup_rule;
       generate_rule;
-      check_rule
+      check_rule;
+      query_rule;
     ]
     "ppx_sql"

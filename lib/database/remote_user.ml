@@ -7,20 +7,12 @@ let () = declare_schema "../../resources/schema.sql"
 (* see ./resources/schema.sql:RemoteUser *)
 type%sql.generate t = SQL [@schema "RemoteUser"]
 
-let create_remote_user_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup4 string int64 (option string)
-     (tup4 string (option string) (option string)
-        (tup4 (option string) (option string) (option string) string))) -->. unit @:-
+let%sql.query create_remote_user_request =
     {|
 INSERT INTO RemoteUser (username, instance_id, display_name, url, inbox, outbox, followers, following, summary, public_key_pem)  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 |}
 
-let lookup_remote_user_by_address_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  tup2 string string -->! t @:- {|
+let%sql.query lookup_remote_user_by_address_request = {|
 SELECT
     RemoteUser.id,
     RemoteUser.username,
@@ -37,30 +29,18 @@ FROM RemoteUser JOIN RemoteInstance on RemoteUser.instance_id = RemoteInstance.i
 WHERE RemoteInstance.url = ? AND RemoteUser.username = ?
 |}
 
-let lookup_remote_user_by_url_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  string -->! t @:-
+let%sql.query lookup_remote_user_by_url_request = 
     {| SELECT id, username, instance_id, display_name, url, inbox, outbox, followers, following, summary, public_key_pem FROM RemoteUser WHERE url = ?  |}
 
-let resolve_remote_user_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! t @:-
+let%sql.query resolve_remote_user_request =
     {| SELECT id, username, instance_id, display_name, url, inbox, outbox, followers, following, summary, public_key_pem FROM RemoteUser WHERE id = ?  |}
 
-let retrieve_known_user_list_reqest =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  unit -->* tup3 string string string @:- {|
+let%sql.query retrieve_known_user_list_reqest = {|
 SELECT RemoteUser.username, RemoteInstance.url, RemoteUser.url FROM RemoteUser 
 JOIN RemoteInstance on RemoteUser.instance_id = RemoteInstance.id
 |}
 
-let collect_remote_users_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->* t @:- {|
+let%sql.query collect_remote_users_request = {|
 -- select users from remote users
 SELECT
     RU.id,
@@ -90,10 +70,7 @@ WHERE
 ORDER BY RU.id ASC
 |}
 
-let collect_remote_users_offset_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  tup3 int64 int int -->* t @:- {|
+let%sql.query collect_remote_users_offset_request = {|
 -- select users from remote users
 SELECT
     RU.id,

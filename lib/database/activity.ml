@@ -8,20 +8,14 @@ type id = Uuidm.t
 (* see ./resources/schema.sql:Activity *)
 type%sql.generate t = SQL [@schema "Activity"]
 
+let%sql.query create_activity_request =
+  {| INSERT OR IGNORE INTO Activity (id, raw_data)  VALUES (?, ?) |}
 
-let create_activity_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  t -->. unit @:- {| INSERT OR IGNORE INTO Activity (id, raw_data)  VALUES (?, ?) |}
+let%sql.query find_activity_request =
+ {| SELECT id, raw_data FROM Activity WHERE id = ?  |}
 
-let find_activity_request =
-  let open Caqti_request.Infix in
-  uuid -->! t @:- {| SELECT id, raw_data FROM Activity WHERE id = ?  |}
-
-let update_activity_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  tup2 yojson uuid -->. unit @:- {| UPDATE OR IGNORE Activity SET raw_data = ? WHERE id = ? |}
+let%sql.query update_activity_request =
+  {| UPDATE OR IGNORE Activity SET raw_data = ? WHERE id = ? |}
 
 let data {id=_;data} = data
 let id {id;data=_} = id

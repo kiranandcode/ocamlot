@@ -7,12 +7,7 @@ let () = declare_schema "../../resources/schema.sql"
 (* see ./resources/schema.sql:Follows *)
 type%sql.generate t = SQL [@schema "Follows"]
 
-let create_follow =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
- (tup4 (option string) string (option string)
-             (tup4 bool timestamp (option timestamp)
-                (tup2 int64 int64))) -->. unit @:-
+let%sql.query create_follow =
     {|
 INSERT OR IGNORE
 INTO Follows (public_id, url, raw_data, pending, created, updated, author_id, target_id)
@@ -37,36 +32,23 @@ FROM Follows
 WHERE url = ?
 |}
 
-let update_follow_pending_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  tup3 bool timestamp int64 -->. unit @:-
+let%sql.query update_follow_pending_request =
     {| UPDATE Follows SET pending = ?, updated = ? WHERE id = ?  |}
 
-let resolve_follow_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! t @:- {|
+let%sql.query resolve_follow_request = {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE id = ?
 |}
 
-let collect_related_follows_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup2 int64 int64) -->! t @:- {|
+let%sql.query collect_related_follows_request = {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE (target_id = ? OR author_id = ?) AND pending = TRUE
 ORDER BY DATETIME(COALESCE(updated, created)) DESC
 |}
 
-let collect_related_follows_offset_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup4 int64 int64 timestamp (tup2 int int)) -->! t @:-
- {|
+let%sql.query collect_related_follows_offset_request = {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE (target_id = ? OR author_id = ?) AND DATETIME(COALESCE(updated, created)) <= ? AND pending = TRUE
@@ -74,31 +56,21 @@ ORDER BY DATETIME(COALESCE(updated, created)) DESC
 LIMIT ? OFFSET ?
 |}
 
-let count_following_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! T.Std.int @:- {|
+let%sql.query count_following_request = {|
 SELECT COUNT(*)
 FROM Follows
 WHERE author_id = ? AND pending = FALSE
 ORDER BY DATETIME(COALESCE(updated, created)) DESC
 |}
 
-let collect_following_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->* t @:- {|
+let%sql.query collect_following_request = {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE author_id = ? AND pending = FALSE
 ORDER BY DATETIME(COALESCE(updated, created)) DESC
 |}
 
-let collect_following_offset_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup4 int64 timestamp int int) -->* t @:-
- {|
+let%sql.query collect_following_offset_request = {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE author_id = ? AND DATETIME(COALESCE(updated, created)) <= ? AND pending = FALSE
@@ -106,10 +78,7 @@ ORDER BY DATETIME(COALESCE(updated, created)) DESC
 LIMIT ? OFFSET ?
 |}
 
-let count_followers_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! int @:- {|
+let%sql.query count_followers_request = {|
 SELECT COUNT(*)
 FROM Follows
 WHERE target_id = ? AND pending = FALSE
@@ -117,21 +86,14 @@ ORDER BY DATETIME(COALESCE(updated, created)) DESC
 |}
 
 
-let collect_followers_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->* t @:- {|
+let%sql.query collect_followers_request = {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE target_id = ? AND pending = FALSE
 ORDER BY DATETIME(COALESCE(updated, created)) DESC
 |}
 
-let collect_followers_offset_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup4 int64 timestamp int int) -->* t @:-
- {|
+let%sql.query collect_followers_offset_request = {|
 SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
 FROM Follows
 WHERE target_id = ? AND DATETIME(COALESCE(updated, created)) <= ? AND pending = FALSE
@@ -140,10 +102,7 @@ LIMIT ? OFFSET ?
 |}
 
 
-let delete_follow_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->. unit @:- {|
+let%sql.query delete_follow_request = {|
 DELETE FROM Follows
 WHERE id = ?
 LIMIT 1
@@ -175,7 +134,7 @@ let lookup_follow_by_public_id_exn public_id (module DB: DB) =
 
 let update_follow_pending_status ?timestamp ((follow_id, _): t Link.t) status (module DB: DB) =
   let timestamp = Option.value ~default:(CalendarLib.Calendar.now ()) timestamp in
-  let* () = DB.exec update_follow_pending_request (status, timestamp, follow_id)
+  let* () = DB.exec update_follow_pending_request (status, Some timestamp, follow_id)
             |> flatten_error in
   R.return ()
 

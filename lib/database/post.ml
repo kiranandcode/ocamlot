@@ -7,14 +7,7 @@ let () = declare_schema "../../resources/schema.sql"
 (* see ./resources/schema.sql:Post *)
 type%sql.generate t = SQL [@schema "Posts"]
 
-let create_post_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-
-  (tup4 (option string) string int64
-     (tup4 bool (option string) string
-        (tup2 timestamp (option string)))) -->. unit @:-
-  {|
+let%sql.query create_post_request =  {|
 INSERT OR IGNORE
 INTO Posts (public_id, url, author_id, is_public, summary, post_source, published, raw_data)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -39,29 +32,20 @@ WHERE url = ?
 |}
 
 
-let count_posts_by_author_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! int @:- {|
+let%sql.query count_posts_by_author_request = {|
 SELECT COUNT(*)
 FROM Posts
 WHERE author_id = ?
 |}
 
-let collect_posts_by_author_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->* t @:- {|
+let%sql.query collect_posts_by_author_request = {|
 SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
 FROM Posts
 WHERE author_id = ? AND is_public = TRUE
 ORDER BY DATETIME(published) DESC
 |}
 
-let collect_posts_by_author_offset_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup4 int64 timestamp int int) -->* t @:- {|
+let%sql.query collect_posts_by_author_offset_request = {|
 SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
 FROM Posts
 WHERE author_id = ? AND DATETIME(published) <= ? AND is_public = TRUE
@@ -70,92 +54,62 @@ LIMIT ? OFFSET ?
 |}
 
 
-let resolve_post_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! t @:- {|
+let%sql.query resolve_post_request = {|
 SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
 FROM Posts
 WHERE id = ?
 |}
 
-let insert_post_to_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup2 int64 int64) -->. unit @:- {|
+let%sql.query insert_post_to_request = {|
 INSERT OR IGNORE
 INTO PostTo (post_id, actor_id)
 VALUES (?, ?)
 |}
 
-let collect_post_to_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->* int64 @:-  {|
+let%sql.query collect_post_to_request =  {|
 SELECT actor_id
 From PostTo
 WHERE post_id = ?
 |}
 
-let insert_post_cc_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup2 int64 int64) -->. unit @:- {|
+let%sql.query insert_post_cc_request = {|
 INSERT OR IGNORE
 INTO PostCc (post_id, actor_id)
 VALUES (?, ?)
 |}
 
-let collect_post_cc_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->* int64 @:-  {|
+let%sql.query collect_post_cc_request = {|
 SELECT actor_id
 From PostCc
 WHERE post_id = ?
 |}
 
-let add_post_tag_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup3 int64 int64 (option string)) -->. unit @:- {|
+let%sql.query add_post_tag_request = {|
 INSERT OR IGNORE
 INTO PostTags (post_id, tag_id, url)
 VALUES (?,?,?)
 |}
 
-let collect_post_tags_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->* (tup3 int64 string (option string)) @:- {|
+let%sql.query collect_post_tags_request = {|
 SELECT Tags.tag_id, Tags.tag_name, PostTags.url
 FROM PostTags
 JOIN Tags ON PostTags.tag_id = Tags.tag_id
 WHERE PostTags.post_id = ?
 |}
 
-let add_post_mention_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup2 int64 int64) -->. unit @:- {|
+let%sql.query add_post_mention_request = {|
 INSERT OR IGNORE
 INTO Mention (post_id, actor_id)
 VALUES (?,?)
 |}
 
-let collect_post_mentions_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (int64) -->* (int64) @:-  {|
+let%sql.query collect_post_mentions_request = {|
 SELECT actor_id
 FROM Mention
 WHERE post_id = ?
 |}
 
-let collect_post_feed_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup4 int64 int64 int64 int64) -->* t @:- {|
+let%sql.query collect_post_feed_request = {|
 -- select posts 
 SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
 FROM Posts as P
@@ -165,7 +119,7 @@ WHERE
     -- where, we (1) are the author
     P.author_id = ? OR
 -- or	we (1) are following the author of the post, and the post is public
-    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) AND P.is_public) OR
+    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) AND P.is_public = TRUE) OR
 -- or we (1) are the recipients (cc, to) of the post    
     (EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
 EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)))
@@ -173,11 +127,7 @@ ORDER BY DATETIME(P.published) DESC
 |}
 
 
-let collect_post_feed_offset_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup4 timestamp int64 int64
-     (tup4 int64 int64 int int)) -->* t @:- {|
+let%sql.query collect_post_feed_offset_request = {|
 -- select posts 
 SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
 FROM Posts as P
@@ -188,7 +138,7 @@ WHERE
     -- where, we (1) are the author
     P.author_id = ? OR
 -- or	we (1) are following the author of the post, and the post is public
-    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) AND P.is_public) OR
+    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) AND P.is_public = TRUE) OR
 -- or we (1) are the recipients (cc, to) of the post    
     (EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
 EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)))
@@ -197,10 +147,7 @@ LIMIT ? OFFSET ?
 |}
 
 
-let collect_post_direct_messages_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup3 int64 int64 int64) -->* t @:- {|
+let%sql.query collect_post_direct_messages_request = {|
 -- select posts 
 SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
 FROM Posts as P
@@ -216,11 +163,7 @@ EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?))
 ORDER BY DATETIME(P.published) DESC
 |}
 
-let collect_post_direct_messages_offset_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup4 timestamp int64 int64
-     (tup3 int64 int int)) -->* t @:- {|
+let%sql.query collect_post_direct_messages_offset_request = {|
 -- select posts 
 SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
 FROM Posts as P
@@ -239,10 +182,7 @@ LIMIT ? OFFSET ?
 |}
 
 
-let collect_post_whole_known_network_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  unit -->* t @:- {|
+let%sql.query collect_post_whole_known_network_request = {|
 -- select posts 
 SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
 FROM Posts as P
@@ -252,10 +192,7 @@ WHERE
 ORDER BY DATETIME(P.published) DESC
 |}
 
-let collect_post_whole_known_network_offset_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup3 timestamp int int) -->* t @:- {|
+let%sql.query collect_post_whole_known_network_offset_request = {|
 -- select posts 
 SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
 FROM Posts as P
@@ -268,10 +205,7 @@ ORDER BY DATETIME(P.published) DESC
 LIMIT ? OFFSET ?
 |}
 
-let collect_post_local_network_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  unit -->* t @:- {|
+let%sql.query collect_post_local_network_request = {|
 SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
 FROM Posts as P
 WHERE
@@ -283,10 +217,7 @@ ORDER BY DATETIME(P.published) DESC
 |}
 
 
-let collect_post_local_network_offset_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup3 timestamp int int) -->* t @:- {|
+let%sql.query collect_post_local_network_offset_request = {|
 SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
 FROM Posts as P
 WHERE
@@ -368,7 +299,7 @@ let add_post_ccs (post: t Link.t) actors db =
   ) (Ok ()) actors
 
 let add_post_tag ?url (((post_id, _): t Link.t)) ((tag_id, _): Tag.t Link.t) (module DB: DB) =
-  DB.exec add_post_tag_request (post_id, tag_id, url) |> flatten_error
+  DB.exec add_post_tag_request (Some post_id, Some tag_id, url) |> flatten_error
 
 let add_post_tags (post: t Link.t) tags db =
   Lwt_list.fold_left_s (function
@@ -379,7 +310,7 @@ let add_post_tags (post: t Link.t) tags db =
 let collect_post_tags
       (((post_id, _): t Link.t)) (module DB: DB)
   : ((Tag.t * string option) List.t, string) R.t =
-  let* ls  = DB.collect_list collect_post_tags_request post_id
+  let* ls  = DB.collect_list collect_post_tags_request (Some post_id)
              |> flatten_error in
   let tags =
     List.map

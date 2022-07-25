@@ -7,28 +7,18 @@ let () = declare_schema "../../resources/schema.sql"
 (* see ./resources/schema.sql:Tag *)
 type%sql.generate t = SQL [@schema "Tags"]
 
-let create_tag_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  string -->. unit @:- {|
+let%sql.query create_tag_request = {|
 INSERT OR IGNORE INTO Tags (tag_name) VALUES (?)
 |}
 
-let find_tag_by_name_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-
-  string -->! t @:-
+let%sql.query find_tag_by_name_request =
     {|
 SELECT tag_id, tag_name
 FROM Tags
 WHERE tag_name = ?
 |}
 
-let resolve_tag_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! t @:-
+let%sql.query resolve_tag_request =
     {|
 SELECT tag_id, tag_name
 FROM Tags

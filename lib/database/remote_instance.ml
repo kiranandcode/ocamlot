@@ -20,31 +20,19 @@ let t =
   T.Std.custom ~encode ~decode
     T.Std.(tup3 int64 string (option timestamp))
 
-let create_instance_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  tup2 string (option timestamp) -->. unit @:- {|
+let%sql.query create_instance_request = {|
 INSERT OR IGNORE INTO RemoteInstance (url, last_unreachable)  VALUES (?, ?)
 |}
 
-let resolve_instance_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! t @:- {|
+let%sql.query resolve_instance_request = {|
 SELECT id, url, last_unreachable FROM RemoteInstance WHERE id = ?
 |}
 
-let lookup_instance_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  string -->! t @:- {|
+let%sql.query lookup_instance_request = {|
 SELECT id, url, last_unreachable FROM RemoteInstance WHERE url = ?
  |}
 
-let update_instance_request =
-    let open Caqti_type.Std in
-    let open Caqti_request.Infix in
-    tup2 (option timestamp) int64 -->. unit @:- {|
+let%sql.query update_instance_request = {|
 UPDATE RemoteInstance SET last_unreachable = ? WHERE id = ?
 |}
 

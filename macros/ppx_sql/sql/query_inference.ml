@@ -9,7 +9,7 @@ let ty n args = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=L
 
 let datetime =
   Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {
-    txt=Longident.Ldot (Lident "Calendar", "t");
+    txt=Longident.(Lident "timestamp");
     loc=Location.none
   } []
 
@@ -210,15 +210,15 @@ let combine_opt ls rs =
   loop [] ls rs
 
 let simplify_types (tables: Types.table list) (tys: Query_type.core_type list) : Query_type.core_type list =
-  let check_eq (col: Types.column) (cty: Parsetree.core_type) =
-    let to_string s = Format.to_string Ppxlib.Pprintast.core_type s in
+  let check_eq (col: Types.column) (cty: Ppxlib.core_type) =
+    let to_string (s: Ppxlib.core_type) = Format.to_string Ppxlib.Pprintast.core_type s in
     String.equal (to_string col.ty) (to_string cty) in
   List.find_map (fun (table: Types.table) ->
     match combine_opt table.columns tys with
     | None -> None
     | Some combined ->
       if List.for_all (Fun.uncurry check_eq) combined
-      then Some ([table.ty])
+      then table.ty |> Option.map (fun v -> [v])
       else None
   ) tables
   |> Option.value ~default:tys

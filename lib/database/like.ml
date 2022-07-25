@@ -1,52 +1,36 @@
-[@@@warning "-32"]
+[@@@warning "-32-33"]
 open Utils
 let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:Like *)
 type%sql.generate t = SQL [@schema "Likes"]
 
-let resolve_like_by_id_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! t @:- {|
+let%sql.query resolve_like_by_id_request = {|
 SELECT id, public_id, url, raw_data, published, post_id, actor_id FROM Likes WHERE id = ?
 |}
 
 
-let create_like_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup4 (option string) string (option string)
-     (tup3 timestamp int64 int64)) -->. unit @:- {|
+let%sql.query create_like_request = {|
 INSERT OR IGNORE
 INTO Likes (public_id, url, raw_data, published, post_id, actor_id)
 VALUES (?, ?, ?, ?, ?, ?)
 |}
 
-let collect_likes_by_post_id_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->* t @:- {|
+let%sql.query collect_likes_by_post_id_request = {|
 SELECT id, public_id, url, raw_data, published, post_id, actor_id
 FROM Likes
 WHERE post_id = ?
 ORDER BY datetime(published)
 |}
 
-let collect_likes_by_actor_id_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->* t @:- {|
+let%sql.query collect_likes_by_actor_id_request = {|
 SELECT id, public_id, url, raw_data, published, post_id, actor_id
 FROM Likes
 WHERE actor_id = ?
 ORDER BY datetime(published)
 |}
 
-let collect_likes_by_actor_id_offset_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  (tup4 int64 timestamp int int) -->* t @:- {|
+let%sql.query collect_likes_by_actor_id_offset_request = {|
 SELECT id, public_id, url, raw_data, published, post_id, actor_id
 FROM Likes
 WHERE actor_id = ? AND published <= ?

@@ -1,3 +1,4 @@
+[@@@warning "-33"]
 open Containers
 open Utils
 
@@ -11,53 +12,34 @@ let display_name user =
   user.display_name
   |> Option.value ~default:user.username
 
-let create_user_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  tup4 string string (option string) (tup4 bool bool pubkey privkey)
-    -->. unit @:- {|
+let%sql.query create_user_request = {|
 INSERT INTO LocalUser (username, password, about, manually_accept_follows, is_admin, pubkey, privkey)
  VALUES (?, ?, ?, ?, ?, ?, ?) |}
 
-let find_user_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  string -->! t @:- {|
+let%sql.query find_user_request = {|
 SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
 FROM LocalUser
 WHERE username = ?  |}
 
-let resolve_user_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! t @:- {|
+let%sql.query resolve_user_request = {|
 SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
 FROM LocalUser
 WHERE id = ?  |}
 
 
-let update_about_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  tup2 string int64 -->. unit @:- {|
+let%sql.query update_about_request = {|
 UPDATE LocalUser
 SET about = ?
 WHERE id = ?
 |}
 
-let update_is_admin_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  tup2 bool int64 -->. unit @:- {|
+let%sql.query update_is_admin_request = {|
 UPDATE LocalUser
 SET is_admin = ?
 WHERE id = ?
 |}
 
-let update_manually_accept_follows_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  tup2 bool int64 -->. unit @:- {|
+let%sql.query update_manually_accept_follows_request = {|
 UPDATE LocalUser
 SET manually_accept_follows = ?
 WHERE id = ?
@@ -97,7 +79,7 @@ let lookup_user_exn ~username (module DB: DB) =
 
 let update_about ((user_id, _): t Link.t) about (module DB: DB) =
   flatten_error @@
-  DB.exec update_about_request (about, user_id)
+  DB.exec update_about_request (Some about, user_id)
 
 let update_manually_accept_follows
       ((user_id, _): t Link.t) manually_accept_follows (module DB: DB) =

@@ -87,7 +87,7 @@ let process loc program =
         | None, Some (_, pk) -> Some [pk.name]
         | _ -> None in
       let columns = List.map snd columns in
-      let _, ty = extract_type loc (Option.value ~default:name info) in
+      let ty = Option.map (extract_type loc) info |> Option.map snd in
       Some {name; ty; columns; primary_key; foreign_keys}
     | _ -> None
   ) program
