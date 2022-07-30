@@ -31,10 +31,10 @@ let setup_rule =
 
 let extract_attr ~(f: string -> Ppxlib.structure) ~loc attrs =
   let schema =
-      List.find_map (function
-        | { attr_name={txt="schema"; _}; attr_payload; attr_loc } as attr ->
-          Some (attr, attr_payload)
-        | _ -> None) attrs in
+    List.find_map (function
+      | { attr_name={txt="schema"; _}; attr_payload; attr_loc } as attr ->
+        Some (attr, attr_payload)
+      | _ -> None) attrs in
   let+ schema, schema_payload =
     Utils.Structure.some_or_fail_expr ~loc schema
       ~else_:"ppx_sql sql.check requires a schema attribute on types" in
@@ -164,6 +164,38 @@ let query_typ_to_fun loc (ty: Sql.Query.Type.ty) query_str =
   let ty_exp = Sql.Query.Builder.enc_ty ~loc ty in
   [%expr Caqti_request.Infix.([%e ty_exp] @:- [%e query_str])]
 
+let query_expr_rule =
+  let check ~(ctxt:Expansion_context.Extension.t)
+        (pat: pattern) (query_str: label) (loc: location)
+        (n: label option) (body: expression) : expression =
+    let+ cached = Utils.Expr.some_or_fail_expr ~loc !schema_data
+                    ~else_:"attempt to use sql.query without specifying a SQL schema first." in
+    let+ query =
+      Utils.Expr.ok_or_fail_expr ~loc (Sql.Query.parse query_str)
+        ~else_:"ppx_sql failed to parse supplied sql query" in
+    let+ inferred_typ =
+      Utils.Expr.ok_or_fail_expr ~loc (Sql.Query.infer cached query)
+        ~else_:"ppx_sql failed to infer types for supplied sql query" in
+
+    let res_vl = query_typ_to_fun loc inferred_typ
+                   Ast_builder.Default.(pexp_constant ~loc (Pconst_string (query_str, loc, n))) in
+    Ast_builder.Default.(pexp_let ~loc Nonrecursive
+                           [ value_binding ~loc ~pat ~expr:res_vl  ]
+                           body)
+  in
+
+  let extension =
+    Extension.V3.declare "sql.query"
+      Extension.Context.expression
+      Ast_pattern.(single_expr_payload (pexp_let nonrecursive
+                     (value_binding ~pat:__
+                        ~expr:(pexp_constant (pconst_string __ __ __))
+                        ^:: nil
+                       ) __))
+      check in
+  Ppxlib.Context_free.Rule.extension extension
+  
+
 let query_rule =
 
   let check ~(ctxt:Expansion_context.Extension.t) (pat: pattern) (query_str: label) (loc: location)
@@ -179,12 +211,12 @@ let query_rule =
 
     let res_vl = query_typ_to_fun loc inferred_typ
                    Ast_builder.Default.(pexp_constant ~loc (Pconst_string (query_str, loc, n))) in
-      
+
 
     [Ast_builder.Default.pstr_value ~loc Nonrecursive [
-      Ast_builder.Default.value_binding ~loc ~pat ~expr:res_vl
-    ]] in
-    
+       Ast_builder.Default.value_binding ~loc ~pat ~expr:res_vl
+     ]] in
+
   let extension =
     Extension.V3.declare_inline "sql.query"
       Extension.Context.structure_item
@@ -192,8 +224,8 @@ let query_rule =
                             (value_binding
                                ~pat:__
                                ~expr:(pexp_constant (pconst_string __ __ __))
-                               ^:: nil
-                              )) ^:: nil))
+                             ^:: nil
+                            )) ^:: nil))
       check in
   Ppxlib.Context_free.Rule.extension extension
 
@@ -204,5 +236,6 @@ let () =
       generate_rule;
       check_rule;
       query_rule;
+      query_expr_rule
     ]
     "ppx_sql"

@@ -5,30 +5,30 @@ open Utils
 let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:Tag *)
-type%sql.generate t = SQL [@schema "Tags"]
+type t = Types.tag
+let t = Types.tag
 
-let%sql.query create_tag_request = {|
-INSERT OR IGNORE INTO Tags (tag_name) VALUES (?)
-|}
 
 let%sql.query find_tag_by_name_request =
-    {|
+  {|
 SELECT tag_id, tag_name
 FROM Tags
 WHERE tag_name = ?
 |}
 
-let%sql.query resolve_tag_request =
+let resolve id (module DB: DB) =
+  let%sql.query resolve_tag_request =
     {|
 SELECT tag_id, tag_name
 FROM Tags
 WHERE tag_id = ?
-|}
-
-let resolve id (module DB: DB) =
+|} in
   DB.find resolve_tag_request id |> flatten_error
 
 let create name (module DB: DB) =
+  let%sql.query create_tag_request = {|
+INSERT OR IGNORE INTO Tags (tag_name) VALUES (?)
+|} in
   let* () = DB.exec create_tag_request name
             |> flatten_error in
   DB.find find_tag_by_name_request name

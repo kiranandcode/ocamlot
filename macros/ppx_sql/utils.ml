@@ -83,6 +83,32 @@ module Expr = struct
 
 end
 
+
+module ExprList = struct
+
+  let ok_or_fail_expr ~f ~loc x ~else_ =
+    Format.ksprintf ~f:(fun s -> 
+      match x with
+      | Ok x -> f x
+      | Error e ->
+         [(
+          Ast_builder.Default.pexp_extension ~loc
+            (Ppxlib.Location.error_extensionf ~loc "%s: %s" s e))]
+    ) else_
+
+  let some_or_fail_expr ~f ~loc x ~else_ =
+    Format.ksprintf ~f:(fun s -> 
+      match x with
+      | Some x -> f x
+      | None ->
+         [(
+          Ast_builder.Default.pexp_extension ~loc
+            (Ppxlib.Location.error_extensionf ~loc "%s" s))]
+    ) else_
+
+end
+
+
 module Structure_item = struct
 
   let ok_or_fail_expr ~f ~loc x ~else_ =

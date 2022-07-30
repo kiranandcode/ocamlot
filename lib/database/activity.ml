@@ -6,19 +6,11 @@ open Utils
 type id = Uuidm.t
 
 (* see ./resources/schema.sql:Activity *)
-type%sql.generate t = SQL [@schema "Activity"]
+type t = Types.activity
+let t = Types.activity
 
-let%sql.query create_activity_request =
-  {| INSERT OR IGNORE INTO Activity (id, raw_data)  VALUES (?, ?) |}
-
-let%sql.query find_activity_request =
- {| SELECT id, raw_data FROM Activity WHERE id = ?  |}
-
-let%sql.query update_activity_request =
-  {| UPDATE OR IGNORE Activity SET raw_data = ? WHERE id = ? |}
-
-let data {id=_;data} = data
-let id {id;data=_} = id
+let data ({id=_;data}: t) = data
+let id ({id;data=_}: t) = id
 
 let url config id = (Configuration.Url.activity_endpoint config (Uuidm.to_string ~upper:false id))
 
@@ -30,10 +22,16 @@ let fresh_id () =
   let id = Uuidm.v4 bytes in
   id
 
-let create ~id ~data (module DB: DB) =
-  let res = {id;data} in
+let create =
+  let%sql.query create_activity_request =
+    {| INSERT OR IGNORE INTO Activity (id, raw_data)  VALUES (?, ?) |} in
+  fun ~id ~data (module DB: DB) ->
+  let res : t = {id;data} in
   let* () = flatten_error @@ DB.exec create_activity_request res in
   Lwt.return_ok res
+
+let%sql.query find_activity_request =
+ {| SELECT id, raw_data FROM Activity WHERE id = ?  |}
 
 let find id (module DB: DB) =
   flatten_error @@ DB.find_opt find_activity_request id
@@ -41,6 +39,9 @@ let find id (module DB: DB) =
 let find_exn id (module DB: DB) =
   flatten_error @@ DB.find find_activity_request id
 
-let update {id;data=_} data (module DB: DB) =
+let update =
+  let%sql.query update_activity_request =
+    {| UPDATE OR IGNORE Activity SET raw_data = ? WHERE id = ? |} in
+  fun ({id;data=_}: t) data (module DB: DB) ->
   let* () = flatten_error @@ DB.exec update_activity_request (data, id) in
-  Lwt.return_ok {id;data}
+  Lwt.return_ok ({id;data}: t)
