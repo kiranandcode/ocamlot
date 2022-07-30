@@ -1,3 +1,0 @@
-(executable (name main)
- (preprocess (pps ppx_deriving.show ppxlib.metaquot))
- (libraries sql compiler-libs.common ppxlib containers angstrom))

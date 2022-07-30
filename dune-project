@@ -3,8 +3,14 @@
 (generate_opam_files true)
 
 (license AGPL-3.0-or-later)
+(maintainers "The OCamlot developers")
 
-(package (name ocamelot)
+(package (name ocamlot)
+ (authors "The OCamlot developers")
+ (homepage "https://ocamlot.xyz")
+ (bug_reports "https://ocamlot.xyz/bug-reports")
+ (synopsis "A lightweight activitypub server in OCaml")
+ (description "OCamlot is a small OCaml library that provides a robust and efficient activitypub server.")
  (depends
    alcotest alcotest-lwt
 
@@ -33,7 +39,7 @@
    ppxlib
    ppx_deriving
 
-   jwt 
+   jwto
 
    angstrom
    re
