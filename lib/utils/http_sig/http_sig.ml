@@ -56,14 +56,12 @@ let parse_signature signature =
 let verify ~signed_string ~signature pubkey =
   let result =  X509.Public_key.verify `SHA256 ~scheme:`RSA_PKCS1
     ~signature:(Cstruct.of_string signature)
-    pubkey
-    (`Message (Cstruct.of_string signed_string)) in
+    pubkey (`Message (Cstruct.of_string signed_string)) in
   match result with
   | Ok () -> true
   | Error `Msg e ->
-    Dream.log "error while verifying: %s" e;
+    Dream.log "error while verifying: %s\n\nsigned_string is:%s\n\nsignature is:%s\n" e signed_string signature;
     false
-
 
 let verify_request ~resolve_public_key (req: Dream.request) =
   let (let+) x f = match x with None -> Lwt.return (Ok false) | Some v -> f v in
