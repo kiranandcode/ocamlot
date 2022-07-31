@@ -22,7 +22,7 @@ module LocalUser = struct
         pem=Local_user.pubkey actor;
       } in {
       id= uri (Configuration.Url.user config username);
-      name= Some actor.username;
+      name= Some Local_user.(username actor);
       url = Some (uri (Configuration.Url.user_profile_page config username));
       preferred_username= Some (Local_user.display_name actor);
       inbox = uri (Configuration.Url.user_inbox config username);

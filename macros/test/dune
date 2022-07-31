@@ -1,0 +1,10 @@
+(tests (names ppx_activitypub_test)
+ (modules ppx_activitypub_test)
+ (libraries alcotest containers ppxlib ppxlib.print_diff)
+ (flags :standard -w -30)
+ (preprocess (pps ppxlib.metaquot)))
+
+(tests (names ppx_sql_test)
+ (modules ppx_sql_test)
+ (libraries sql alcotest containers ppxlib ppxlib.print_diff)
+ (flags :standard -w -30))

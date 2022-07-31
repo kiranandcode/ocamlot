@@ -111,7 +111,7 @@ let () =
       ~database_path ~domain:"testing.ocamlot.xyz" in
   let worker = Worker.init config in
   Runner.run ~workers:[worker]
-    ~port:4000
+    ~port:6060
   @@ Dream.logger
   @@ Dream.sql_pool database_path
   @@ Dream.sql_sessions

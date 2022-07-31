@@ -13,6 +13,7 @@ module Common : sig
   val check_is_false : bool -> unit
   val check_is_ok : ('a, 'b) result -> unit
   val check_is_some : 'a option -> unit
+  val check_int_eq : expected:int -> int -> unit
   val check_string_eq : expected:string -> string -> unit
   val check_string_neq : expected:string -> string -> unit
 

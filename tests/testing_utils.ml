@@ -17,6 +17,7 @@ module Common = struct
   let check_is_false vl = Alcotest.(check bool) "predicate is false" false vl
   let check_is_ok user = Alcotest.(check bool) "result is ok" true (Result.is_ok user)
   let check_is_some vl = Alcotest.(check bool) "result is something" true (Option.is_some vl)
+  let check_int_eq ~expected value = Alcotest.(check int) "string matches" expected value
   let check_string_eq ~expected value = Alcotest.(check string) "string matches" expected value
   let check_string_neq ~expected value = Alcotest.(check bool) "string does not match" false String.(expected = value)
 
@@ -27,7 +28,10 @@ module Common = struct
                           |> List.map String.trim
                           |> List.filter (Fun.negate String.is_empty) in
     let create_opaque_request schema =
-      Caqti_request.exec ~oneshot:true Caqti_type.unit schema in
+      let schema _ = Caqti_query.of_string_exn schema in
+      Caqti_request.Infix.(
+        Caqti_type.unit -->. Caqti_type.unit
+      ) ~oneshot:true schema in
     List.map create_opaque_request init_statements
 
   let with_db (f: (module Caqti_lwt.CONNECTION) -> 'a Lwt.t) () =

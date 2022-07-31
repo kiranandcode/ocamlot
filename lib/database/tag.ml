@@ -2,52 +2,33 @@
 open Containers
 open Utils
 
-(* see ./resources/schema.sql:Post *)
-type t = {
-  id: int64;                              (* unique internal id of the tag *)
-  name: string;                           (* tag value *)
-}
+let () = declare_schema "../../resources/schema.sql"
 
-let t =
-  let encode { id; name } =
-    Ok (id, name) in
-  let decode (id, name) =
-    Ok { id; name } in
-  T.Std.custom ~encode ~decode
-    T.Std.(tup2 int64 string)
+(* see ./resources/schema.sql:Tag *)
+type t = Types.tag
+let t = Types.tag
 
-let create_tag_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  string -->. unit @:- {|
-INSERT OR IGNORE INTO Tags (tag_name) VALUES (?)
-|}
 
-let find_tag_by_name_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-
-  string -->! t @:-
-    {|
+let%sql.query find_tag_by_name_request =
+  {|
 SELECT tag_id, tag_name
 FROM Tags
 WHERE tag_name = ?
 |}
 
-let resolve_tag_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  int64 -->! t @:-
+let resolve id (module DB: DB) =
+  let%sql.query resolve_tag_request =
     {|
 SELECT tag_id, tag_name
 FROM Tags
 WHERE tag_id = ?
-|}
-
-let resolve id (module DB: DB) =
+|} in
   DB.find resolve_tag_request id |> flatten_error
 
 let create name (module DB: DB) =
+  let%sql.query create_tag_request = {|
+INSERT OR IGNORE INTO Tags (tag_name) VALUES (?)
+|} in
   let* () = DB.exec create_tag_request name
             |> flatten_error in
   DB.find find_tag_by_name_request name

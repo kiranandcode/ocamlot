@@ -1,8 +1,9 @@
 open Utils
 
+let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:Mention *)
-type t = {
+type(* %sql.check[@schema "Mention"] *) t = {
   public_id: string option;               (* public id of the mention object if made externally *)
   url: string;                            (* url of the mention  *)
   raw_data: string option;                (* raw json of the mention if external  *)

@@ -1,54 +1,16 @@
-[@@@warning "-36-39"]
+[@@@warning "-36-39-33"]
+let () = declare_schema "../../resources/schema.sql"
 open Containers
 open Utils
 
-(* see ./resources/schema.sql:Activity *)
-type t = {
-  id: Uuidm.t;                           (* UNIQUE public UUID of activity *)
-  data: Yojson.Safe.t;                   (* raw json data stored at UUID *)
-}
-
 type id = Uuidm.t
 
-let uuid: Uuidm.t T.t =
-  let encode id = Ok (Uuidm.to_string id) in
-  let decode id = Uuidm.of_string id |> Option.to_result "uuid failed to decode" in
-  T.Std.custom ~encode ~decode
-    T.Std.(string)
+(* see ./resources/schema.sql:Activity *)
+type t = Types.activity
+let t = Types.activity
 
-let yojson: Yojson.Safe.t T.t =
-  let encode data = Ok (Yojson.Safe.to_string data) in
-  let decode data =
-    try
-      Ok (Yojson.Safe.from_string data)
-    with exn ->
-      Error (Printexc.to_string exn) in
-  T.Std.custom ~encode ~decode T.Std.(string)
-
-
-let t : t T.t =
-  let encode {id; data} = Ok (id, data) in
-  let decode (id, data) = Ok {id;data} in
-  T.Std.custom ~encode ~decode
-    T.Std.(tup2 uuid yojson)
-
-
-let create_activity_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  t -->. unit @:- {| INSERT OR IGNORE INTO Activity (id, raw_data)  VALUES (?, ?) |}
-
-let find_activity_request =
-  let open Caqti_request.Infix in
-  uuid -->! t @:- {| SELECT id, raw_data FROM Activity WHERE id = ?  |}
-
-let update_activity_request =
-  let open Caqti_type.Std in
-  let open Caqti_request.Infix in
-  tup2 yojson uuid -->. unit @:- {| UPDATE OR IGNORE Activity SET raw_data = ? WHERE id = ? |}
-
-let data {id=_;data} = data
-let id {id;data=_} = id
+let data ({id=_;data}: t) = data
+let id ({id;data=_}: t) = id
 
 let url config id = (Configuration.Url.activity_endpoint config (Uuidm.to_string ~upper:false id))
 
@@ -60,10 +22,16 @@ let fresh_id () =
   let id = Uuidm.v4 bytes in
   id
 
-let create ~id ~data (module DB: DB) =
-  let res = {id;data} in
+let create =
+  let%sql.query create_activity_request =
+    {| INSERT OR IGNORE INTO Activity (id, raw_data)  VALUES (?, ?) |} in
+  fun ~id ~data (module DB: DB) ->
+  let res : t = {id;data} in
   let* () = flatten_error @@ DB.exec create_activity_request res in
   Lwt.return_ok res
+
+let%sql.query find_activity_request =
+ {| SELECT id, raw_data FROM Activity WHERE id = ?  |}
 
 let find id (module DB: DB) =
   flatten_error @@ DB.find_opt find_activity_request id
@@ -71,6 +39,9 @@ let find id (module DB: DB) =
 let find_exn id (module DB: DB) =
   flatten_error @@ DB.find find_activity_request id
 
-let update {id;data=_} data (module DB: DB) =
+let update =
+  let%sql.query update_activity_request =
+    {| UPDATE OR IGNORE Activity SET raw_data = ? WHERE id = ? |} in
+  fun ({id;data=_}: t) data (module DB: DB) ->
   let* () = flatten_error @@ DB.exec update_activity_request (data, id) in
-  Lwt.return_ok {id;data}
+  Lwt.return_ok ({id;data}: t)

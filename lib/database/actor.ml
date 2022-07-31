@@ -1,4 +1,5 @@
 open Utils
+let () = declare_schema "../../resources/schema.sql"
 
 type t =
   | Local of Local_user.t

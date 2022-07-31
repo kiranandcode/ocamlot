@@ -210,9 +210,9 @@ let* _ =
 let* _ = 
   Database.Post.create_post
     ~public_id:"129129102901290"
-    ~url:"https://localhost.local/activities/129129102901290"
+    ~url:"https://localhost.local/activities/1291291029012901"
     ~author:users.(1)
-    ~is_public:false
+    ~is_public:true
     ~post_source:"Posting multiple bro"
     ~published:(CalendarLib.Calendar.now ()) db in
 let+ posts_by_0 = Database.Post.collect_posts_by_author users.(0) db in
@@ -222,8 +222,8 @@ ret begin
   let posts_by_0 = Result.get_ok posts_by_0 in
   check_is_ok posts_by_1;
   let posts_by_1 = Result.get_ok posts_by_1 in
-  check_is_true (List.length posts_by_0 = 2);
-  check_is_true (List.length posts_by_1 = 1)
+  check_int_eq ~expected:2 (List.length posts_by_0);
+  check_int_eq ~expected:1 (List.length posts_by_1);
 end
 ;;
 
