@@ -16,3 +16,6 @@ _opam/
 
 # it's only a matter of time until I accidentally commit it
 test.db
+ocamlot.db
+ocamlot.db-shm
+ocamlot.db-wal

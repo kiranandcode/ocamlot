@@ -1,49 +1,34 @@
 #!/bin/bash
 
-dune build @all > /dev/null 2>&1
 
-chmod u+rw ./_build/default/test.db
+build_project () {
+    opam exec -- dune build @all
 
-cd _build/default || exit
+    if [[ ! "$?" -eq 0 ]]; then
+        echo "failed to build project"
+        exit -1
+    fi
+}
 
-./lib/server/server.exe  &
+build_project
 
+opam exec -- dune exec ./bin/main.exe &
 BG_PID="$!"
 
-cd - || exit
+echo "$BG_PID"
 
-inotifywait -m . -r --exclude "_build/*" |
+inotifywait -m . -r -e "MODIFY" --exclude "(_build/*|.git/*|.*/\.#.*|\./.*\.db|\./.*\.db-wal|\./.*\.db-shm)" |
     while read -r directory events filename; do
+        echo "received event $events on $directory:$filename, restarting"
 
-        if [[ ! "$events" =~ .*(MODIFY|CLOSE_NOWRITE|OPEN|ISDIR|ACCESS).* ]]; then
+        build_project
 
+        opam exec -- dune build @all
 
-            if [[ ! "$filename" =~ ^\.#  ]] && [[ ! "$filename" = "test.db" ]] && [[ ! "$filename" = "test.db-journal" ]] && [[ ! "$directory" = "./.git/" ]] && [[ ! "$directory" =~ ./.git/** ]] && [[ ! "$filename" =~ ^# ]]; then
-                echo "$directory" "$events" "$filename"
-
-
-                if [ -n "$BG_PID" ]; then
-                    echo "KILL $BG_PID"
-                    kill -9 "$BG_PID"
-                    sleep 4
-
-                    dune build @all > /dev/null 2>&1
-
-                    chmod u+rw ./_build/default/test.db
-
-                    cd _build/default || exit
-
-                    ./lib/server/server.exe &
-
-                    BG_PID="$!"
-
-                    cd - || exit
-
-                else
-                    echo "NOT KILL $BG_PID"
-                fi
-
-            fi
-        fi
-
+        while (ps -p "$BG_PID" > /dev/null) && [[ ! -z "$BG_PID" ]]; do
+            echo kill -INT $BG_PID
+            kill -INT $BG_PID
+        done
+        opam exec -- dune exec ./bin/main.exe &
+        BG_PID="$!"
     done
