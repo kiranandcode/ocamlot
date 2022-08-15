@@ -225,7 +225,7 @@ let send _req task  =
   Lwt.async (fun () -> Lwt_mvar.put worker_var task)
 
 let init config =
-  let pool = 
+  let pool =
     let vl = ref None in
     ignore @@ Dream.sql_pool  Configuration.Params.(database_path config) (fun req ->
       vl :=(Dream__sql.Sql.Message.field req Dream__sql.Sql.pool_field);
@@ -234,5 +234,15 @@ let init config =
     match !vl with
     | None -> raise (Failure "worker failed to acquire access to pool")
     | Some pool -> pool  in
+  let+ res = 
+    let enable_journal_mode =
+      Caqti_request.Infix.(Caqti_type.unit -->. Caqti_type.unit @:-  "PRAGMA journal_mode=WAL" ) in
+    Caqti_lwt.Pool.use (fun (module DB : Caqti_lwt.CONNECTION) ->
+      DB.exec enable_journal_mode ()
+    ) pool in
+  begin match res with
+  | Error e -> Format.ksprintf ~f:failwith "failed to set journal mode: %s" (Caqti_error.show e)
+  | _ -> ()
+  end;
   let+ () = Lwt.return () in
   worker (pool :> (Caqti_lwt.connection, [Caqti_error.t | `Error of string] ) Caqti_lwt.Pool.t) config
