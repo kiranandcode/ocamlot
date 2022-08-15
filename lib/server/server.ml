@@ -106,6 +106,25 @@ let caqti path = Caqti_lwt.connect (Uri.of_string path)
                  |> Lwt.map Result.get_exn
 
 
+let from_static =
+  let mime_lookup filename =
+    let content_type =
+      match Magic_mime.lookup filename with
+      | "text/html" -> Dream_pure.Formats.text_html
+      | content_type -> content_type
+    in
+    ["Content-Type", content_type] in
+
+  fun local_root path req ->
+    Dream.info (fun f -> f ~request:req "from static %s %s" local_root path);
+    match Static.read path with
+    | Some contents ->
+        Dream.respond
+          ~headers:(mime_lookup path)
+          contents
+    | None ->
+      Dream.respond ~status:`Not_Found ""
+
 let run config =
   let worker = Worker.init config in
   Runner.run ~workers:[worker]
@@ -122,6 +141,6 @@ let run config =
     (* Dream.get "/home" @@ (handle_get_home config);
      * Dream.post "/home" @@ (handle_post_home config); *)
 
-    Dream.get "/static/**" @@ Dream.static "static";
+    Dream.get "/static/**" @@ Dream.static ~loader:from_static "static";
     Dream.get "/**" @@ fun req -> Dream.redirect req "/home"
   ]

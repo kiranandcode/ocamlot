@@ -1,7 +1,7 @@
 (library (name server)
  (preprocess (pps ppx_deriving.show))
  (libraries
-   html http_sig database activitypub configuration
+   html http_sig database activitypub configuration static
    dream
    jwto
    caqti caqti-driver-sqlite3))
