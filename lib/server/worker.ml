@@ -234,11 +234,15 @@ let init config =
     match !vl with
     | None -> raise (Failure "worker failed to acquire access to pool")
     | Some pool -> pool  in
-  let+ res = 
+  let+ res =
+    let (let+) x f = Lwt_result.bind x f in
     let enable_journal_mode =
       Caqti_request.Infix.(Caqti_type.unit -->. Caqti_type.unit @:-  "PRAGMA journal_mode=WAL" ) in
+    let update_busy_timout =
+      Caqti_request.Infix.(Caqti_type.unit -->. Caqti_type.unit @:-  "PRAGMA busy_timeout = 5000" ) in
     Caqti_lwt.Pool.use (fun (module DB : Caqti_lwt.CONNECTION) ->
-      DB.exec enable_journal_mode ()
+      let+ () = DB.exec enable_journal_mode () in
+      DB.exec update_busy_timout ()
     ) pool in
   begin match res with
   | Error e -> Format.ksprintf ~f:failwith "failed to set journal mode: %s" (Caqti_error.show e)
