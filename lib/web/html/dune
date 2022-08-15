@@ -1,2 +1,2 @@
 (library (name html)
- (libraries database containers bulma tyxml dream))
+ (libraries containers tyxml pure))
