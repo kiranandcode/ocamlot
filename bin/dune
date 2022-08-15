@@ -1,4 +1,4 @@
 (executable (name main)
-  (preprocess (pps ppx_deriving.std))
-  (libraries activitypub decoders decoders-yojson yojson containers ptime)
-)
+ (preprocess (pps ppx_blob ppx_deriving.std))
+ (libraries server cmdliner bos)
+ (preprocessor_deps "../resources/schema.sql"))

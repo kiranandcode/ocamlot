@@ -1,31 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 open Common
 open Containers
 
@@ -42,8 +14,8 @@ let handle_actor_get config req =
   match Activitypub.Constants.ContentType.of_string content_type with
   | None -> Dream.respond ~status:`Not_Acceptable "{}"
   | Some `HTML ->
-    let> current_user = Common.with_current_user req in
-    let> following, followers, posts =
+    let> _current_user = Common.with_current_user req in
+    let> _following, _followers, _posts =
       Dream.sql req (fun db ->
         let+! user = Database.Actor.of_local (Database.LocalUser.self user) db in
         let+! following = Database.Follow.count_following user db in
@@ -62,7 +34,7 @@ let handle_actor_get config req =
                  |> Fun.flip Option.bind Int.of_string
                  |> Option.value ~default:0 in
 
-    let> state =
+    let> _state =
       Dream.sql req begin fun db ->
         let+! user = Database.Actor.of_local (Database.LocalUser.self user) db in
         match Dream.query req "state" with
@@ -102,7 +74,7 @@ let handle_actor_get config req =
           Lwt.return_ok (`Posts (timestamp, offset, posts))
       end
       |> or_errorP ~req ~err:internal_error in
-    Dream.html (Html.Profile.build config current_user ~state ~posts ~following ~followers user req)
+    Dream.html (invalid_arg "TODO") (* (Html.Profile.build config current_user ~state ~posts ~following ~followers user req) *)
   | Some `JSON ->
     activity_json
       (user

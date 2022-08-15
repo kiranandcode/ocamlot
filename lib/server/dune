@@ -1,4 +1,4 @@
-(executable (name server)
+(library (name server)
  (preprocess (pps ppx_deriving.show))
  (libraries
    html http_sig database activitypub configuration

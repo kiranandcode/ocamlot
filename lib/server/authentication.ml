@@ -9,11 +9,11 @@ let or_else ~to_ ~req red vl kont = match vl with None -> failwith ~to_ ~req red
 
 let handle_register_get request =
   let+ errors = Common.Error.get request in
-  let errors = 
+  let _errors = 
     errors
     |> Option.map List.return
     |> Option.value ~default:[] in
-  Dream.html (Html.Register.build ~errors request)
+  Dream.html (invalid_arg "TODO") (* (Html.Register.build ~errors request) *)
 
 
 let handle_register_post req =
@@ -42,11 +42,11 @@ let handle_register_post req =
 
 let handle_login_get req =
   let+ errors = Common.Error.get req in
-  let errors = 
+  let _errors = 
     errors
     |> Option.map List.return
     |> Option.value ~default:[] in
-  Dream.html (Html.Login.build ~errors req)
+  Dream.html (invalid_arg "TODO") (* (Html.Login.build ~errors req) *)
 
 
 let handle_login_post req =
