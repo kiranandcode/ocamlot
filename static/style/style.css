@@ -69,6 +69,17 @@ div.profile-box.post-author {
   margin-bottom: .5rem;
 }
 
+.error-title > h1 {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  background-color: var(--header-color);
+  padding-bottom: 0.5rem;
+  padding-left: 0.5rem;
+  padding-top: 0.5rem;
+  color: var(--header-text-color);
+  margin-top: .5rem;
+}
+
 .post-title > h1 {
   margin: 0.25rem 0 !important;
 }
@@ -610,6 +621,7 @@ div.profile-box.feed-item-author {
   margin-bottom: .25rem;
 }
 
+
 .write-post-title > h1, .write-post-context > h5 {
   margin-bottom: 0;
   padding-bottom: 0;
@@ -620,45 +632,76 @@ div.profile-box.feed-item-author {
   color: var(--header-text-color);
   margin-top: .5rem;
 }
+
 .write-post-component {
   background-color: var(--element-color);
   color: var(--element-text-color);
   padding-left: .25rem;
   padding-right: .25rem;
 }
+
 .write-post-content .pure-group input {
   width: 100%;
 }
+
 .write-post-content fieldset.pure-group:nth-child(3) > input:nth-child(2) {
   min-height: 20rem;
 }
+
 .write-post-content textarea {
   width: 100%;
 }
-#cars {
-}
+
 .write-post-content select {
   width: 100%;
   text-align: center;
 }
+
 .write-post-content .pure-button {
   width: ;
 }
+
 .preview {
   display: flex;
   justify-content: space-around;
 }
+
 .preview > button, .preview > a.pure-button {
   width: 100%;
   margin: .0rem .25rem .25rem .25rem;
 }
+
 .write-post-context-item {
   margin-bottom: .5rem;
 }
+
 .write-post-context-item > div.feed-item {
     padding-top: .5rem;
     margin-top: 0;
 }
+
 .write-post-context {
   color: var(--header-text-color);
+}
+
+.footer {
+  text-align: center;
+  background-color: var(--header-color);
+  color: var(--element-text-color);
+}
+
+.footer a {
+  color: var(--element-text-color);
+  margin-left: .5rem;
+  margin-right: .5rem;
+}
+.error-content {
+  background: var(--element-color);
+  color: var(--element-text-color);
+  padding: .5rem;
+  min-height: 4rem;
+}
+.error-content pre {
+  border: 1px solid var(--header-text-color);
+  padding: .25rem;
 }

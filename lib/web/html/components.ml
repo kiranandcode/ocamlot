@@ -1,3 +1,4 @@
+open Containers
 open Pure.Utils
 
 let header fields =
@@ -10,10 +11,15 @@ let header fields =
     ]
   ]
 
+let footer elts =
+  H.div ~a:[H.a_class ["footer"; "l-box"]] (List.map (fun elt ->
+    H.a ~a:[H.a_href elt#link] [H.txt elt#name]
+  ) elts |> List.intersperse (H.txt "|"))
+
 let stats_box ?a ?a_class stats =
   H.div ?a:(H.a_class ("stats-box" :: !!a_class) +:: a) [
-    H.span [Format.ksprintf H.txt "%d Cheers" (stats#cheers)];
-    H.span [Format.ksprintf H.txt "%d Toasts" (stats#toasts)];
+    H.span [Format.ksprintf ~f:H.txt "%d Cheers" (stats#cheers)];
+    H.span [Format.ksprintf ~f:H.txt "%d Toasts" (stats#toasts)];
   ]
 
 let profile_box ?a ?a_class author =

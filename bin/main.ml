@@ -36,11 +36,18 @@ let enforce_database path =
     Ok (Fpath.to_string path)
   end
 
-let run database_path domain port =
+let run database_path domain port debug =
   let* database_path = enforce_database database_path in
   let database_path =  "sqlite3://:" ^ database_path in
-  let config = Configuration.Params.create ?port ~database_path domain in
+  let config = Configuration.Params.create ~debug ?port ~database_path domain in
   Ok (Server.run config)
+
+let debug =
+  let info =
+    Arg.info
+      ~doc:{| Determines whether the OCamlot server should be run in debug mode. |}
+      ["D"; "debug"] in
+  Arg.flag info
 
 let database_path =
   let info =
@@ -75,5 +82,5 @@ let _ =
       ~version:{|%%VERSION%%|}
       ~doc:"An OCaml Activitypub Server *with soul*!"
       "OCamlot" in
-  let cmd = Term.(term_result @@ (const run $ Arg.value database_path $ Arg.value domain $ Arg.value port)) in
+  let cmd = Term.(term_result @@ (const run $ Arg.value database_path $ Arg.value domain $ Arg.value port $ Arg.value debug)) in
   Cmd.eval (Cmd.v info cmd)

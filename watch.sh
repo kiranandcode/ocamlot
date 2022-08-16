@@ -9,10 +9,13 @@ build_project () {
         exit -1
     fi
 }
+run_project () {
+    opam exec -- dune exec -- ./bin/main.exe -D &
+}
 
 build_project
 
-opam exec -- dune exec ./bin/main.exe &
+run_project
 BG_PID="$!"
 
 echo "$BG_PID"
@@ -29,6 +32,6 @@ inotifywait -m . -r -e "MODIFY" --exclude "(_build/*|.git/*|.*/\.#.*|\./.*\.db|\
             echo kill -INT $BG_PID
             kill -INT $BG_PID
         done
-        opam exec -- dune exec ./bin/main.exe &
+        run_project
         BG_PID="$!"
     done

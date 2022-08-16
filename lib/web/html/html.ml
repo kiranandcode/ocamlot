@@ -5,6 +5,7 @@ module Post = Post
 module Login = Login
 module Single_post = Single_post
 module Write_post = Write_post
+module Error = Error
 
 
 let head title =
