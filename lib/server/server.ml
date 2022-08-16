@@ -1,22 +1,8 @@
-[@@@warning "-33"]
+[@@@warning "-33-32"]
 open Containers
 open Common
 
 module Runner = Runner
-
-let failwith ~req err = let+ () = Common.Error.set req err in Dream.redirect req "/home"
-let holds_or_else ~req red vl kont = match vl with false -> failwith ~req red | true -> kont ()
-let ok_or_else ~req red vl kont = match vl with Error e -> failwith ~req (red ^ e) | Ok v -> kont v
-let or_else ~req red vl kont = match vl with None -> failwith ~req red | Some v -> kont v
-let form_ok_or_else ~req red (vl: _ Dream.form_result) kont =
-  match vl with
-  | `Many_tokens _ -> failwith ~req (red ^ "many tokens")
-  | `Missing_token _ -> failwith ~req (red ^ "missing tokens")
-  | `Invalid_token _ -> failwith ~req (red ^ "invalid token")
-  | `Wrong_session _ -> failwith ~req (red ^ "wrong session")
-  | `Expired _ -> failwith ~req (red ^ "expired form")
-  | `Wrong_content_type -> failwith ~req (red ^ "wrong content type")
-  | `Ok v -> kont v
 
 let with_current_time req f =
   let time = Dream.query req "time"
@@ -122,14 +108,16 @@ let from_static local_root path req =
   | None ->
     Dream.respond ~status:`Not_Found ""
 
+let (let+) x f = Lwt_result.bind x f
+
+
 let run config =
   if Configuration.Params.debug config then begin
     Dream.initialize_log ~level:`Debug ~enable:true ();
     Dream.info (fun f -> f "Running OCamlot in debugging mode.");
   end;
 
-  let worker = Worker.init config in
-
+  let worker = Worker.init config |> Lwt.map ignore in
 
   Runner.run ~workers:[worker]
     ~port:(Configuration.Params.port config)
@@ -137,10 +125,16 @@ let run config =
   @@ Dream.sql_pool Configuration.Params.(database_path config)
   @@ Dream.sql_sessions
   @@ Dream.router [
-    Webfinger.route config;
+    (* Webfinger.route config; *)
 
-    Dream.get "/home" @@ (fun _req ->
-    Dream.html "lol");
+    Dream.get "/home" @@ Error_handling.handle_error_html config @@
+    (fun req ->
+       let+ param = Dream.query req "param"
+                    |> Result.of_opt
+                    |> Result.map_err (fun msg -> `Msg msg)
+                    |> Lwt.return in
+       Lwt.map Result.return @@ Dream.html param
+    );
 
     (* Authentication.route;
      * Actor.route config;

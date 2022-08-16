@@ -1,59 +1,15 @@
 open Containers
 module APConstants = Activitypub.Constants
 
-let (let>) x f = x f
-let (let+) x f = Lwt.bind x f
-let (let+!) x f = Lwt_result.bind x f
-let (>|=) x f = Lwt_result.map f x
+let (let+) x f = Lwt_result.bind x f
+let (>>) x f = Lwt.map f x
 let (>>=) x f = Lwt_result.bind x f
-
-let internal_error = Dream.respond ~status:`Internal_Server_Error "Internal server error"
-let bad_request = Dream.respond ~status:`Bad_Request "Bad Request"
-let not_acceptable = Dream.respond ~status:`Not_Acceptable "Bad Request"
-let redirect req to_ = Dream.redirect req to_
-let not_found ?(msg="Not found") () = Dream.respond ~status:`Not_Found msg
-
-let activity_json json =
-  Dream.respond ~headers:[("Content-Type", Activitypub.Constants.ContentType.activity_json)]
-      (Yojson.Safe.to_string json)
-
-let or_error ?(err=internal_error) ?req vl knt = 
-  match vl with
-  | Ok vl -> knt vl
-  | Error e ->
-    Dream.error (fun log -> log ?request:req "error: %s" e);
-    err
-
-let or_errorP ?(err=internal_error) ~req vl knt =
-  Lwt.bind vl @@ function 
-  | Ok vl -> knt vl
-  | Error e ->
-    Dream.error (fun log -> log ~request:req "error: %s" e);
-    err
-
-let or_else ~else_ vl knt = 
-  match vl with
-  | Some vl -> knt vl
-  | _ -> else_
-
-let or_not_acceptable ?msg vl knt =
-  or_else ~else_:(not_found ?msg ()) vl knt
-
-let or_not_found ?msg vl knt =
-  or_else ~else_:(not_found ?msg ()) vl knt
-
-let or_bad_reqeust vl knt =
-  or_else ~else_:bad_request vl knt
-
-let or_redirect ~req ~to_ vl knt =
-  or_else ~else_:(Dream.redirect req to_) vl knt
-
-
-let holds_or_bad_request vl knt =
-  or_bad_reqeust (if vl then Some () else None) knt
-
-let holds_or ~else_ vl knt =
-  or_else ~else_ (if vl then Some () else None) knt
+let map_err f x = Lwt_result.map_error f x
+let return v = Lwt.return v
+let return_ok v = Lwt.return_ok v
+let lift_opt ~else_:else_ = function
+  | None -> Error (else_ ())
+  | Some v -> Ok v
 
 module Middleware = struct
   let redirect_if_present var ~to_  : Dream.middleware =
@@ -72,40 +28,47 @@ module Middleware = struct
 
 end
 
-module Error = struct
-
-  let get request = 
-    let is_not_empty opt = opt |> Option.filter (Fun.negate String.is_empty) in
-    let error = Dream.session_field request "errors"
-                |> is_not_empty in
-    let+ () = Dream.set_session_field request "errors" "" in
-    Lwt.return error
-
-  let set request error = Dream.set_session_field request "errors" error
-
-end
-
-let request_bind request result f =
-  let+ result = result in 
-  match result with
-  | Error str ->
-    let+ () = Error.set request str in
-    Dream.redirect request "/error"
-  | Ok vl -> f vl
-
-let with_current_user request f =
-  let (let@) x f = request_bind request x f in
-  match Dream.session_field request "user" with
+let current_user req =
+  match Dream.session_field req "user" with
+  | None ->
+    return_ok None
   | Some username ->
-    let@ user = Dream.sql request @@ Database.LocalUser.lookup_user_exn ~username in
-    f (Some user)
-  | None -> f None
+    Dream.sql req @@ Database.LocalUser.lookup_user_exn ~username
+    |> map_err (fun err -> `Internal ("Lookup user failed", err))
+    |> Lwt_result.map Option.some
 
-let with_param param f req ~then_ ~else_ =
-  let (let+) x f = request_bind req x f in
-  let param = Dream.param req param in
-  let+ res = f req param in
-  match res with
-  | None -> else_ ()
-  | Some res -> then_ res
-  
+let activity_json  ?(status:Dream.status option) ?code ?(headers=[])  json =
+  Dream.respond ?status ?code
+    ~headers:(("Content-Type", Activitypub.Constants.ContentType.activity_json) :: headers)
+    (Yojson.Safe.to_string json)
+
+let json ?(status:Dream.status option) ?code ?(headers=[]) json =
+  Dream.respond ?status ?code ~headers:(("Content-Type", "application/json") :: headers)
+    (Yojson.Safe.to_string json)
+
+let tyxml : ?status:Dream.status ->
+  ?code:int ->
+  ?headers:(string * string) list -> Tyxml_html.doc -> Dream.response Lwt.t =
+  let pp =
+  Tyxml.Html.pp
+    ~indent:true
+    ~advert:{|
+OCamlot
+Copyright (C) 2022 The OCamlot Developers
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+|} () in
+  fun ?(status: [< Dream.status] option) ?code ?headers res ->
+      Format.ksprintf ~f:(Dream.html ?status ?code ?headers)
+        "%a" pp res

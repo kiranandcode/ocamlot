@@ -23,11 +23,11 @@ let head title =
     H.meta ~a:[H.a_charset "UTF-8"] ();
     meta "viewport" "width=device-width, initial-scale=1";
     meta "theme-color" "#157878";
-    link [`Stylesheet] "/static/css/normalize.css";
-    link [`Stylesheet] "/static/css/pure.css";
-    link [`Stylesheet] "/static/css/grids-responsive-min.css";
-    link [`Stylesheet] "/static/css/style.css";
-    link ~ty:"text/css" [`Stylesheet]
-      "https://fonts.googleapis.com/css?family=Open+Sans:400,700";
+    link [`Stylesheet] "/static/style/normalize.css";
+    link [`Stylesheet] "/static/style/pure.css";
+    link [`Stylesheet] "/static/style/grids-responsive-min.css";
+    link [`Stylesheet] "/static/style/style.css";
+    (* link ~ty:"text/css" [`Stylesheet]
+     *   "https://fonts.googleapis.com/css?family=Open+Sans:400,700"; *)
   ]
 
