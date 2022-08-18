@@ -5,11 +5,13 @@ let extract_error_details err =
     let status = match err with
       | _ -> `Internal_Server_Error in
     let msg = match err with
+      | `FormError (title, _) -> "Form error - " ^ title
       | _ -> "Unknown internal error" in
     let details =
       match err with
-        | `Msg m -> m
-        | _ -> "No Further Details" in
+      | `FormError (_, data) -> "Form data was:\n" ^ data
+      | `Msg m -> m
+      | _ -> "No Further Details" in
     (status, msg, details)
 
 let handle_error_html config handler req =

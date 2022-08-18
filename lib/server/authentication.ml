@@ -2,22 +2,39 @@
 open Containers
 open Common
 
-(* let check_unauthenticated = Common.Middleware.redirect_if_present "user" ~to_:"/home"
- * let failwith ~req ~to_ err = let+ () = Common.Error.set req err in Dream.redirect req to_
- * let holds_or_else ~to_ ~req red vl kont = match vl with false -> failwith ~to_ ~req red | true -> kont ()
- * let ok_or_else ~to_ ~req red vl kont = match vl with Error e -> failwith ~to_ ~req (red ^ e) | Ok v -> kont v
- * let or_else ~to_ ~req red vl kont = match vl with None -> failwith ~to_ ~req red | Some v -> kont v
- * 
- * let handle_register_get request =
- *   let+ errors = Common.Error.get request in
- *   let _errors = 
- *     errors
- *     |> Option.map List.return
- *     |> Option.value ~default:[] in
- *   Dream.html (invalid_arg "TODO") (\* (Html.Register.build ~errors request) *\)
- * 
- * 
- * let handle_register_post req =
+let log = Dream.sub_log "web.auth"
+
+let check_unauthenticated = Common.Middleware.redirect_if_present "user" ~to_:"/home"
+
+
+let handle_register_get ?errors req =
+  let token = Dream.csrf_token req in
+  tyxml @@ Html.build_page [Html.Login.register_box ~fields:["dream.csrf", token] ?errors ()]
+
+let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =
+  fun res ->
+  Lwt.map (function
+    | `Many_tokens data  -> Error (`FormError ("Many tokens", pp data))
+    | `Missing_token data -> Error (`FormError ("Missing token", pp data))
+    | `Invalid_token data -> Error (`FormError ("Wrong session", pp data))
+    | `Wrong_session data  -> Error (`FormError ("Wrong session", pp data))
+    | `Expired (data, _) -> Error (`FormError ("Expired form", pp data))
+    | `Wrong_content_type -> Error (`FormError ("Wrong Content Type", "No further information"))
+    | `Ok v -> Ok v
+  ) res
+
+
+
+let handle_register_post req =
+  log.info (fun f -> f "register page POST");
+  let+ result = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
+  log.info (fun f -> f "data was %s" ([%show: (string * string) list] result));
+  Lwt_result.fail (`Msg "Todo")
+  
+
+    
+
+(* let handle_register_post req =
  *   Dream.log "register page POST";
  *   let+ result = Dream.form req in
  *   match result with
@@ -38,19 +55,19 @@ open Common
  *                 (Database.LocalUser.username user) in
  *     Dream.redirect req "/home"
  *   | _ ->
- *     Dream.redirect req "/register"
- * 
- * 
- * let handle_login_get req =
+ *     Dream.redirect req "/register" *)
+
+
+(* let handle_login_get req =
  *   let+ errors = Common.Error.get req in
  *   let _errors = 
  *     errors
  *     |> Option.map List.return
  *     |> Option.value ~default:[] in
- *   Dream.html (invalid_arg "TODO") (\* (Html.Login.build ~errors req) *\)
- * 
- * 
- * let handle_login_post req =
+ *   Dream.html (invalid_arg "TODO") (\* (Html.Login.build ~errors req) *\) *)
+
+
+(* let handle_login_post req =
  *   let+ result = Dream.form req in
  *   match result with
  *   | `Ok elts ->
@@ -66,26 +83,25 @@ open Common
  *                 (Database.LocalUser.username user) in
  *     Dream.redirect req "/home"
  *   | _ ->
- *     Dream.redirect req "/login"
- * 
- * let handle_logout_post req =
+ *     Dream.redirect req "/login" *)
+
+(* let handle_logout_post req =
  *   let+ result = Dream.form req in
  *   match result with
  *   | `Ok _ ->
  *     let+ () = Dream.invalidate_session req in
  *     Dream.redirect req "/home"
  *   | _ ->
- *     Dream.redirect req "/home"
- * 
- * let route = 
- *   Dream.scope "/" [] [
- * 
- *     Dream.scope "/" [check_unauthenticated] [
- *       Dream.get "/register" handle_register_get;
- *       Dream.post "/register" handle_register_post;
- * 
- *       Dream.get "/login" handle_login_get;
- *       Dream.post "/login" handle_login_post;
- *     ];
- *     Dream.post "/logout" handle_logout_post;
- *   ] *)
+ *     Dream.redirect req "/home" *)
+
+let route config = 
+  Dream.scope "/" [] [
+    Dream.scope "/" [check_unauthenticated] [
+      Dream.get "/register" handle_register_get;
+      Dream.post "/register" @@ Error_handling.handle_error_html config @@ handle_register_post;
+      
+      (* Dream.get "/login" handle_login_get;
+       * Dream.post "/login" handle_login_post; *)
+    ];
+    (* Dream.post "/logout" handle_logout_post; *)
+  ]

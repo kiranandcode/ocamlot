@@ -135,7 +135,7 @@ let run config =
                     |> Lwt.return in
        Lwt.map Result.return @@ Dream.html param
     );
-
+    Authentication.route config;
     (* Authentication.route;
      * Actor.route config;
      * Activity.route config; *)

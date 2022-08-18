@@ -31,3 +31,13 @@ let head title =
      *   "https://fonts.googleapis.com/css?family=Open+Sans:400,700"; *)
   ]
 
+
+let build_page ?(details=[]) ?(headers=[]) ?(title="Untitled page...") contents =
+  let module H = Tyxml.Html in
+  H.html
+    (head @@ H.txt (title ^ " - OCamlot"))
+    (H.body [
+       Components.header headers;
+       H.div ~a:[H.a_class ["main"]] contents;
+       Components.footer details;
+     ])
