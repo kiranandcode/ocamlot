@@ -5,6 +5,7 @@ let (let+) x f = Lwt_result.bind x f
 let (>>) x f = Lwt.map f x
 let (>>=) x f = Lwt_result.bind x f
 let map_err f x = Lwt_result.map_error f x
+let return_error f v = Lwt.return (Result.map_err f v)
 let return v = Lwt.return v
 let return_ok v = Lwt.return_ok v
 let lift_opt ~else_:else_ = function

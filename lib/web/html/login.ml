@@ -58,8 +58,8 @@ let register_box ?(fields=[]) ?errors () =
              H.input ~a:[H.a_name "password"; H.a_input_type `Password] ();
            ];
            Pure.form_grouped_input [
-             H.label ~a:[H.a_label_for "password"] [H.txt "Confirm Password"];
-             H.input ~a:[H.a_name "password"; H.a_input_type `Password] ();
+             H.label ~a:[H.a_label_for "password2"] [H.txt "Confirm Password"];
+             H.input ~a:[H.a_name "password2"; H.a_input_type `Password] ();
            ];
            Pure.form_grouped_input [
              H.label ~a:[H.a_label_for "reason"] [H.txt "Notes"];

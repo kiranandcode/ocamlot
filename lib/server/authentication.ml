@@ -6,6 +6,9 @@ let log = Dream.sub_log "web.auth"
 
 let check_unauthenticated = Common.Middleware.redirect_if_present "user" ~to_:"/home"
 
+let form_data key form = List.Assoc.get ~eq:String.equal key form |> Option.to_result (Format.sprintf "missing field %s" key)
+
+let ensure msg cond = if cond then Ok () else Error msg
 
 let handle_register_get ?errors req =
   let token = Dream.csrf_token req in
@@ -23,15 +26,25 @@ let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =
     | `Ok v -> Ok v
   ) res
 
-
-
 let handle_register_post req =
   log.info (fun f -> f "register page POST");
-  let+ result = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
-  log.info (fun f -> f "data was %s" ([%show: (string * string) list] result));
-  Lwt_result.fail (`Msg "Todo")
-  
+  let+ data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
+  let+ (username, password, _reason) = return_error (fun err -> `FormError ("Invalid form input", err)) @@
+    let (let+) x f = Result.(>>=) x f in
+    let+ username = form_data "username" data in
+    let+ password = form_data "password" data in
+    let+ password2 = form_data "password2" data in
+    let+ reason = form_data "reason" data in
+    let+ () = ensure "passwords should match" (String.equal password password2) in
+    Ok (username, password, reason) in
 
+  let+ user = Dream.sql req (Database.LocalUser.create_user ~username ~password)
+              |> map_err (fun err -> `DatabaseError err) in
+  let+ () = Lwt.map Result.return (Dream.invalidate_session req) in
+  let+ () = Lwt.map Result.return @@
+    Dream.set_session_field req "user" (Database.LocalUser.username user) in
+  Lwt.map Result.return @@ Dream.redirect req "/home"
+  
     
 
 (* let handle_register_post req =
