@@ -11,6 +11,7 @@ let return_ok v = Lwt.return_ok v
 let lift_opt ~else_:else_ = function
   | None -> Error (else_ ())
   | Some v -> Ok v
+let lift_pure res = Lwt.map Result.return res
 
 module Middleware = struct
   let redirect_if_present var ~to_  : Dream.middleware =
@@ -38,18 +39,26 @@ let current_user req =
     |> map_err (fun err -> `Internal ("Lookup user failed", err))
     |> Lwt_result.map Option.some
 
+let redirect ?status ?code ?headers req path =
+  Lwt.map Result.return @@ Dream.redirect ?status ?code ?headers req path
+
+
 let activity_json  ?(status:Dream.status option) ?code ?(headers=[])  json =
+  lift_pure @@
   Dream.respond ?status ?code
     ~headers:(("Content-Type", Activitypub.Constants.ContentType.activity_json) :: headers)
     (Yojson.Safe.to_string json)
 
-let json ?(status:Dream.status option) ?code ?(headers=[]) json =
+let json_pure ?(status:Dream.status option) ?code ?(headers=[]) json =
   Dream.respond ?status ?code ~headers:(("Content-Type", "application/json") :: headers)
     (Yojson.Safe.to_string json)
 
-let tyxml : ?status:Dream.status ->
+let json ?status ?code ?headers json =
+  lift_pure @@ json_pure ?status ?code ?headers json
+
+let tyxml_gen k : ?status:Dream.status ->
   ?code:int ->
-  ?headers:(string * string) list -> Tyxml_html.doc -> Dream.response Lwt.t =
+  ?headers:(string * string) list -> Tyxml_html.doc -> _ =
   let pp =
   Tyxml.Html.pp
     ~indent:true
@@ -71,5 +80,11 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 |} () in
   fun ?(status: [< Dream.status] option) ?code ?headers res ->
-      Format.ksprintf ~f:(Dream.html ?status ?code ?headers)
+      Format.ksprintf ~f:(fun res -> k @@ Dream.html ?status ?code ?headers res)
         "%a" pp res
+
+let tyxml_pure ?status ?code ?headers doc =
+  tyxml_gen Fun.id ?status ?code ?headers doc
+
+let tyxml ?status ?code ?headers doc =
+  tyxml_gen lift_pure ?status ?code ?headers doc

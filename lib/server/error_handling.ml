@@ -22,7 +22,7 @@ let handle_error_html config handler req =
     let status, msg, details = extract_error_details err in
     let details =
       Option.return_if (Configuration.Params.debug config) details in
-    tyxml ~status @@
+    tyxml_pure ~status @@
     Tyxml.Html.html
       Html.(head Tyxml.Html.(txt "OCamlot - Error"))
       (Tyxml.Html.body [
@@ -37,7 +37,7 @@ let handle_error_json config handler req =
     let status, msg, details = extract_error_details err in
     let details =
       Option.return_if (Configuration.Params.debug config) details in
-    json ~status @@
+    json_pure ~status @@
     `Assoc  [
       "type", `String "error";
       "message", `String msg;

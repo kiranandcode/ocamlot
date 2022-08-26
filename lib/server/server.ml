@@ -110,16 +110,17 @@ let from_static local_root path req =
 
 let (let+) x f = Lwt_result.bind x f
 
-
 let run config =
   if Configuration.Params.debug config then begin
     Dream.initialize_log ~level:`Debug ~enable:true ();
     Dream.info (fun f -> f "Running OCamlot in debugging mode.");
+    Logging.set_log_level `Debug;
   end;
 
   let worker = Worker.init config |> Lwt.map ignore in
 
-  Runner.run ~workers:[worker]
+  Runner.run
+    ~workers:[worker]
     ~port:(Configuration.Params.port config)
   @@ Dream.logger
   @@ Dream.sql_pool Configuration.Params.(database_path config)
