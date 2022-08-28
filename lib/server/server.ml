@@ -126,7 +126,7 @@ let run config =
   @@ Dream.sql_pool Configuration.Params.(database_path config)
   @@ Dream.sql_sessions
   @@ Dream.router [
-    (* Webfinger.route config; *)
+    Webfinger.route config;
 
     Dream.get "/home" @@ Error_handling.handle_error_html config @@
     (fun req ->

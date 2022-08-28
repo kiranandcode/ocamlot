@@ -536,4 +536,16 @@ CLOSED: [2022-03-25 Fri 15:47]
 *** then update following relation between remote user, local user
 ** TODO Write function to handle post of note objects
 *** update code to handle full tables, cc, to etc.
+* Tasks
+** TODO setup home page
+*** TODO Go to html and see how home is structured
+*** TODO Use database to collect results (if user then users else public)
+*** TODO Display posts using result from database
+** TODO Setup log in page
+*** TODO Pass in markdown about page in config
+*** TODO vendor markdown renderer
+*** TODO Create box with markdown details on login + register
+** TODO refactor database to not use rec modules
+** DONE setup webfinger
+CLOSED: [2022-08-28 Sun 11:45]
 

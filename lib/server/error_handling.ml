@@ -3,12 +3,16 @@ open Common
 
 let extract_error_details err =
     let status = match err with
-      | _ -> `Internal_Server_Error in
+    | _ -> `Internal_Server_Error in
     let msg = match err with
+      | `InvalidWebfinger (title, _) -> "Web finger error - " ^ title
+      | `DatabaseError _ -> "Database error"
       | `FormError (title, _) -> "Form error - " ^ title
       | _ -> "Unknown internal error" in
     let details =
       match err with
+      | `InvalidWebfinger (_, msg) -> "Query data was:\n  " ^ msg
+      | `DatabaseError msg -> "Error was:\n" ^ msg
       | `FormError (_, data) -> "Form data was:\n" ^ data
       | `Msg m -> m
       | _ -> "No Further Details" in

@@ -88,3 +88,10 @@ let tyxml_pure ?status ?code ?headers doc =
 
 let tyxml ?status ?code ?headers doc =
   tyxml_gen lift_pure ?status ?code ?headers doc
+
+let not_found_json ?headers msg =
+  json ~status:`Not_Found ?headers (`Assoc [
+    "type", `String "error";
+    "reason", `String msg
+  ])
+  
