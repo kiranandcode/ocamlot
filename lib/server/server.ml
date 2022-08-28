@@ -112,7 +112,7 @@ let (let+) x f = Lwt_result.bind x f
 
 let run config =
   if Configuration.Params.debug config then begin
-    Dream.initialize_log ~level:`Debug ~enable:true ();
+    Dream.initialize_log ~level:`Info ~enable:true ();
     Dream.info (fun f -> f "Running OCamlot in debugging mode.");
     Logging.set_log_level `Debug;
   end;
@@ -128,15 +128,8 @@ let run config =
   @@ Dream.router [
     Webfinger.route config;
 
-    Dream.get "/home" @@ Error_handling.handle_error_html config @@
-    (fun req ->
-       let+ param = Dream.query req "param"
-                    |> Result.of_opt
-                    |> Result.map_err (fun msg -> `Msg msg)
-                    |> Lwt.return in
-       Lwt.map Result.return @@ Dream.html param
-    );
-    Authentication.route config;
+    Authentication.route config; 
+    Home.route config;
     (* Authentication.route;
      * Actor.route config;
      * Activity.route config; *)

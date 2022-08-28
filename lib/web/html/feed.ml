@@ -1,5 +1,12 @@
 module H = Tyxml.Html
 
+let feed_title title =
+  Pure.grid_col [
+    H.div ~a:[H.a_class ["feed-title"]] [
+      H.h1 [H.txt title]
+    ];
+  ]
+
 let feed_context = function
   | Some (`ToastedBy author) -> 
     [H.div ~a:[H.a_class ["feed-context"]] [

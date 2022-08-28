@@ -537,10 +537,15 @@ CLOSED: [2022-03-25 Fri 15:47]
 ** TODO Write function to handle post of note objects
 *** update code to handle full tables, cc, to etc.
 * Tasks
-** TODO setup home page
-*** TODO Go to html and see how home is structured
-*** TODO Use database to collect results (if user then users else public)
-*** TODO Display posts using result from database
+** DONE setup home page
+CLOSED: [2022-08-28 Sun 13:18]
+*** DONE Go to html and see how home is structured
+CLOSED: [2022-08-28 Sun 13:18]
+*** DONE Use database to collect results (if user then users else public)
+CLOSED: [2022-08-28 Sun 13:18]
+*** DONE Display posts using result from database
+CLOSED: [2022-08-28 Sun 13:18]
+** TODO Setup header
 ** TODO Setup log in page
 *** TODO Pass in markdown about page in config
 *** TODO vendor markdown renderer
