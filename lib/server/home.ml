@@ -37,7 +37,7 @@ let extract_post req (post: Database.Post.t) :
   end
 
 let route config =
-  Dream.get "/home" @@ Error_handling.handle_error_html config @@ (fun req ->
+  Dream.get "/feed" @@ Error_handling.handle_error_html config @@ (fun req ->
     let feed_ty = Dream.query req "feed-ty"
                 |> Option.flat_map parse_feed
                 |> Option.value ~default:`Local in
@@ -79,7 +79,9 @@ let route config =
       |> Lwt.map Result.flatten_l
       |> map_err (fun e -> `DatabaseError e) in
 
-    tyxml @@ Html.build_page ~title [
+    let+ headers = Navigation.build_navigation_bar req in
+
+    tyxml @@ Html.build_page ~headers ~title [
       Html.Feed.feed_title title;
 
       Pure.grid_row (

@@ -4,7 +4,7 @@ open Common
 
 let log = Logging.add_logger "web.auth"
 
-let check_unauthenticated = Common.Middleware.redirect_if_present "user" ~to_:"/home"
+let check_unauthenticated = Common.Middleware.redirect_if_present "user" ~to_:"/feed"
 
 let form_data key form = List.Assoc.get ~eq:String.equal key form |> Option.to_result (Format.sprintf "missing field %s" key)
 
@@ -32,8 +32,9 @@ let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =
   ) res
 
 let handle_register_get ?errors req =
-  let token = Dream.csrf_token req in
-  tyxml @@ Html.build_page [Html.Login.register_box ~fields:["dream.csrf", token] ?errors ()]
+  let token = Dream.csrf_token req in 
+  let+ headers = Navigation.build_navigation_bar req in
+  tyxml @@ Html.build_page ~headers [Html.Login.register_box ~fields:["dream.csrf", token] ?errors ()]
 
 let handle_register_post req =
   log.info (fun f -> f "register page POST");
@@ -62,11 +63,12 @@ let handle_register_post req =
     let+ () = Lwt.map Result.return (Dream.invalidate_session req) in
     let+ () = Lwt.map Result.return @@
       Dream.set_session_field req "user" (Database.LocalUser.username user) in
-    redirect req "/home"
+    redirect req "/feed"
   
 let handle_login_get ?errors req =
   let token = Dream.csrf_token req in
-  tyxml @@ Html.build_page [Html.Login.login_box ~fields:["dream.csrf", token] ?errors ()]
+  let+ headers = Navigation.build_navigation_bar req in
+  tyxml @@ Html.build_page ~headers [Html.Login.login_box ~fields:["dream.csrf", token] ?errors ()]
     
 
 let handle_login_post req =
@@ -95,18 +97,15 @@ let handle_login_post req =
       let+ () = Lwt.map Result.return (Dream.invalidate_session req) in
       let+ () = Lwt.map Result.return @@
         Dream.set_session_field req "user" (Database.LocalUser.username user) in
-      redirect req "/home"
+      redirect req "/feed"
     | None ->
       handle_login_get ~errors:["Invalid username or password"] req
 
-(* let handle_logout_post req =
- *   let+ result = Dream.form req in
- *   match result with
- *   | `Ok _ ->
- *     let+ () = Dream.invalidate_session req in
- *     Dream.redirect req "/home"
- *   | _ ->
- *     Dream.redirect req "/home" *)
+let handle_logout_post req =
+  let+ _ = Dream.form ~csrf:false req
+           |> sanitize_form_error ([%show: (string * string) list]) in
+  let+ () = Dream.invalidate_session req |> Lwt.map Result.return in
+  redirect req "/feed"
 
 let route config = 
   Dream.scope "/" [] [
@@ -115,7 +114,7 @@ let route config =
       Dream.post "/register" @@ Error_handling.handle_error_html config @@ handle_register_post;
       
       Dream.get "/login" @@ Error_handling.handle_error_html config @@ handle_login_get;
-      (* Dream.post "/login" handle_login_post; *)
+      Dream.post "/login" @@ Error_handling.handle_error_html config @@ handle_login_post;
     ];
-    (* Dream.post "/logout" handle_logout_post; *)
+    Dream.post "/logout" @@ Error_handling.handle_error_html config @@ handle_logout_post;
   ]

@@ -24,6 +24,17 @@ body {
   padding: .125em 1em !important;
 }
 
+.header .pure-menu-list input.pure-menu-link {
+  padding: 0px;
+  border: 0px;
+  background: unset;
+  display: inline;
+}
+.header .pure-menu-list input.pure-menu-link:hover {
+  background: white;
+  background-color: #eee;
+}
+
 .profile-box {
   display: flex;
   flex-direction: column;
@@ -705,3 +716,4 @@ div.profile-box.feed-item-author {
   border: 1px solid var(--header-text-color);
   padding: .25rem;
 }
+

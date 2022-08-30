@@ -545,7 +545,10 @@ CLOSED: [2022-08-28 Sun 13:18]
 CLOSED: [2022-08-28 Sun 13:18]
 *** DONE Display posts using result from database
 CLOSED: [2022-08-28 Sun 13:18]
-** TODO Setup header
+** DONE Setup header
+CLOSED: [2022-08-30 Tue 14:15]
+** DONE Handle logging in and out
+CLOSED: [2022-08-30 Tue 14:15]
 ** TODO Setup log in page
 *** TODO Pass in markdown about page in config
 *** TODO vendor markdown renderer

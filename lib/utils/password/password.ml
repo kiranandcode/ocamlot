@@ -22,4 +22,7 @@ let hash ~pwd =
 
 let verify encoded ~pwd =
   Argon2.verify ~encoded ~pwd ~kind:Argon2.I
-  |> Result.map_error (fun e -> Argon2.ErrorCodes.message e)
+  |> function
+    Ok _ as res -> res
+  | Error Argon2.ErrorCodes.VERIFY_MISMATCH -> Ok false
+  | Error e -> Error ( Argon2.ErrorCodes.message e)

@@ -7,8 +7,14 @@ let header fields =
   H.header ~a:[H.a_class ["header"]] [
     Pure.menu ~horizontal:true [
       Pure.a_menu_heading ~a:[H.a_href "./"] [H.txt "OCamlot"];
-      Pure.menu_list (List.map (fun (name, link) ->
-        Pure.menu_item [Pure.menu_link ~a:[(H.a_href link)] [H.txt name]]
+      Pure.menu_list (List.map (fun (name, link, is_post) ->
+        if is_post
+        then Pure.menu_item [
+          H.form ~a:[H.a_action link; H.a_method `Post] [
+            H.input ~a:[H.a_input_type `Submit; H.a_class ["pure-menu-link"]; H.a_value name] ()
+          ]
+        ]
+        else Pure.menu_item [Pure.menu_link ~a:[(H.a_href link)] [H.txt name]]
       ) fields)
     ]
   ]

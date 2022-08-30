@@ -128,7 +128,7 @@ let run config =
   @@ Dream.router [
     Webfinger.route config;
 
-    Authentication.route config; 
+    Authentication.route config;
     Home.route config;
     (* Authentication.route;
      * Actor.route config;
@@ -138,7 +138,7 @@ let run config =
      * Dream.post "/home" @@ (handle_post_home config); *)
 
     Dream.get "/static/**" @@ Dream.static ~loader:from_static "static";
-    Dream.get "/**" @@ fun req -> Dream.redirect req "/home"
+    Dream.get "/**" @@ fun req -> Dream.redirect req "/feed"
   ]
 
 
