@@ -130,6 +130,7 @@ let run config =
 
     Authentication.route config;
     Home.route config;
+    Write_post.route config;
     (* Authentication.route;
      * Actor.route config;
      * Activity.route config; *)

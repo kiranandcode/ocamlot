@@ -1,5 +1,12 @@
 module H = Tyxml.Html
 
+
+let login_info contents =
+  H.div ~a:[H.a_class ["login-info"]] [
+    H.div ~a:[H.a_class ["login-info-content"]]
+      contents
+  ]  
+
 let login_box ?(fields=[]) ?errors () =
   H.div ~a:[H.a_class ["login-component"]] @@ List.concat [
     begin match errors with
@@ -17,9 +24,9 @@ let login_box ?(fields=[]) ?errors () =
     [H.div ~a:[H.a_class ["login-component-content"]] [
        Pure.form ~a:[H.a_method `Post] ~stacked:true @@ List.concat [
          [Pure.form_grouped_input [
-             H.label ~a:[H.a_label_for "username"] [H.txt "Username"];
-             H.input ~a:[H.a_name "username"; H.a_input_type `Text] ();
-           ];
+            H.label ~a:[H.a_label_for "username"] [H.txt "Username"];
+            H.input ~a:[H.a_name "username"; H.a_input_type `Text] ();
+          ];
           Pure.form_grouped_input [
             H.label ~a:[H.a_label_for "password"] [H.txt "Password"];
             H.input ~a:[H.a_name "password"; H.a_input_type `Password] ();
@@ -27,11 +34,12 @@ let login_box ?(fields=[]) ?errors () =
          List.map (fun (key, value) ->
            H.input ~a:[H.a_name key; H.a_input_type `Hidden; H.a_value value] ()
          ) fields;
-         [H.button ~a:[H.a_button_type `Submit] [H.txt "Log in"];
-          Pure.a_button ~a:[H.a_href "/register"] [H.txt "Register"]]
-       ]
+         [H.div ~a:[H.a_class ["login-button-group"]] [
+            H.button ~a:[H.a_class ["pure-button"]; H.a_button_type `Submit] [H.txt "Log in"];
+            Pure.a_button ~a:[H.a_href "/register"] [H.txt "Register"]
+          ] ]
+       ]]
     ]]
-  ]
 
 let register_box ?(fields=[]) ?errors () =
   H.div ~a:[H.a_class ["login-component"]] @@ List.concat [
@@ -63,13 +71,17 @@ let register_box ?(fields=[]) ?errors () =
            ];
            Pure.form_grouped_input [
              H.label ~a:[H.a_label_for "reason"] [H.txt "Notes"];
-             H.input ~a:[H.a_name "reason"; H.a_input_type `Text] ();
+             H.textarea ~a:[H.a_rows 10; H.a_name "reason"; H.a_placeholder "Your reason for joining this instance."] (
+               H.txt ""
+             );
            ]];
          List.map (fun (key, value) ->
            H.input ~a:[H.a_name key; H.a_input_type `Hidden; H.a_value value] ()
          ) fields;
-         [H.button ~a:[H.a_button_type `Submit] [H.txt "Sign up"];
-         Pure.a_button ~a:[H.a_href "/login"] [H.txt "Log in"]];
+         [H.div ~a:[H.a_class ["login-button-group"]] [
+            H.button ~a:[H.a_class ["pure-button"]; H.a_button_type `Submit] [H.txt "Sign up"];
+            Pure.a_button ~a:[H.a_href "/login"] [H.txt "Log in"]
+          ] ]
        ]
      ]]
   ]

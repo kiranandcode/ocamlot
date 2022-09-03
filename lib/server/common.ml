@@ -12,6 +12,17 @@ let lift_opt ~else_:else_ = function
   | None -> Error (else_ ())
   | Some v -> Ok v
 let lift_pure res = Lwt.map Result.return res
+let form_data key form = List.Assoc.get ~eq:String.equal key form |> Option.to_result (Format.sprintf "missing field %s" key)
+
+(* Result monad for validation *)
+module VResult = struct
+  include Result
+  let (and*) x y = match x,y with
+      Ok x, Ok y -> Ok (x,y)
+    | Error l, Error r -> Error (l @ r)
+    | Error e, _ | _, Error e -> Error e
+  let ensure msg cond = if cond then Ok () else Error [msg]
+end
 
 module Middleware = struct
   let redirect_if_present var ~to_  : Dream.middleware =
@@ -20,7 +31,6 @@ module Middleware = struct
       | Some _ ->
         Dream.redirect request to_
       | None -> handler request
-
 
   let enforce_present var ~else_  : Dream.middleware =
     fun handler request -> 
@@ -48,6 +58,18 @@ let current_user_link req =
     |> map_err (fun err -> `Internal ("Lookup user failed", err))
     |> Lwt_result.map Option.some
 
+let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =
+  fun res ->
+  Lwt.map (function
+    | `Many_tokens data  -> Error (`FormError ("Many tokens", pp data))
+    | `Missing_token data -> Error (`FormError ("Missing token", pp data))
+    | `Invalid_token data -> Error (`FormError ("Wrong session", pp data))
+    | `Wrong_session data  -> Error (`FormError ("Wrong session", pp data))
+    | `Expired (data, _) -> Error (`FormError ("Expired form", pp data))
+    | `Wrong_content_type -> Error (`FormError ("Wrong Content Type", "No further information"))
+    | `Ok v -> Ok v
+  ) res
+
 let redirect ?status ?code ?headers req path =
   Lwt.map Result.return @@ Dream.redirect ?status ?code ?headers req path
 
@@ -69,9 +91,9 @@ let tyxml_gen k : ?status:Dream.status ->
   ?code:int ->
   ?headers:(string * string) list -> Tyxml_html.doc -> _ =
   let pp =
-  Tyxml.Html.pp
-    ~indent:true
-    ~advert:{|
+    Tyxml.Html.pp
+      ~indent:false
+      ~advert:{|
 OCamlot
 Copyright (C) 2022 The OCamlot Developers
 
@@ -89,8 +111,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 |} () in
   fun ?(status: [< Dream.status] option) ?code ?headers res ->
-      Format.ksprintf ~f:(fun res -> k @@ Dream.html ?status ?code ?headers res)
-        "%a" pp res
+    Format.ksprintf ~f:(fun res -> k @@ Dream.html ?status ?code ?headers res)
+      "%a" pp res
 
 let tyxml_pure ?status ?code ?headers doc =
   tyxml_gen Fun.id ?status ?code ?headers doc

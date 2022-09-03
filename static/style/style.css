@@ -15,6 +15,7 @@ body {
   --element-alt-color: #0a2e65;
   --header-text-color: rgb(185, 185, 186);
   --element-text-color: #a8a8a8;
+  --element-text-alt-color: #aaa;
 }
 
 .header .pure-menu-heading {
@@ -421,6 +422,16 @@ div.post-replies-list {
   color: var(--header-text-color);
 }
 
+.feed-subnavigation-menu {
+    background: var(--element-color);
+}
+
+.feed-subnavigation-menu > a.pure-menu-heading {
+    padding-top: .125rem;
+    padding-bottom: .125rem;
+    color: var(--element-text-alt-color);
+}
+
 .feed-item {
   background-color: var(--element-color);
   color: var(--element-text-color);
@@ -517,6 +528,13 @@ div.profile-box.feed-item-author {
   border-style: solid;
   color: var(--header-text-color);
 }
+.feed-write-post-button {
+    width: 100%;
+    background-color: var(--element-alt-color);
+    color: var(--header-text-color);
+    margin-top: .25rem;
+    margin-bottom: .25rem;
+}
 
 .login-title > h1 {
   margin-bottom: 0;
@@ -564,10 +582,15 @@ div.profile-box.feed-item-author {
 }
 
 .login-info-content {
-  padding: .25rem;
+    padding: .25rem;
+    font-size: small;
 }
 
-.login-info-content > h4 {
+.login-info-content h1 {
+  font-size: 1.5rem;
+}
+
+.login-info-content h1, .login-info-content h2, .login-info-content h3, .login-info-content h4, .login-info-content h5, .login-info-content h6 {
   margin-top: 0;
   margin-bottom: 0;
 }
@@ -581,6 +604,22 @@ div.profile-box.feed-item-author {
 
 .login-component-content {
   padding: .25rem;
+}
+
+.login-component-content > form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.login-component-content .login-button-group {
+    margin-top: .75rem;
+    margin-bottom: .75rem;
+}
+
+.login-button-group > button.pure-button {
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 .post-reply-full.post-reply {
@@ -632,6 +671,26 @@ div.profile-box.feed-item-author {
   margin-bottom: .25rem;
 }
 
+.write-post-panel {
+    display: flex;
+    justify-content: center;
+}
+
+.write-post-preview {
+    display: flex;
+    background-color: var(--element-alt-color);
+    align-items: flex-start;
+    color: var(--element-text-alt-color);
+}
+
+
+.write-post-panel > input.pure-button {
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+  margin-left: .25rem;
+  margin-right: .25rem;
+  width: 100%;
+}
 
 .write-post-title > h1, .write-post-context > h5 {
   margin-bottom: 0;

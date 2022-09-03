@@ -36,10 +36,25 @@ let enforce_database path =
     Ok (Fpath.to_string path)
   end
 
-let run database_path domain port debug =
+(** [enforce_markdown path] when given a path [path] ensures that
+    a markdown file exists at [path]. *)
+let enforce_markdown path =
+  let* path = Fpath.of_string path in
+  let* path = OS.File.must_exist path in
+  let* contents = OS.File.read path in
+  Ok (Omd.of_string contents)
+
+let run about_this_instance_path database_path domain port debug =
   let* database_path = enforce_database database_path in
+  let* about_this_instance =
+    match about_this_instance_path with
+    | None -> Ok None
+    | Some path ->
+      let* path = Fpath.of_string path in
+      let* about_this_instance = OS.File.read path in
+      Ok (Some about_this_instance) in
   let database_path =  "sqlite3://:" ^ database_path in
-  let config = Configuration.Params.create ~debug ?port ~database_path domain in
+  let config = Configuration.Params.create ?about_this_instance ~debug ?port ~database_path domain in
   Ok (Server.run config)
 
 let debug =
@@ -48,6 +63,16 @@ let debug =
       ~doc:{| Determines whether the OCamlot server should be run in debug mode. |}
       ["D"; "debug"] in
   Arg.flag info
+
+let about_this_instance_path =
+  let info =
+    Arg.info
+      ~doc:{| $(docv) is the path to a markdown file describing the instance. A default message is used if not provided.  |}
+      ~docv:"ABOUT-THIS-INSTANCE"
+      ~absent:{|A default message is used if not provided.|}
+      ["a"; "about-this-instance"] in
+  Arg.(opt (some file) None) info
+
 
 let database_path =
   let info =
@@ -82,5 +107,5 @@ let _ =
       ~version:{|%%VERSION%%|}
       ~doc:"An OCaml Activitypub Server *with soul*!"
       "OCamlot" in
-  let cmd = Term.(term_result @@ (const run $ Arg.value database_path $ Arg.value domain $ Arg.value port $ Arg.value debug)) in
+  let cmd = Term.(term_result @@ (const run $ Arg.value about_this_instance_path $ Arg.value database_path $ Arg.value domain $ Arg.value port $ Arg.value debug)) in
   Cmd.eval (Cmd.v info cmd)

@@ -11,16 +11,28 @@ let parse_feed = function
   | "twkn" -> Some `WholeKnownNetwork
   | p -> log.warning (fun f -> f "unable to parse feed type %s" p); None
 
+let encode_feed = function
+  | `Feed  -> "feed"
+  | `Direct  -> "direct"
+  | `Local  -> "local"
+  | `WholeKnownNetwork  -> "twkn"
+
+let feed_type_to_string = function
+  | `Local -> "Local Network"
+  | `Direct -> "Direct Messages"
+  | `Feed -> "My Feed"
+  | `WholeKnownNetwork -> "Whole-known-network"
+
 let parse_calendar s =
   let (let+) x f = Option.bind x f in
   let+ s = Float.of_string_opt s in
   Some (CalendarLib.Calendar.from_unixfloat s)
 
 let extract_post req (post: Database.Post.t) :
-     (< author : < image : Tyxml_xml.uri; name : string; .. >;
-       contents : [< Html_types.div_content_fun > `H3 ] Tyxml_html.elt list;
-       date : string; stats : < cheers : int; toasts : int; .. >;
-       title : string; .. >, _) Lwt_result.t =
+  (< author : < image : Tyxml_xml.uri; name : string; .. >;
+     contents : [< Html_types.div_content_fun > `H3 ] Tyxml_html.elt list;
+     date : string; stats : < cheers : int; toasts : int; .. >;
+     title : string; .. >, _) Lwt_result.t =
   let+ author = Database.Post.author post |> fun p -> Dream.sql req (Database.Link.resolve p) in
 
   return_ok object
@@ -36,11 +48,18 @@ let extract_post req (post: Database.Post.t) :
     method title = ""
   end
 
+let build_feed_navigation_panel options =
+  List.map (fun feed ->
+    Pure.a_menu_heading ~a:[Tyxml.Html.a_href ("/feed?feed-ty=" ^ encode_feed feed)] [
+      Tyxml.Html.txt (feed_type_to_string feed)
+    ]
+  ) options
+
 let route config =
   Dream.get "/feed" @@ Error_handling.handle_error_html config @@ (fun req ->
     let feed_ty = Dream.query req "feed-ty"
-                |> Option.flat_map parse_feed
-                |> Option.value ~default:`Local in
+                  |> Option.flat_map parse_feed
+                  |> Option.value ~default:`Local in
     let offset_date =
       Dream.query req "offset-time"
       |> Option.flat_map parse_calendar
@@ -66,13 +85,9 @@ let route config =
       | _, _ -> Database.Post.collect_post_local_network ~offset in
 
     let+ feed_results = Dream.sql req feed_elements
-                     |> map_err (fun err -> `DatabaseError err) in
+                        |> map_err (fun err -> `DatabaseError err) in
 
-    let title = match feed_ty with
-      | `Local -> "Local Network"
-      | `Direct -> "Direct Messages"
-      | `Feed -> "My Feed"
-      | `WholeKnownNetwork -> "Whole known Network" in
+    let title = feed_type_to_string feed_ty in
 
     let+ posts =
       Lwt_list.map_p (extract_post req) feed_results
@@ -81,13 +96,39 @@ let route config =
 
     let+ headers = Navigation.build_navigation_bar req in
 
-    tyxml @@ Html.build_page ~headers ~title [
-      Html.Feed.feed_title title;
+    let feed_navigation = match current_user_link with
+      | None -> [`Local; `WholeKnownNetwork]
+      | Some _ -> [`Feed; `Direct; `Local; `WholeKnownNetwork] in
 
-      Pure.grid_row (
-        List.map (fun post ->
-          Pure.grid_col [Html.Feed.feed_item (`Post post)]
-        ) posts)
-      
+    let write_post_button = match current_user_link with
+      | None -> [ ]
+      | Some _ -> [
+          Pure.grid_row [
+            Pure.grid_col [
+              Pure.a_button
+                ~a:[Tyxml.Html.a_href "/write"]
+                ~a_class:["feed-write-post-button"]
+                [Tyxml.Html.txt "Write a new post"]
+            ]
+          ]
+        ] in
+
+    tyxml @@ Html.build_page ~headers ~title @@ List.concat [
+      [
+        Html.Feed.feed_title title;
+        Pure.grid_row [
+          Pure.grid_col ~a_class:["feed-subnavigation-menu"; "pure-menu"; "pure-menu-horizontal"; "pure-menu-scroll able"]
+            (build_feed_navigation_panel feed_navigation)
+        ]
+      ];
+
+      write_post_button;
+
+      [
+        Pure.grid_row (
+          List.map (fun post ->
+            Pure.grid_col [Html.Feed.feed_item (`Post post)]
+          ) posts)
+      ]
     ]
   )
