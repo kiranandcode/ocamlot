@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # migrate database
-su pleroma /opt/pleroma/bin/pleroma_ctl migrate
+/opt/pleroma/bin/pleroma_ctl migrate
 
 # update ca certificates
 sudo update-ca-certificates

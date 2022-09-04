@@ -1,6 +1,8 @@
 open Containers
 open Common
 
+let log = Logging.add_logger "web.error"
+
 let extract_error_details err =
     let status = match err with
     | _ -> `Internal_Server_Error in
@@ -41,6 +43,7 @@ let handle_error_json config handler req =
     let status, msg, details = extract_error_details err in
     let details =
       Option.return_if (Configuration.Params.debug config) details in
+    log.debug (fun f -> f "ERROR: %s - %a" msg (Option.pp String.pp) details);
     json_pure ~status @@
     `Assoc  [
       "type", `String "error";

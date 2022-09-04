@@ -20,7 +20,8 @@ let handle_webfinger config req =
   if not (Option.for_all String.(prefix ~pre:"application/json") content_type) then
     log.warning (fun f -> f "webfinger for unsupported content type \"%s\", ignoring silently"
                             (Option.value ~default:"" content_type));
-  let+ queried_resource = Dream.query req "resource" |> lift_opt ~else_:(fun () -> `InvalidWebfinger ("bad query", "missing params")) |> return in
+  let+ queried_resource = Dream.query req "resource"
+                          |> lift_opt ~else_:(fun () -> `InvalidWebfinger ("bad query", "missing params")) |> return in
 
   match resource_to_username config queried_resource with
   | Some username ->
@@ -33,6 +34,7 @@ let handle_webfinger config req =
     |> Activitypub.Encode.Webfinger.query_result
     |> activity_json
   | None ->
+    log.debug (fun f -> f "user %s was not found" queried_resource);
     not_found_json "User was not found"
 
 let route config =
