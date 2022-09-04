@@ -4,7 +4,7 @@
 /opt/pleroma/bin/pleroma_ctl migrate
 
 # update ca certificates
-sudo update-ca-certificates
+update-ca-certificates
 
 # start pleroma
 /opt/pleroma/bin/pleroma start &

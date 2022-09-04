@@ -41,6 +41,8 @@ config :pleroma, :database, rum_enabled: false
 config :pleroma, :instance, static_dir: "/var/lib/pleroma/static"
 config :pleroma, Pleroma.Uploaders.Local, uploads: "/var/lib/pleroma/uploads"
 
+config :logger, :console, level: :debug
+
 config :joken, default_signer: "Qb9DYFd75NbRk/DauhgZhpGfl0q2OxUjm97bpshL54Kq1Gs6LqQIrE95qyCNpY1Y"
 
 config :pleroma, configurable_from_database: true
