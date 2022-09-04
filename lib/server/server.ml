@@ -119,7 +119,26 @@ let run config =
 
   let worker = Worker.init config |> Lwt.map ignore in
 
+  if Configuration.Params.is_tls_enabled config then
+    Dream.info (fun f -> f "Enabled HTTPS/TLS for OCamlot server");
+
+  List.iter (fun p ->
+    Dream.info (fun f -> f "found file %s" (Fpath.to_string p))
+  ) (Bos.OS.Dir.contents (Fpath.of_string "/certs/" |> Result.get_exn) |> Result.get_exn);
+
+  Option.iter (fun fl ->
+    Dream.info (fun f -> f "cert file is %s\ncontents: %s" fl (IO.with_in fl IO.read_all));
+  ) (Configuration.Params.certificate_file config);
+
+  Option.iter (fun fl ->
+    Dream.info (fun f -> f "key file is %s\ncontents: %s" fl (IO.with_in fl IO.read_all))
+  ) (Configuration.Params.key_file config);
+
+
   Runner.run
+    ~tls:(Configuration.Params.is_tls_enabled config)
+    ?certificate_file:(Configuration.Params.certificate_file config)
+    ?key_file:(Configuration.Params.key_file config)
     ~workers:[worker]
     ~port:(Configuration.Params.port config)
   @@ Dream.logger

@@ -43,4 +43,7 @@
 
    angstrom
    re
+
+   omd crunch ppx_blob
+   
 ) )

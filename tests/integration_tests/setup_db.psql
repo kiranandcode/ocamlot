@@ -1,0 +1,7 @@
+CREATE USER pleroma WITH ENCRYPTED PASSWORD 'HQrHnuWVff27td35zhPW4ZTwZe6CSDZBZgPIEvV6/jvhdCDNh7mZeJ2X3tAJ1Oa7';
+CREATE DATABASE pleroma OWNER pleroma;
+\c pleroma;
+--Extensions made by ecto.migrate that need superuser access
+CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

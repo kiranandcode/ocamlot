@@ -2,6 +2,6 @@
  (preprocess (pps ppx_deriving.show))
  (libraries
    html http_sig database activitypub configuration static
-   dream markdown
+   dream markdown bos
    jwto
    caqti caqti-driver-sqlite3))

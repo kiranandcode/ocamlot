@@ -44,7 +44,7 @@ let enforce_markdown path =
   let* contents = OS.File.read path in
   Ok (Omd.of_string contents)
 
-let run about_this_instance_path database_path domain port debug =
+let run key_file certificate_file about_this_instance_path database_path domain port debug =
   let* database_path = enforce_database database_path in
   let* about_this_instance =
     match about_this_instance_path with
@@ -54,7 +54,7 @@ let run about_this_instance_path database_path domain port debug =
       let* about_this_instance = OS.File.read path in
       Ok (Some about_this_instance) in
   let database_path =  "sqlite3://:" ^ database_path in
-  let config = Configuration.Params.create ?about_this_instance ~debug ?port ~database_path domain in
+  let config = Configuration.Params.create ?key_file ?certificate_file ?about_this_instance ~debug ?port ~database_path domain in
   Ok (Server.run config)
 
 let debug =
@@ -71,6 +71,24 @@ let about_this_instance_path =
       ~docv:"ABOUT-THIS-INSTANCE"
       ~absent:{|A default message is used if not provided.|}
       ["a"; "about-this-instance"] in
+  Arg.(opt (some file) None) info
+
+let key_file_path =
+  let info =
+    Arg.info
+      ~doc:{| $(docv) is the path to the key file for the domain on which this server will be running.  |}
+      ~docv:"KEY-FILE"
+      ~absent:{|The server will not use TLS encryption (use a proxy like Nginx to enable ssl in that case).|}
+      ["k"; "key-file"] in
+  Arg.(opt (some file) None) info
+
+let certificate_file_path =
+  let info =
+    Arg.info
+      ~doc:{| $(docv) is the path to the certificate file for the domain on which this server will be running.  |}
+      ~docv:"CERTIFICATE-FILE"
+      ~absent:{|The server will not use TLS encryption (use a proxy like Nginx to enable ssl in that case).|}
+      ["c"; "certificate-file"] in
   Arg.(opt (some file) None) info
 
 
@@ -107,5 +125,14 @@ let _ =
       ~version:{|%%VERSION%%|}
       ~doc:"An OCaml Activitypub Server *with soul*!"
       "OCamlot" in
-  let cmd = Term.(term_result @@ (const run $ Arg.value about_this_instance_path $ Arg.value database_path $ Arg.value domain $ Arg.value port $ Arg.value debug)) in
+  let cmd = Term.(term_result @@ (
+    const run $
+    Arg.value key_file_path $
+    Arg.value certificate_file_path $
+    Arg.value about_this_instance_path $
+    Arg.value database_path $
+    Arg.value domain $
+    Arg.value port $
+    Arg.value debug)) in
+
   Cmd.eval (Cmd.v info cmd)
