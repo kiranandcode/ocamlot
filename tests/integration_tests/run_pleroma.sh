@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # migrate database
-/opt/pleroma/bin/pleroma_ctl migrate
+sudo -Hu pleroma MIX_ENV=prod mix ecto.migrate
 
 # update ca certificates
 update-ca-certificates
 
 # start pleroma
-/opt/pleroma/bin/pleroma start &
+sudo -Hu pleroma MIX_ENV=prod mix phx.server &
 
 # start nginx
 nginx -g "error_log /opt/pleroma/logs info;"

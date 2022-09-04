@@ -11,10 +11,10 @@ touch ./openssl.cnf \n\
     cat /etc/ssl/openssl.cnf; \n\
     echo \"\"; \n\
     echo \"[ SAN ]\"; \n\
-    echo \"subjectAltName=DNS.1:ocamlot.xyz,DNS.2:*.ocamlot.xyz\"; \n\
+    echo \"subjectAltName=DNS.1:pleroma.ocamlot.xyz,DNS.2:testing.ocamlot.xyz\"; \n\
 } >> ./openssl.cnf \n\
 \n\
-openssl req -x509 -sha256 -nodes -newkey rsa:4096 -keyout ocamlot.key -out ocamlot.crt -days 3650 \
+openssl req -x509 -sha256 -nodes -newkey rsa:4096 -keyout ocamlot.key -out ocamlot.crt \
         -subj \"/CN=*.ocamlot.xyz/\" -config ./openssl.cnf -extensions SAN" > ./gen_certs.sh
 
 RUN chmod u+x ./gen_certs.sh
