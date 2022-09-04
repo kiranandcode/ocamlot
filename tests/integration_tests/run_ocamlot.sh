@@ -13,7 +13,7 @@ sudo chown -R opam:opam /certs
 sudo update-ca-certificates
 
 # start ocamlot
-dune exec ./bin/main.exe -- -d "testing.ocamlot.xyz" &
+dune exec ./bin/main.exe -- -d "testing.ocamlot.xyz" -D &
 
 # start nginx
 sudo nginx -g "error_log /opt/logs info;"

@@ -22,7 +22,7 @@ let handle_webfinger config req =
                             (Option.value ~default:"" content_type));
   let+ queried_resource = Dream.query req "resource"
                           |> lift_opt ~else_:(fun () -> `InvalidWebfinger ("bad query", "missing params")) |> return in
-
+  log.debug (fun f -> f "queried resource: %s" queried_resource);
   match resource_to_username config queried_resource with
   | Some username ->
     let+ user = 
@@ -30,9 +30,11 @@ let handle_webfinger config req =
         let+ query_res = Database.LocalUser.lookup_user ~username db |> map_err (fun err -> `DatabaseError err) in
         return @@ lift_opt ~else_:(fun () -> `DatabaseError ("Inconsistent state: user's link failed to resolve")) query_res
       end in
-    Database.Interface.Webfinger.construct_query_result_for config user
-    |> Activitypub.Encode.Webfinger.query_result
-    |> activity_json
+    let result = 
+      Database.Interface.Webfinger.construct_query_result_for config user
+      |> Activitypub.Encode.Webfinger.query_result in
+    log.debug (fun f -> f "result for webfinger query: %s" (Yojson.Safe.to_string result));
+    activity_json result
   | None ->
     log.debug (fun f -> f "user %s was not found" queried_resource);
     not_found_json "User was not found"
