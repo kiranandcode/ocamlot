@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# make certs file accessible to pleroma
+chown pleroma:pleroma /certs/ocamlot.crt
+
 # migrate database
 sudo -Hu pleroma MIX_ENV=prod mix ecto.migrate
 

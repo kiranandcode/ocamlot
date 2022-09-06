@@ -35,12 +35,13 @@ ENV MIX_ENV=prod
 ENV HEX_UNSAFE_HTTPS=true
 
 # hacks
-RUN sed -i -e '28i Keyword.put(opts, :ssl_options, versions: [:"tlsv1.2", :"tlsv1.1", :tlsv1], cacertfile: "/certs/ocamlot.crt")' -e '28d' ./lib/pleroma/http/adapter_helper/hackney.ex
-RUN sed -i -e '10i opts = Keyword.put(opts, :ssl_options, versions: [:"tlsv1.2", :"tlsv1.1", :tlsv1], cacertfile: "/certs/ocamlot.crt")' -e '10d' lib/pleroma/reverse_proxy/client/hackney.ex
+RUN sed -i -e '28i Keyword.put(opts, :ssl_options, versions: [:"tlsv1.2", :"tlsv1.1", :tlsv1], cacertfile: "/certs/ocamlot.crt", verify: :verify_none)' -e '28d' ./lib/pleroma/http/adapter_helper/hackney.ex
+RUN sed -i -e '10i opts = Keyword.put(opts, :ssl_options, versions: [:"tlsv1.2", :"tlsv1.1", :tlsv1], cacertfile: "/certs/ocamlot.crt", verify: :verify_none)' -e '10d' lib/pleroma/reverse_proxy/client/hackney.ex
 RUN sed -i -e '27 i verify: :verify_none,' -e '27 i log_level: :warning' -e '27,32d' ./lib/pleroma/gun/conn.ex
 RUN sed -i -e '40iKeyword.put(opts, :certificates_verification, false)'  -e '40d' ./lib/pleroma/http/adapter_helper/gun.ex
 RUN sed -i -e '27i adapter_opts = Keyword.merge(opts[:adapter], conn: conn_pid, close_conn: false, certificates_verification: false)' -e '27d' ./lib/pleroma/tesla/middleware/connection_pool.ex
-
+RUN sed -i -e '34i Logger.warn("==========GGGGGGGGGGGg adding tls opts #{inspect(tls_opts)}===============")' ./lib/pleroma/gun/conn.ex
+RUN sed -i -e '215i Logger.debug(fn -> "Couldnt finger #{account} #{inspect(response)}" end)' -e '211i Logger.debug(fn -> "Couldnt finger #{account} because invalid content_type: #{inspect(content_type)}, resp: #{inspect(response)}" end)' lib/pleroma/web/web_finger.ex
 # compile server
 RUN mix phx.server --fail || echo
 

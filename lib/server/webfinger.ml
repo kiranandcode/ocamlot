@@ -34,7 +34,7 @@ let handle_webfinger config req =
       Database.Interface.Webfinger.construct_query_result_for config user
       |> Activitypub.Encode.Webfinger.query_result in
     log.debug (fun f -> f "result for webfinger query: %s" (Yojson.Safe.to_string result));
-    activity_json result
+    json result
   | None ->
     log.debug (fun f -> f "user %s was not found" queried_resource);
     not_found_json "User was not found"
