@@ -134,7 +134,6 @@ let run config =
     Dream.info (fun f -> f "key file is %s\ncontents: %s" fl (IO.with_in fl IO.read_all))
   ) (Configuration.Params.key_file config);
 
-
   Runner.run
     ~tls:(Configuration.Params.is_tls_enabled config)
     ?certificate_file:(Configuration.Params.certificate_file config)
