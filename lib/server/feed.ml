@@ -70,7 +70,7 @@ let route config =
       |> Option.flat_map Int.of_string
       |> Option.value ~default:0 in
 
-    let offset_end = offset_start + 10 in
+    let offset_end = 10 in
 
     let offset = (offset_date, offset_start, offset_end) in
 
@@ -86,6 +86,7 @@ let route config =
 
     let+ feed_results = Dream.sql req feed_elements
                         |> map_err (fun err -> `DatabaseError err) in
+    log.debug (fun f -> f "found %d results for offset %d, %d@." (List.length feed_results) offset_start offset_end);
 
     let title = feed_type_to_string feed_ty in
 

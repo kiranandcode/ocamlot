@@ -1,4 +1,4 @@
-type t = {
+type 'task t = {
   domain: string;
   (** domain on which the server is running - used to sign messages, so should not be localhost. *)
 
@@ -17,9 +17,11 @@ type t = {
   key_file: string option;
   (** key file to use for tls encryption. Both [certificate_file] and [key_file] must be provided for tls to be enabled. *)
 
-
-  debug: bool
+  debug: bool;
   (** whether to run in debug mode.  *)
+
+
+  mutable send_task: 'task option -> unit;
 }
 
 let default_about_this_instance = {|
@@ -39,8 +41,12 @@ let create ?key_file ?certificate_file ?(about_this_instance=default_about_this_
   about_this_instance=Omd.of_string about_this_instance;
   port;
   certificate_file; key_file;
-  debug
+  debug;
+  send_task=fun _ -> ()
 }
+
+let send_task config task = config.send_task (Some task)
+let set_task_fn config task_fn = config.send_task <- task_fn
 
 let is_tls_enabled v = Option.is_some v.certificate_file && Option.is_some v.key_file
 let certificate_file v =

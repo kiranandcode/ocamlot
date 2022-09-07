@@ -111,13 +111,16 @@ let from_static local_root path req =
 let (let+) x f = Lwt_result.bind x f
 
 let run config =
+  let task_in, send_task = Lwt_stream.create () in
   if Configuration.Params.debug config then begin
     Dream.initialize_log ~level:`Info ~enable:true ();
     Dream.info (fun f -> f "Running OCamlot in debugging mode.");
     Logging.set_log_level `Debug;
   end;
 
-  let worker = Worker.init config |> Lwt.map ignore in
+  Configuration.Params.set_task_fn config send_task;
+
+  let worker = Worker.init config task_in |> Lwt.map ignore in
 
   if Configuration.Params.is_tls_enabled config then
     Dream.info (fun f -> f "Enabled HTTPS/TLS for OCamlot server");
@@ -134,11 +137,12 @@ let run config =
     Dream.info (fun f -> f "key file is %s\ncontents: %s" fl (IO.with_in fl IO.read_all))
   ) (Configuration.Params.key_file config);
 
+
   Runner.run
+    ~workers:[worker]
     ~tls:(Configuration.Params.is_tls_enabled config)
     ?certificate_file:(Configuration.Params.certificate_file config)
     ?key_file:(Configuration.Params.key_file config)
-    ~workers:[worker]
     ~port:(Configuration.Params.port config)
   @@ Dream.logger
   @@ Dream.sql_pool Configuration.Params.(database_path config)
@@ -147,7 +151,7 @@ let run config =
     Webfinger.route config;
 
     Authentication.route config;
-    Home.route config;
+    Feed.route config;
     Write_post.route config;
     (* Authentication.route;
      * Actor.route config;

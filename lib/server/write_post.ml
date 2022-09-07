@@ -69,7 +69,12 @@ let handle_post_write config req =
   | Ok (title, post_to, content_type, contents, false) ->
     log.info (fun f -> f "received get request %s"
                          ([%show: string option * string option * [> `Markdown | `Org | `Text ] * string]
-                         (title, post_to, content_type, contents)));
+                            (title, post_to, content_type, contents)));
+    let+ user = current_user req in
+
+    let () = Configuration.Params.send_task config
+                Worker.((LocalPost {user=Option.get_exn_or "" user; content=contents}))in
+
     redirect req "/feed"
 
 

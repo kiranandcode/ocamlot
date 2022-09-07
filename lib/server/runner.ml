@@ -77,7 +77,8 @@ let run
   try
     Lwt_main.run begin
       Lwt.join (
-        (Dream__http.Http.serve_with_maybe_https
+        workers @
+        [(Dream__http.Http.serve_with_maybe_https
            "run"
            ~interface
            ~port
@@ -87,7 +88,7 @@ let run
            ?certificate_file ?key_file
            ?certificate_string:None ?key_string:None
            ~builtins
-           user's_dream_handler) :: workers
+           user's_dream_handler)]
       )
     end;
     restore_terminal ()

@@ -549,11 +549,18 @@ CLOSED: [2022-08-28 Sun 13:18]
 CLOSED: [2022-08-30 Tue 14:15]
 ** DONE Handle logging in and out
 CLOSED: [2022-08-30 Tue 14:15]
-** TODO Setup log in page
-*** TODO Pass in markdown about page in config
-*** TODO vendor markdown renderer
-*** TODO Create box with markdown details on login + register
-** TODO refactor database to not use rec modules
+** DONE Setup log in page
+CLOSED: [2022-09-07 Wed 04:03]
+*** DONE Pass in markdown about page in config
+CLOSED: [2022-09-07 Wed 04:03]
+*** DONE vendor markdown renderer
+CLOSED: [2022-09-07 Wed 04:03]
+*** DONE Create box with markdown details on login + register
+CLOSED: [2022-09-07 Wed 04:03]
 ** DONE setup webfinger
 CLOSED: [2022-08-28 Sun 11:45]
-
+** TODO Implement posting
+*** TODO Update worker to only handle posts
+*** TODO Update post page to send request to worker
+*** TODO Update feed to display local feeds
+** TODO refactor database to not use rec modules
