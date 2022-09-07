@@ -40,7 +40,7 @@ let extract_post req (post: Database.Post.t) :
       method name = match author with
           Local l -> Database.LocalUser.username l
         | Remote l -> Database.RemoteUser.username l
-      method image = "/static/unknown.png"
+      method image = "/static/images/unknown.png"
     end
     method contents = [ Tyxml.Html.txt (Database.Post.post_source post) ]
     method date = Database.Post.published post |> CalendarLib.Printer.Calendar.to_string
@@ -70,9 +70,9 @@ let route config =
       |> Option.flat_map Int.of_string
       |> Option.value ~default:0 in
 
-    let offset_end = 10 in
+    let limit = 10 in
 
-    let offset = (offset_date, offset_start, offset_end) in
+    let offset = (offset_date, limit, offset_start) in
 
     let+ _current_user = current_user req in
     let+ current_user_link = current_user_link req in
@@ -86,7 +86,6 @@ let route config =
 
     let+ feed_results = Dream.sql req feed_elements
                         |> map_err (fun err -> `DatabaseError err) in
-    log.debug (fun f -> f "found %d results for offset %d, %d@." (List.length feed_results) offset_start offset_end);
 
     let title = feed_type_to_string feed_ty in
 
@@ -118,7 +117,7 @@ let route config =
       [
         Html.Feed.feed_title title;
         Pure.grid_row [
-          Pure.grid_col ~a_class:["feed-subnavigation-menu"; "pure-menu"; "pure-menu-horizontal"; "pure-menu-scroll able"]
+          Pure.grid_col ~a_class:["feed-subnavigation-menu"; "pure-menu"; "pure-menu-horizontal"; "pure-menu-scrollable"]
             (build_feed_navigation_panel feed_navigation)
         ]
       ];

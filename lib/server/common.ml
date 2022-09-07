@@ -17,6 +17,9 @@ let form_data key form = List.Assoc.get ~eq:String.equal key form |> Option.to_r
 (* Result monad for validation *)
 module VResult = struct
   include Result
+
+  let lift err = Result.map_err List.return err
+
   let (and*) x y = match x,y with
       Ok x, Ok y -> Ok (x,y)
     | Error l, Error r -> Error (l @ r)

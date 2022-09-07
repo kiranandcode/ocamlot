@@ -49,6 +49,14 @@ let write_post_box  ?(fields=[]) ?errors ?title ?to_ ?(contents="") () =
              input_opt title ~a:[H.a_name "title"; H.a_input_type `Text; ] ();
            ];
            Pure.form_grouped_input [
+             H.label ~a:[H.a_label_for "scope"] [H.txt "Scope"];
+             H.select ~a:[H.a_name "scope"] [
+               H.option ~a:[H.a_value "public"] (H.txt "Public");
+               H.option ~a:[H.a_value "followers"] (H.txt "Followers");
+               H.option ~a:[H.a_value "direct-message"] (H.txt "Direct Message");
+             ]
+           ];
+           Pure.form_grouped_input [
              H.label ~a:[H.a_label_for "to"] [H.txt "To (optional)"];
              input_opt to_ ~a:[H.a_placeholder "e.g. john@example.xyz, bob@temp.org, ...";
                          H.a_name "to"; H.a_input_type `Text] ();

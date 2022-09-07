@@ -11,7 +11,14 @@ let parse_content_type = function
   | "org" -> Ok (`Org)
   | ct -> Error (Format.sprintf "unsupported content type %s" ct)
 
-let handle_get_write ?errors ?title ?to_ ?content_type ?contents _config req =
+let parse_scope = function
+  | "public" -> Ok (`Public)
+  | "followers" -> Ok (`Followers)
+  | "direct-message" -> Ok (`DM)
+  | ct -> Error (Format.sprintf "unsupported scope type %s" ct)
+
+
+let handle_get_write ?errors ?title ?to_ ?content_type ?scope:_ ?contents _config req =
   let _context = Dream.query req "context" in
   let+ headers = Navigation.build_navigation_bar req in
   let token = Dream.csrf_token req in
@@ -49,12 +56,15 @@ let handle_post_write config req =
     let open VResult in
     let title = form_data "title" data |> Result.to_opt in
     let post_to = form_data "to" data |> Result.to_opt in
-    let* content_type = form_data "content-type" data |> Result.map_err List.return in
-    let* contents = form_data "contents" data |> Result.map_err List.return in
-    let* content_type = parse_content_type content_type |> Result.map_err List.return in
+
+    let* contents = lift (form_data "contents" data) in
+    let* content_type = lift (form_data "content-type" data) in
+    let* content_type = lift (parse_content_type content_type) in
+    let* scope = lift (form_data "scope" data) in
+    let* scope = lift (parse_scope scope) in
     let* () = ensure "Post contents can not be empty" (not @@ String.is_empty contents) in
     let is_preview = form_data "preview-button" data |> Result.to_opt |> Option.is_some in
-    Ok (title, post_to, content_type, contents, is_preview) in
+    Ok (title, post_to, content_type, scope, contents, is_preview) in
 
   match res with
   | Error errors ->
@@ -64,14 +74,15 @@ let handle_post_write config req =
     let content_type = form_data "content-type" data |> Result.flat_map parse_content_type |> Result.to_opt in
     handle_get_write ~errors ?title ?to_ ?content_type ?contents config req
   (* if is a preview request, then just handle get write *)
-  | Ok (title, to_, content_type, contents, true) ->
-    handle_get_write ?title ?to_ ~content_type ~contents config req
-  | Ok (title, post_to, content_type, contents, false) ->
+  | Ok (title, to_, content_type, scope, contents, true) ->
+    handle_get_write ?title ?to_ ~content_type ~scope ~contents config req
+  | Ok (title, post_to, content_type, scope, contents, false) ->
     log.info (fun f -> f "received get request %s"
-                         ([%show: string option * string option * [> `Markdown | `Org | `Text ] * string]
-                            (title, post_to, content_type, contents)));
+                         ([%show: string option * string option *
+                                  [> `Markdown | `Org | `Text ] *
+                                  [> `DM | `Followers | `Public ] * string]
+                            (title, post_to, content_type, scope, contents)));
     let+ user = current_user req in
-
     let () = Configuration.Params.send_task config
                 Worker.((LocalPost {user=Option.get_exn_or "" user; content=contents}))in
 

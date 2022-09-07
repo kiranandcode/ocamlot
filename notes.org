@@ -559,8 +559,50 @@ CLOSED: [2022-09-07 Wed 04:03]
 CLOSED: [2022-09-07 Wed 04:03]
 ** DONE setup webfinger
 CLOSED: [2022-08-28 Sun 11:45]
-** TODO Implement posting
-*** TODO Update worker to only handle posts
-*** TODO Update post page to send request to worker
-*** TODO Update feed to display local feeds
-** TODO refactor database to not use rec modules
+** DONE Implement posting
+CLOSED: [2022-09-07 Wed 07:56]
+*** DONE Update worker to only handle posts
+CLOSED: [2022-09-07 Wed 07:56]
+*** DONE Update post page to send request to worker
+CLOSED: [2022-09-07 Wed 07:56]
+*** DONE Update feed to display local feeds
+CLOSED: [2022-09-07 Wed 07:56]
+** DONE refactor database to not use rec modules
+CLOSED: [2022-09-07 Wed 07:24]
+** TODO Implement faithful posting
+*** TODO Add field to form to describe public,followers,direct
+*** TODO update worker task type to track content type and public
+*** TODO update sql database to mention type of content
+*** TODO handle posting
+Submission from user's post is:
+- title (optional)
+- publicity of post (public, followers, direct)
+- list of addresses to be sent _to_
+- content type
+- source
+Upon receiving request:
+1. for each target, attempt to resolve actor, ignore users who are not present
+2. add post to database
+3. 
+**** TODO Collect list of targets
+***** TODO split names in to_field, resolve
+***** TODO if post is public/followers, then collect all followers for user
+**** TODO for each target in parallel
+***** Retrieve outbox for target
+***** Post post object o target
+** TODO Implement users page
+*** TODO List all public users who are local
+*** TODO List all known remote users who are public
+*** TODO add find for more users
+** TODO Implement view post page
+*** TODO at url "//post/<id>/"
+*** TODO retrieve post by id
+*** TODO ensure that post is either public or user is follower/target of post
+*** TODO display post
+** TODO Implement profile page at url //profile/username/
+*** TODO handle image uploading
+*** TODO Update actor object to track detailed stats
+**** TODO profile picture
+**** TODO summary
+**** TODO bio
+*** TODO display information

@@ -444,6 +444,7 @@ div.post-replies-list {
 
 div.profile-box.feed-item-author {
     overflow: visible;
+    padding: .5rem;
 }
 
 .profile-box.feed-item-author > img {
@@ -493,14 +494,19 @@ div.profile-box.feed-item-author {
   flex-grow: 4;
 }
 .feed-post-content {
-  margin-left: .5rem;
+    margin-left: .5rem;
+    width: 100%;
+    position: relative;
 }
 .feed-post-date {
   max-width: 4rem;
   text-align: center;
   font-size: x-small;
   font-weight: lighter;
-  float: right;
+  position: absolute;
+  right: .125rem;
+  top: .125rem;
+ 
 }
 .post-reply-text > h3 {
   margin-top: .5rem;
@@ -714,9 +720,9 @@ div.profile-box.feed-item-author {
   width: 100%;
 }
 
-.write-post-content fieldset.pure-group:nth-child(3) > input:nth-child(2) {
-  min-height: 20rem;
-}
+/* .write-post-content fieldset.pure-group:nth-child(3) > input:nth-child(2) { */
+/*   min-height: 20rem; */
+/* } */
 
 .write-post-content textarea {
   width: 100%;
