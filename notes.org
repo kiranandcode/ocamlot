@@ -574,7 +574,8 @@ CLOSED: [2022-09-07 Wed 07:24]
 CLOSED: [2022-09-08 Thu 08:49]
 *** DONE update worker task type to track content type and public
 CLOSED: [2022-09-08 Thu 09:00]
-*** TODO update sql database to mention type of content
+*** DONE update sql database to mention type of content
+CLOSED: [2022-09-08 Thu 09:55]
 *** TODO handle posting
 Submission from user's post is:
 - title (optional)

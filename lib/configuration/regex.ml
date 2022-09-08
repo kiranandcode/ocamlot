@@ -11,7 +11,6 @@ let user_tag _config =
     char '@';
     group (rep1 any)
   ]) 
-  
 
 let webfinger_format config =
   Re.(seq [

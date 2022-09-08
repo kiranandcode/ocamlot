@@ -1,4 +1,4 @@
-[@@@warning "-33"]
+[@@@warning "-33-27"]
 open Containers
 open Common
 
@@ -71,25 +71,55 @@ open struct
         Lwt.return ()
     )
 
-  let handle_local_post pool config user content =
+  let resolve_remote_user pool username domain =
+    with_pool pool @@ fun db ->
+    let+ remote_user = Resolver.resolve_remote_user ~username ~domain db in
+
+    return_ok ()
+    
+
+
+  let handle_local_post pool config user scope post_to title content_type content =
     log.debug (fun f -> f "working on local post by %s of %s" (Database.LocalUser.username user) content);
     let id = Database.Activity.fresh_id () in
-    let+ _ =
+    let+ post =
       with_pool pool @@ fun db ->
       (* lookup the author *)
       let+ author = (Database.Actor.of_local (Database.LocalUser.self user) db)
                     |> map_err (fun err -> `DatabaseError err) in
       log.debug (fun f -> f "retreived user %s" (Database.LocalUser.username user));
+
+      let is_public, is_follower_public =
+        match scope with
+        | `DM -> false, false
+        | `Followers -> false, true
+        | `Public -> true, true in
+
       Database.Post.create_post
         ~public_id:(Database.Activity.id_to_string id)
         ~url:(Configuration.Url.activity_endpoint config
                 (Database.Activity.id_to_string id)
               |> Uri.to_string)
-        ~author ~is_public:true
-        ~is_follower_public:true
-        ~post_source:content ~post_content:`Markdown
+        ~author ~is_public  ~is_follower_public
+        ?summary:title
+        ~post_source:content ~post_content:content_type
         ~published:(CalendarLib.Calendar.now ()) db
       |> map_err (fun err -> `DatabaseError err) in
+    let+ _ =
+      let user_tag = Configuration.Regex.user_tag config |> Re.compile in
+      Lwt_list.map_p (fun tagged_user ->
+        let matches = Re.all user_tag (String.trim tagged_user) in
+        let+ matches = return (match matches with h :: _ -> Ok h
+                                                | _ -> Error (`Msg "Invalid string")) in
+        let _username = Re.Group.get matches 0 in
+        let _domain = Re.Group.get matches 1 in
+        Lwt.return_ok ()
+      ) (Option.value ~default:[] post_to) |> lift_pure in
+
+      
+    (* collect targets *)
+
+
     log.debug (fun f -> f "completed user's %s post" (Database.LocalUser.username user));
     Lwt.return_ok ()
 
@@ -99,8 +129,8 @@ open struct
       (fun task ->
          log.debug (fun f -> f "worker woken up with task");
          begin match task with
-         | LocalPost {user; content; _} -> 
-           let res = handle_local_post pool config user content in
+         | LocalPost {user; title; content; content_type; scope; post_to;} -> 
+           let res = handle_local_post pool config user scope post_to title content_type content in
            handle_error res
          end |> Lwt.map ignore )
       task_in
