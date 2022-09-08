@@ -9,7 +9,9 @@ val create_post :
   url:string ->
   author:Actor.t Link.t ->
   is_public:bool ->
+  is_follower_public:bool ->
   post_source:string ->
+  post_content:[`Markdown | `Org | `Text ] ->
   published:CalendarLib.Calendar.t ->
   (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
@@ -97,11 +99,13 @@ val collect_post_local_network:
 
 
 val self : t -> t Link.t
+val content_type : t -> [`Markdown | `Org | `Text ]
 val public_id : t -> string option
 val author : t -> Actor.t Link.t
 val url : t -> string
 val raw_data : t -> string option
 val is_public: t -> bool
+val is_follower_public: t -> bool
 val summary: t -> string option
 val post_source: t -> string
 val published: t -> CalendarLib.Calendar.t

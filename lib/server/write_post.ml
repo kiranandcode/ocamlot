@@ -82,12 +82,16 @@ let handle_post_write config req =
                                   [> `Markdown | `Org | `Text ] *
                                   [> `DM | `Followers | `Public ] * string]
                             (title, post_to, content_type, scope, contents)));
-    let+ user = current_user req in
+    let+ Some user = current_user req in
     let () = Configuration.Params.send_task config
-                Worker.((LocalPost {user=Option.get_exn_or "" user; content=contents}))in
+               Worker.((LocalPost {
+                 user=user;  title; scope; content_type;
+                 post_to=post_to |> Option.map (String.split_on_char ',' ); 
+                 content=contents
+               }))in
 
     redirect req "/feed"
-
+[@@warning "-8"]
 
 let route config =
   Dream.scope "/write" [check_authenticated] [

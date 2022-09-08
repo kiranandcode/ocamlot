@@ -570,8 +570,10 @@ CLOSED: [2022-09-07 Wed 07:56]
 ** DONE refactor database to not use rec modules
 CLOSED: [2022-09-07 Wed 07:24]
 ** TODO Implement faithful posting
-*** TODO Add field to form to describe public,followers,direct
-*** TODO update worker task type to track content type and public
+*** DONE Add field to form to describe public,followers,direct
+CLOSED: [2022-09-08 Thu 08:49]
+*** DONE update worker task type to track content type and public
+CLOSED: [2022-09-08 Thu 09:00]
 *** TODO update sql database to mention type of content
 *** TODO handle posting
 Submission from user's post is:

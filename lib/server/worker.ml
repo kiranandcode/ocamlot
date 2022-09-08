@@ -45,6 +45,10 @@ type task =
   (* post by local user *)
   | LocalPost of {
     user: Database.LocalUser.t;
+    title: string option;
+    content_type: [ `Markdown | `Org | `Text ];
+    scope: [ `DM | `Followers | `Public ];
+    post_to: string list option;
     content: string;
   }
 
@@ -81,7 +85,9 @@ open struct
         ~url:(Configuration.Url.activity_endpoint config
                 (Database.Activity.id_to_string id)
               |> Uri.to_string)
-        ~author ~is_public:true ~post_source:content
+        ~author ~is_public:true
+        ~is_follower_public:true
+        ~post_source:content ~post_content:`Markdown
         ~published:(CalendarLib.Calendar.now ()) db
       |> map_err (fun err -> `DatabaseError err) in
     log.debug (fun f -> f "completed user's %s post" (Database.LocalUser.username user));
@@ -93,7 +99,7 @@ open struct
       (fun task ->
          log.debug (fun f -> f "worker woken up with task");
          begin match task with
-         | LocalPost {user; content} -> 
+         | LocalPost {user; content; _} -> 
            let res = handle_local_post pool config user content in
            handle_error res
          end |> Lwt.map ignore )

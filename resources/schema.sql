@@ -78,14 +78,16 @@ CREATE TABLE Posts /* t */ (
    id INTEGER PRIMARY KEY,                             -- internal post id, not exposed
    public_id TEXT,                                     -- if post is by an local user, then assign a public id for the url
    url TEXT NOT NULL UNIQUE,                           -- url/id of the post, if local, then /api/posts/<public_id>
-   author_id INTEGER NOT NULL /* author: int64 */,                         -- author of the post
+   author_id INTEGER NOT NULL /* author: int64 */,     -- author of the post
 
-   is_public BOOLEAN NOT NULL,                                  -- is the post public? or only to the mentioned users
+   is_public BOOLEAN NOT NULL,                         -- is the post public? or only to the mentioned users
+   is_follower_public BOOLEAN NOT NULL,                -- is the post sent to followers mentioned users
 
    summary TEXT,                                       -- subject of the post
+   content_type INTEGER NOT NULL /* content_type */,   -- type of the content
    post_source TEXT NOT NULL,                          -- source of the post
 
-   published TEXT NOT NULL /* timestamp */,           -- date at which post was published
+   published TEXT NOT NULL /* timestamp */,            -- date at which post was published
 
    raw_data BLOB /* raw_text: string option */,        -- if by an external user, then keep raw json of the post
    FOREIGN KEY (author_id)
