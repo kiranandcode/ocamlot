@@ -71,29 +71,49 @@ open struct
         Lwt.return ()
     )
 
-  let resolve_remote_user pool username domain =
-    with_pool pool @@ fun db ->
-    let+ remote_user = Resolver.resolve_remote_user ~username ~domain db in
 
-    return_ok ()
-    
+  let extract_user config db user = 
+    let user_tag = Configuration.Regex.user_tag config |> Re.compile in
+    let matches = Re.all user_tag (String.trim user) in
+    let user_tag = List.head_opt matches in
+    match user_tag with
+    | None ->
+      (* remote user by url *)
+      let+ remote_user = Resolver.resolve_remote_user_by_url (Uri.of_string user) db
+                         |> map_err (fun err -> `WorkerFailure err ) in
+      return (Ok (`Remote remote_user))
+    | Some group when String.equal (Configuration.Params.domain config |> Uri.to_string) (Re.Group.get group 1) ->
+      (* local user *)
+      let username = Re.Group.get group 0 in
+      let+ resolved_user = Database.LocalUser.lookup_user ~username db |> map_err (fun msg -> `DatabaseError msg) in
+      begin match resolved_user with
+      | None -> return (Error (`WorkerFailure (Format.sprintf "could not resolve local user %s" user)))
+      | Some user -> return_ok (`Local user)
+      end
+    | Some group ->
+      let username = Re.Group.get group 0 in
+      let domain = Re.Group.get group 1 in
+      let+ resolved_user = Resolver.resolve_remote_user ~username ~domain db
+                           |> map_err (fun msg -> `WorkerFailure msg) in
+      return_ok (`Remote resolved_user)
 
 
   let handle_local_post pool config user scope post_to title content_type content =
     log.debug (fun f -> f "working on local post by %s of %s" (Database.LocalUser.username user) content);
     let id = Database.Activity.fresh_id () in
+
+    let is_public, is_follower_public =
+      match scope with
+      | `DM -> false, false
+      | `Followers -> false, true
+      | `Public -> true, true in
+
     let+ post =
       with_pool pool @@ fun db ->
       (* lookup the author *)
       let+ author = (Database.Actor.of_local (Database.LocalUser.self user) db)
                     |> map_err (fun err -> `DatabaseError err) in
       log.debug (fun f -> f "retreived user %s" (Database.LocalUser.username user));
-
-      let is_public, is_follower_public =
-        match scope with
-        | `DM -> false, false
-        | `Followers -> false, true
-        | `Public -> true, true in
 
       Database.Post.create_post
         ~public_id:(Database.Activity.id_to_string id)
@@ -105,19 +125,59 @@ open struct
         ~post_source:content ~post_content:content_type
         ~published:(CalendarLib.Calendar.now ()) db
       |> map_err (fun err -> `DatabaseError err) in
-    let+ _ =
-      let user_tag = Configuration.Regex.user_tag config |> Re.compile in
+    let+ remote_targets =
+      let post_link = Database.Post.self post in
+      with_pool pool @@ fun db ->
       Lwt_list.map_p (fun tagged_user ->
-        let matches = Re.all user_tag (String.trim tagged_user) in
-        let+ matches = return (match matches with h :: _ -> Ok h
-                                                | _ -> Error (`Msg "Invalid string")) in
-        let _username = Re.Group.get matches 0 in
-        let _domain = Re.Group.get matches 1 in
-        Lwt.return_ok ()
+        let+ user = extract_user config db tagged_user in
+        let+ user_link = begin match user with
+          | `Local user -> Database.(Actor.of_local (LocalUser.self user) db)
+          | `Remote user -> Database.(Actor.of_remote (RemoteUser.self user) db)
+        end |> map_err (fun msg -> `DatabaseError msg) in
+        let+ () = Database.Post.add_post_to post_link user_link db
+                  |> map_err (fun msg -> `WorkerFailure msg) in
+        match user with
+        | `Remote user -> return_ok (Some user)
+        | _ -> return_ok None
       ) (Option.value ~default:[] post_to) |> lift_pure in
 
-      
-    (* collect targets *)
+    (* collect direct targets *)
+    let direct_targets =
+      List.filter_map (function
+        | Ok v -> v
+        | Error error ->
+          let _, title, details = Error_handling.extract_error_details error in
+          log.info (fun f -> f "Resolving targets for post failed with message %s - %s" title details);
+          None
+      ) remote_targets in
+    (* if post is to followers/public, then add all followers *)
+    let+ follower_targets =
+      if not (is_public || is_follower_public)
+      then return_ok []
+      else begin
+        with_pool pool @@ fun db ->
+        let+ author = (Database.Actor.of_local (Database.LocalUser.self user) db)
+                      |> map_err (fun err -> `DatabaseError err) in
+        let+ targets = Database.Follow.collect_followers author db
+                       |> map_err (fun err -> `DatabaseError err) in
+        let+ targets =
+          List.map Database.Follow.author targets
+          |> Lwt_list.map_p (fun v -> Database.Link.resolve v db)
+          |> lift_pure in
+        let remote_targets =
+          List.filter_map (function
+            | Ok Database.Actor.Remote r ->
+              Some r
+            | Ok _ -> None
+            | Error msg -> 
+              let _, title, details = Error_handling.extract_error_details (`DatabaseError msg) in
+              log.info (fun f -> f "Resolving followers for post failed with message %s - %s" title details);
+              None
+          ) targets in
+        Lwt.return_ok remote_targets
+      end in
+    (* collect the list of targets to send the post to *)
+    let _targets = direct_targets @ follower_targets in
 
 
     log.debug (fun f -> f "completed user's %s post" (Database.LocalUser.username user));
