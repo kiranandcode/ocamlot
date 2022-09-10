@@ -31,6 +31,8 @@ let with_posts ?sensitive ?dates ~users ~posts:m db f =
              ~summary:("Re: Testing" ^ string_of_int i)
              ~url:("https://localhost.local/activities/" ^ ("as9302390" ^ string_of_int i))
              ~author:users.(min i ((Array.length users) - 1))
+             ~is_follower_public:false
+             ~post_content:`Text
              ~is_public:(match sensitive with
                | None -> true
                | Some sensitive -> not sensitive.(min (Array.length sensitive - 1) i))
@@ -52,6 +54,8 @@ let+ post =
     ~public_id
     ~summary:"Re: Testing"
     ~url:("https://localhost.local/activities/" ^ public_id)
+    ~is_follower_public:false
+    ~post_content:`Text
     ~author:users.(0)
     ~is_public:true
     ~post_source:"Does posts works?"
@@ -74,6 +78,8 @@ let* post =
     ~summary
     ~url
     ~author:users.(0)
+    ~is_follower_public:false
+    ~post_content:`Text  
     ~is_public
     ~post_source
     ~published db in
@@ -100,6 +106,8 @@ let* _ =
     ~public_id
     ~summary
     ~url
+    ~is_follower_public:false
+    ~post_content:`Text
     ~author:users.(0)
     ~is_public
     ~post_source
@@ -130,6 +138,8 @@ let* _ =
   Database.Post.create_post
     ~public_id
     ~summary
+    ~is_follower_public:false
+    ~post_content:`Text
     ~url
     ~author:users.(0)
     ~is_public
@@ -165,6 +175,8 @@ let* post =
     ~url
     ~author:users.(0)
     ~is_public
+    ~is_follower_public:false
+    ~post_content:`Text
     ~post_source
     ~published db in
 let* _ = 
@@ -173,6 +185,8 @@ let* _ =
     ~url:"https://localhost.local/activities/129129102901290"
     ~author:users.(1)
     ~is_public:false
+    ~is_follower_public:false
+    ~post_content:`Text
     ~post_source:"Posting multiple bro"
     ~published db in
 ret begin
@@ -195,6 +209,8 @@ let* _ =
     ~summary:"Re: Testing"
     ~url:"https://localhost.local/activities/129012901290"
     ~author:users.(0)
+    ~is_follower_public:false
+    ~post_content:`Text
     ~is_public:true
     ~post_source:"Does posts works?"
     ~published:(CalendarLib.Calendar.now ()) db in
@@ -205,6 +221,8 @@ let* _ =
     ~url:"https://localhost.local/activities/129012901291"
     ~author:users.(0)
     ~is_public:true
+    ~is_follower_public:false
+    ~post_content:`Text
     ~post_source:"Does posts works 2?"
     ~published:(CalendarLib.Calendar.now ()) db in
 let* _ = 
@@ -213,6 +231,8 @@ let* _ =
     ~url:"https://localhost.local/activities/1291291029012901"
     ~author:users.(1)
     ~is_public:true
+    ~is_follower_public:false
+    ~post_content:`Text
     ~post_source:"Posting multiple bro"
     ~published:(CalendarLib.Calendar.now ()) db in
 let+ posts_by_0 = Database.Post.collect_posts_by_author users.(0) db in
@@ -236,6 +256,8 @@ let* post1 =
     ~url:"https://localhost.local/activities/129012901290"
     ~author:users.(0)
     ~is_public:true
+    ~is_follower_public:false
+    ~post_content:`Text
     ~post_source:"Does posts works?"
     ~published:(CalendarLib.Calendar.now ()) db in
 let* post2 = 
@@ -244,6 +266,8 @@ let* post2 =
     ~summary:"Re: Testing 2"
     ~url:"https://localhost.local/activities/129012901292"
     ~author:users.(1)
+    ~is_follower_public:false
+    ~post_content:`Text
     ~is_public:true
     ~post_source:"Does posts works 2?"
     ~published:(CalendarLib.Calendar.now ()) db in
@@ -290,6 +314,8 @@ let* post1 =
     ~url:"https://localhost.local/activities/129012901290"
     ~author:users.(0)
     ~is_public:true
+    ~is_follower_public:false
+    ~post_content:`Text
     ~post_source:"Does posts works?"
     ~published:(CalendarLib.Calendar.now ()) db in
 let* post2 = 
@@ -299,6 +325,8 @@ let* post2 =
     ~url:"https://localhost.local/activities/129012901292"
     ~author:users.(1)
     ~is_public:true
+    ~is_follower_public:false
+    ~post_content:`Text
     ~post_source:"Does posts works 2?"
     ~published:(CalendarLib.Calendar.now ()) db in
 
@@ -373,6 +401,8 @@ let* post1 =
     ~summary:"Re: Testing"
     ~url:"https://localhost.local/activities/129012901290"
     ~author:users.(0)
+    ~is_follower_public:false
+    ~post_content:`Text
     ~is_public:true
     ~post_source:"Does posts works?"
     ~published:(CalendarLib.Calendar.now ()) db in
@@ -380,6 +410,8 @@ let* post2 =
   Database.Post.create_post
     ~public_id:"129012901292"
     ~summary:"Re: Testing 2"
+    ~is_follower_public:false
+    ~post_content:`Text
     ~url:"https://localhost.local/activities/129012901292"
     ~author:users.(1)
     ~is_public:true
@@ -442,11 +474,13 @@ let* remote_user =
   >>= Fun.flip Database.Actor.of_remote db in
 
 let* _ = Database.Post.create_post
-                ~author:remote_user ~url:"testing.com/posts/post5"
-                ~public_id:"post5"
-                ~summary:"post 5 by a remote user"
-                ~is_public:true ~published:post5_date
-                ~post_source:"hell worldd" db
+           ~author:remote_user ~url:"testing.com/posts/post5"
+           ~public_id:"post5"
+           ~summary:"post 5 by a remote user"
+           ~is_follower_public:false
+           ~post_content:`Text
+           ~is_public:true ~published:post5_date
+           ~post_source:"hell worldd" db
             >|= Database.Post.self in
 
 (* post 0 is by user 0, to user 1, sensitive (should not show up in twkn or local) *)
@@ -520,11 +554,13 @@ let* remote_user =
   >>= Fun.flip Database.Actor.of_remote db in
 
 let* _ = Database.Post.create_post
-                ~author:remote_user ~url:"testing.com/posts/post5"
-                ~public_id:"post5"
-                ~summary:"post 5 by a remote user"
-                ~is_public:true ~published:post5_date
-                ~post_source:"hell worldd" db
+           ~author:remote_user ~url:"testing.com/posts/post5"
+           ~public_id:"post5"
+           ~is_follower_public:false
+           ~post_content:`Text
+           ~summary:"post 5 by a remote user"
+           ~is_public:true ~published:post5_date
+           ~post_source:"hell worldd" db
             >|= Database.Post.self in
 
 (* post 0 is by user 0, to user 1, sensitive (should not show up in twkn or local) *)

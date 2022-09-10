@@ -27,6 +27,8 @@ let with_users_and_posts ~users:n ~posts:m f =
            Database.Post.create_post
              ~public_id:("as9302390" ^ string_of_int i)
              ~summary:("Re: Testing" ^ string_of_int i)
+             ~is_follower_public:false
+             ~post_content:`Text
              ~url:("https://localhost.local/activities/" ^ ("as9302390" ^ string_of_int i))
              ~author:users.(min i (n - 1))
              ~is_public:true
