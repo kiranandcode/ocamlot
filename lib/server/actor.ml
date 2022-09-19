@@ -313,8 +313,8 @@ let handle_outbox_get req =
 let route config = 
   Dream.scope "/users" [] [
     Dream.get "/:username" @@ (handle_actor_get config);
-    (* Dream.get "/:username/inbox" handle_inbox_get;
-     * Dream.post ":username/inbox" (handle_inbox_post config); *)
+    (* Dream.get "/:username/inbox" handle_inbox_get; *)
+    (* Dream.post ":username/inbox" (handle_inbox_post config); *)
     Dream.get "/:username/outbox" handle_outbox_get;
     (* Dream.post "/:username/outbox" handle_outbox_post; *)
     

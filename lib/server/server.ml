@@ -154,8 +154,7 @@ let run config =
     Feed.route config;
     Actor.route config;
     Write_post.route config;
-    (* Actor.route config;
-     * Activity.route config; *)
+    (* Activity.route config; *)
 
     (* Dream.get "/home" @@ (handle_get_home config);
      * Dream.post "/home" @@ (handle_post_home config); *)

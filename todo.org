@@ -1,0 +1,15 @@
+* TODO Support Following [remote] users
+** TODO Add list users option to [[file:lib/server/navigation.ml::let build_navigation_bar req =][header builder]]
+** TODO create users page with search bar + follow button for each entry 
+** TODO send [[file:lib/server/worker.ml::type task =][local follow task]] to worker
+** TODO Update worker to [[file:lib/server/worker.ml][send follow request]]
+** TODO Add routing for [[file:lib/server/server.ml::Activity.route config; *][retrieving activities]] (for follow requests)
+** TODO Fix [[file:lib/server/actor.ml::Dream.post ":username/inbox" (handle_inbox_post config); *][post to inbox]] enough to receive follow requests*
+** TODO Update [[file:lib/server/actor.ml::let handle_actor_get_html _config req =][profile page]] to list following, followers and posts
+* TODO Support viewing posts by remote users
+** TODO Follow remote user on pleroma
+** TODO Fix [[file:lib/server/actor.ml::Dream.post ":username/inbox" (handle_inbox_post config); *][post to inbox]] enough to receive posts*
+* TODO Update worker [[file:lib/server/worker.ml::""][post function]] to build proper activitypub post
+* TODO Allow editing own profile
+* TODO Allow viewing individual posts
+
