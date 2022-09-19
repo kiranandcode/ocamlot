@@ -569,6 +569,13 @@ CLOSED: [2022-09-07 Wed 07:56]
 CLOSED: [2022-09-07 Wed 07:56]
 ** DONE refactor database to not use rec modules
 CLOSED: [2022-09-07 Wed 07:24]
+** TODO Implement profile page at url //profile/username/
+*** TODO handle image uploading
+*** TODO Update actor object to track detailed stats
+**** TODO profile picture
+**** TODO summary
+**** TODO bio
+*** TODO display information
 ** TODO Implement faithful posting
 *** DONE Add field to form to describe public,followers,direct
 CLOSED: [2022-09-08 Thu 08:49]
@@ -602,10 +609,3 @@ Upon receiving request:
 *** TODO retrieve post by id
 *** TODO ensure that post is either public or user is follower/target of post
 *** TODO display post
-** TODO Implement profile page at url //profile/username/
-*** TODO handle image uploading
-*** TODO Update actor object to track detailed stats
-**** TODO profile picture
-**** TODO summary
-**** TODO bio
-*** TODO display information

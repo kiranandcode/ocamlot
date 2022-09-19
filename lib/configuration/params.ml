@@ -59,7 +59,7 @@ let key_file v =
   else v.key_file
   
 let about_this_instance v = v.about_this_instance
-let domain v = Uri.of_string ("http://" ^ v.domain)
+let domain v = Uri.of_string ("https://" ^ v.domain)
 let database_path v = v.database_path
 let port v = v.port
 let debug v = v.debug

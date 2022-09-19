@@ -5,14 +5,17 @@ let log = Logging.add_logger "web.error"
 
 let extract_error_details err =
     let status = match err with
+    | `UserNotFound _ -> `Not_Found
     | _ -> `Internal_Server_Error in
     let msg = match err with
+      | `UserNotFound (_) -> "User not found"
       | `InvalidWebfinger (title, _) -> "Web finger error - " ^ title
       | `DatabaseError _ -> "Database error"
       | `FormError (title, _) -> "Form error - " ^ title
       | _ -> "Unknown internal error" in
     let details =
       match err with
+      | `UserNotFound name -> "User " ^ name ^ " not found"
       | `InvalidWebfinger (_, msg) -> "Query data was:\n  " ^ msg
       | `DatabaseError msg -> "Error was:\n" ^ msg
       | `FormError (_, data) -> "Form data was:\n" ^ data
@@ -50,4 +53,3 @@ let handle_error_json config handler req =
       "message", `String msg;
       "details", Option.map_or ~default:`Null (fun v -> `String v) details
     ]
-
