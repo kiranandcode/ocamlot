@@ -88,6 +88,28 @@ WHERE id = ?
   fun  ((user_id, _): t Link.t) is_admin (module DB: DB) ->
     DB.exec update_is_admin_request (is_admin, user_id) |> flatten_error
 
+let collect_local_users =
+  let%sql.query collect_local_users_request = {|
+SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
+FROM LocalUser
+ORDER BY username DESC
+|} in
+  let%sql.query collect_local_users_offset_request = {|
+SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
+FROM LocalUser
+ORDER BY username DESC
+LIMIT ? OFFSET ?
+|} in
+  fun ?offset (module DB: DB) ->
+    match offset with
+    | None ->
+      DB.collect_list collect_local_users_request ()
+      |> flatten_error
+    | Some (limit, offset) ->
+      DB.collect_list collect_local_users_offset_request
+        (limit, offset)
+      |> flatten_error
+
 let self (user: t) : t Link.t = (user.id, resolve_user)
 let username (user: t) = user.username
 let about (user: t) = user.about

@@ -782,3 +782,39 @@ div.profile-box.feed-item-author {
   padding: .25rem;
 }
 
+.user {
+  display: flex;
+  background: var(--element-color);
+  padding: .125rem;
+  color: var(--element-text-alt-color);
+  margin-top: .5rem;
+  margin-bottom: .5rem;
+}
+.user-item-contents {
+  padding-left: .25rem;
+  width: 100%;
+}
+.user-item-action {
+  float: right;
+}
+.user-item-action .pure-menu-link {
+  background-color: var(--element-alt-color);
+  color: var(--header-text-color);
+  margin-top: .25rem;
+  margin-bottom: .25rem;
+  border: 0px;
+  margin-left: .25rem;
+  margin-right: .25rem;
+  width: 10rem;
+}
+.user-item-stats {
+  display: flex;
+  flex-direction: column;
+  font-weight: lighter;
+}
+.user-item-name {
+  display: flex;
+}
+.user-item-display-name {
+  margin-right: .25rem;
+}

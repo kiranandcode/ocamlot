@@ -6,7 +6,7 @@ module Login = Login
 module Single_post = Single_post
 module Write_post = Write_post
 module Error = Error
-
+module Users = Users
 
 let head title =
   let module H = Tyxml.Html in

@@ -4,6 +4,8 @@ open Common
 
 module StringSet = Set.Make(String)
 
+let log = Logging.add_logger "web.user"
+
 (* let with_user req then_ =
  *   let load_user req username = Dream.sql req (Database.LocalUser.lookup_user ~username) in
  *   with_param "username" load_user req ~then_ ~else_:(not_found ~msg:"User not found") *)
@@ -310,9 +312,112 @@ let handle_outbox_get req =
  *            } : string Activitypub.Types.ordered_collection) in
  *   activity_json data *)
 
+let handle_users_get _config req =
+  let+ headers = Navigation.build_navigation_bar req in
+  let+ current_user = current_user_link req in
+  let can_follow = Option.is_some current_user in
+  let offset_start =
+    Dream.query req "offset-start"
+    |> Option.flat_map Int.of_string
+    |> Option.value ~default:0 in
+  let limit = 10 in
+  let+ users =
+    Dream.sql req (fun db ->
+      Database.LocalUser.collect_local_users
+        ~offset:(limit, offset_start * limit) db)
+    |> map_err (fun err -> `DatabaseError err) in
+  let+ users_w_stats =
+    Lwt_list.map_p (fun user ->
+      Dream.sql req @@ fun db ->
+      let+ user_link = Database.Actor.of_local (Database.LocalUser.self user) db in
+      let+ no_followers = Database.Follow.count_followers user_link db in
+      let+ no_posts = Database.Post.count_posts_by_author user_link db in
+      let+ is_following =
+        match current_user with
+        | None -> return_ok None
+        | Some current_user ->
+          Database.Follow.is_following ~author:current_user ~target:user_link db
+          |> Lwt_result.map Option.some in
+      return_ok (user, no_followers, no_posts, is_following)
+    ) users
+    |> lift_pure
+    >>= (fun r -> return (Result.flatten_l r))
+    |> map_err (fun e -> `DatabaseError e) in
+
+  tyxml (Html.build_page ~headers ~title:"Users" Tyxml.Html.[
+    div ~a:[a_class ["users-list"]] (
+      List.map (fun (user, no_followers, no_posts, is_following) ->
+        Html.Users.user ~can_follow object
+          method about = []
+          method display_name = Database.LocalUser.display_name user
+          method username = Database.LocalUser.username user
+          method follow_link = ("/users/" ^ (Database.LocalUser.username user) ^ "/follow")
+          method profile_page = ("/users/" ^ (Database.LocalUser.username user))
+          method following = is_following
+          method profile = object
+            method image = "/static/images/unknown.png"
+            method name = ""
+          end
+          method stats = object
+            method followers = no_followers
+            method posts = no_posts
+          end
+        end
+      ) users_w_stats
+    )
+  ])
+
+let handle_users_follow_post _config req =
+  let username = Dream.param req "username" in
+  let+ current_user =
+    let+ current_user = current_user_link req in
+    lift_opt ~else_:(fun _ -> `InvalidPermissions ("Attempt to follow user while logged out"))
+      current_user
+    |> return in
+  let+ target_user =
+    Dream.sql req
+      (Database.LocalUser.lookup_user ~username)
+    |> map_err (fun err -> `DatabaseError err)
+    >>= (fun v -> return (lift_opt ~else_:(fun () -> `UserNotFound username) v)) in
+  let+ target_user =
+    Dream.sql req @@ Database.Actor.of_local (Database.LocalUser.self target_user)
+    |> map_err (fun err -> `DatabaseError err) in
+  let+ is_following =
+    Dream.sql req @@ fun db ->
+    Database.Follow.is_following ~author:current_user ~target:target_user db
+    |> map_err (fun e -> `DatabaseError e) in
+  match is_following with
+  | false ->
+    let id = Uuidm.v `V4 in
+    let+ _follow =
+      Dream.sql req @@
+      Database.Follow.create_follow
+        ~public_id:(Uuidm.to_string id)
+        ~url:("/api/follows/" ^ (Uuidm.to_string id))
+        ~author:current_user
+        ~target:target_user
+        ~pending:false
+        ~created:(CalendarLib.Calendar.now ())
+      |> map_err (fun e -> `DatabaseError e) in
+    redirect req "/users"
+  | true ->
+    let+ follow =
+      Dream.sql req @@
+      Database.Follow.find_follow_between
+        ~author:current_user
+        ~target:target_user
+      |> map_err (fun e -> `DatabaseError e) in
+    let+ _ =
+      Dream.sql req @@
+      Database.Follow.delete_follow (Database.Follow.self follow)
+      |> map_err (fun e -> `DatabaseError e) in
+    redirect req "/users"
+
 let route config = 
   Dream.scope "/users" [] [
+    Dream.get "" @@ Error_handling.handle_error_html config (handle_users_get config);
     Dream.get "/:username" @@ (handle_actor_get config);
+    Dream.post "/:username/follow" @@ Error_handling.handle_error_html config (handle_users_follow_post config);
     (* Dream.get "/:username/inbox" handle_inbox_get; *)
     (* Dream.post ":username/inbox" (handle_inbox_post config); *)
     Dream.get "/:username/outbox" handle_outbox_get;

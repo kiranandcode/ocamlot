@@ -106,6 +106,28 @@ LIMIT ? OFFSET ?
         (actor_id, actor_id, timestamp, (limit, offset))
       |> flatten_error
 
+let is_following =
+  let%sql.query is_following_request = {|
+SELECT COUNT(*)
+FROM Follows
+WHERE author_id = ? AND target_id = ? AND pending = FALSE
+|} in
+  fun ~author:((author_id, _): Actor.t Link.t) ~target:((target_id, _): Actor.t Link.t) (module DB: DB) ->
+    DB.find is_following_request (author_id, target_id)
+    |> flatten_error
+    |> Lwt_result.map (fun c -> c > 0)
+    
+let find_follow_between =
+  let%sql.query find_follow_request = {|
+SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
+FROM Follows
+WHERE author_id = ? AND target_id = ? AND pending = FALSE
+|} in
+  fun ~author:((author_id, _): Actor.t Link.t) ~target:((target_id, _): Actor.t Link.t) (module DB: DB) ->
+    DB.find find_follow_request (author_id, target_id)
+    |> flatten_error
+
+
 let count_following =
   let%sql.query count_following_request = {|
 SELECT COUNT(*)

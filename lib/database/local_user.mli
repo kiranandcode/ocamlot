@@ -24,6 +24,9 @@ val update_manually_accept_follows:
 val update_is_admin:
   t Link.t -> bool -> (module Caqti_lwt.CONNECTION) -> (unit, string) Lwt_result.t
 
+val collect_local_users:
+  ?offset:int * int -> (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
 val self: t -> t Link.t
 val username: t -> string
 val display_name: t -> string

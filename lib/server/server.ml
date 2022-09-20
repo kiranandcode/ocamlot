@@ -152,7 +152,7 @@ let run config =
 
     Authentication.route config;
     Feed.route config;
-    Actor.route config;
+    Users.route config;
     Write_post.route config;
     (* Activity.route config; *)
 
