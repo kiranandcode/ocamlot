@@ -114,7 +114,7 @@ let route config =
 
     tyxml @@ Html.build_page ~headers ~title @@ List.concat [
       [
-        Html.Feed.feed_title title;
+        Html.Components.page_title title;
         (build_feed_navigation_panel feed_navigation)
       ];
       write_post_button;

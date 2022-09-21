@@ -7,14 +7,6 @@ let () = declare_schema "../../resources/schema.sql"
 (* see ./resources/schema.sql:RemoteInstance *)
 type t = Types.remote_instance
 
-let t =
-  let encode ({id;url;last_unreachable}: t) =
-    Ok (id, url, last_unreachable) in
-  let decode (id, url, last_unreachable) =
-    Ok ({id;url;last_unreachable}: t) in
-  T.Std.custom ~encode ~decode
-    T.Std.(tup3 int64 string (option timestamp))
-
 let%sql.query lookup_instance_request = {|
 SELECT id, url, last_unreachable FROM RemoteInstance WHERE url = ?
  |}

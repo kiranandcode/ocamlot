@@ -7,7 +7,6 @@ let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:LocalUser *)
 type t = Types.local_user
-let t = Types.local_user
 
 let display_name (user: t) =
   user.display_name

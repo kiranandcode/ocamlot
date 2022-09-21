@@ -6,7 +6,6 @@ let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:RemoteUser *)
 type t = Types.remote_user
-let t = Types.remote_user
 
 let%sql.query lookup_remote_user_by_address_request = {|
 SELECT
@@ -67,6 +66,51 @@ JOIN RemoteInstance on RemoteUser.instance_id = RemoteInstance.id
 |} in
   fun (module DB: DB) ->
     DB.collect_list retrieve_known_user_list_reqest () |> flatten_error
+
+let collect_remote_users =
+  let%sql.query collect_remote_users_request = {|
+SELECT
+    RU.id,
+    RU.username,
+    RU.instance_id,
+    RU.display_name,
+    RU.url,
+    RU.inbox,
+    RU.outbox,
+    RU.followers,
+    RU.following,
+    RU.summary,
+    RU.public_key_pem,
+    RI.url
+FROM RemoteUser AS RU
+JOIN RemoteInstance AS RI on RemoteUser.instance_id = RemoteInstance.id
+ORDER BY (RU.display_name, RI.url)
+|} in
+  let%sql.query collect_remote_users_offset_request = {|
+SELECT
+    RU.id,
+    RU.username,
+    RU.instance_id,
+    RU.display_name,
+    RU.url,
+    RU.inbox,
+    RU.outbox,
+    RU.followers,
+    RU.following,
+    RU.summary,
+    RU.public_key_pem,
+    RI.url
+FROM RemoteUser AS RU
+JOIN RemoteInstance AS RI on RemoteUser.instance_id = RemoteInstance.id
+ORDER BY RU.display_name DESC
+LIMIT ? OFFSET ?
+|} in
+  fun ?offset (module DB: DB) ->
+    match offset with
+    | None ->
+      DB.collect_list collect_remote_users_request () |> flatten_error
+    | Some (limit, offset) ->
+      DB.collect_list collect_remote_users_offset_request (limit, offset) |> flatten_error
 
 let collect_remote_users_following =
   let%sql.query collect_remote_users_request = {|

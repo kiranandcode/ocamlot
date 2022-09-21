@@ -6,7 +6,6 @@ let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:Tag *)
 type t = Types.tag
-let t = Types.tag
 
 
 let%sql.query find_tag_by_name_request =

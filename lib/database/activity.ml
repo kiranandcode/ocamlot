@@ -7,7 +7,6 @@ type id = Uuidm.t
 
 (* see ./resources/schema.sql:Activity *)
 type t = Types.activity
-let t = Types.activity
 
 let data ({id=_;data}: t) = data
 let id ({id;data=_}: t) = id

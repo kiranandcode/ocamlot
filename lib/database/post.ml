@@ -174,13 +174,8 @@ JOIN Tags ON PostTags.tag_id = Tags.tag_id
 WHERE PostTags.post_id = ?
 |} in
   fun (((post_id, _): t Link.t)) (module DB: DB) : ((Tag.t * string option) List.t, string) R.t ->
-    let* ls  = DB.collect_list collect_post_tags_request (Some post_id)
-               |> flatten_error in
-    let tags =
-      List.map
-        (fun (id, name', url) -> (Types.{id; name=name'}, url))
-        ls in
-    Lwt_result.return tags
+    DB.collect_list collect_post_tags_request (Some post_id)
+    |> flatten_error
 
 let add_post_mention =
   let%sql.query add_post_mention_request = {|

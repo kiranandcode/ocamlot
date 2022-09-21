@@ -317,18 +317,26 @@ let parse_user_types = function
   | "remote" -> Some `Remote
   | _ -> None
 
-let handle_local_users_get _config req =
+let encode_user_types = function
+  | `Local -> "Local Users"
+  | `Remote -> "Remote Users"
+
+
+let render_users_page ?search_query req user_type users =
   let+ headers = Navigation.build_navigation_bar req in
-  let+ current_user = current_user req in
+  tyxml (Html.build_page ~headers ~title:(encode_user_types user_type) Tyxml.Html.[
+    Html.Components.page_title (encode_user_types user_type);
+    Html.Components.subnavigation_menu [
+      "Local", "/users?type=local";
+      "Remote", "/users?type=remote";
+    ];
+    Html.Components.search_box ?value:search_query ();
+    div ~a:[a_class ["users-list"]]
+      users
+  ])
+
+let handle_local_users_get _config req =
   let+ current_user_link = current_user_link req in
-  let can_follow =
-    match current_user with
-    | None -> fun _ -> false
-    | Some current_user ->
-      fun other_user ->
-        not @@ String.equal
-          (Database.LocalUser.username current_user)
-          (Database.LocalUser.username other_user) in
   let offset_start =
     Dream.query req "offset-start"
     |> Option.flat_map Int.of_string
@@ -356,34 +364,67 @@ let handle_local_users_get _config req =
     |> lift_pure
     >>= (fun r -> return (Result.flatten_l r))
     |> map_err (fun e -> `DatabaseError e) in
+  let+ current_user = current_user req in
+  let can_follow =
+    match current_user with
+    | None -> fun _ -> false
+    | Some current_user -> fun other_user ->
+      not @@ String.equal
+               (Database.LocalUser.username current_user)
+               (Database.LocalUser.username other_user) in
+  let users =
+    List.map (fun (user, no_followers, no_posts, is_following) ->
+      Html.Users.user ~can_follow:(can_follow user)
+        (object
+          method about = []
+          method display_name = Database.LocalUser.display_name user
+          method username = Database.LocalUser.username user
+          method follow_link = ("/users/" ^ (Database.LocalUser.username user) ^ "/follow")
+          method profile_page = ("/users/" ^ (Database.LocalUser.username user))
+          method following = is_following
+          method profile = object
+            method image = "/static/images/unknown.png"
+            method name = ""
+          end
+          method stats = object
+            method followers = no_followers
+            method posts = no_posts
+          end
+        end)
+    ) users_w_stats in
+  render_users_page req `Local users
 
-  tyxml (Html.build_page ~headers ~title:"Users" Tyxml.Html.[
-    Html.Components.subnavigation_menu [
-      "Local", "/users?type=local";
-      "Remote", "/users?type=remote";
-    ];
-    Html.Components.search_box ();
-    div ~a:[a_class ["users-list"]] (
-      List.map (fun (user, no_followers, no_posts, is_following) ->
-        Html.Users.user ~can_follow:(can_follow user) object
-                                      method about = []
-                                      method display_name = Database.LocalUser.display_name user
-                                      method username = Database.LocalUser.username user
-                                      method follow_link = ("/users/" ^ (Database.LocalUser.username user) ^ "/follow")
-                                      method profile_page = ("/users/" ^ (Database.LocalUser.username user))
-                                      method following = is_following
-                                      method profile = object
-                                        method image = "/static/images/unknown.png"
-                                        method name = ""
-                                      end
-                                      method stats = object
-                                        method followers = no_followers
-                                        method posts = no_posts
-                                      end
-                                    end
-      ) users_w_stats
-    )
-  ])
+let handle_remote_users_get _config req =
+  let+ current_user_link = current_user_link req in
+  let offset_start =
+    Dream.query req "offset-start"
+    |> Option.flat_map Int.of_string
+    |> Option.value ~default:0 in
+  let limit = 10 in
+  let+ users =
+    Dream.sql req (fun db ->
+      Database.RemoteUser.collect_remote_users_following
+        ~offset:(limit, offset_start * limit) db)
+    |> map_err (fun err -> `DatabaseError err) in
+  let+ users_w_stats =
+    Lwt_list.map_p (fun user ->
+      Dream.sql req @@ fun db ->
+      let+ user_link = Database.Actor.of_local (Database.LocalUser.self user) db in
+      let+ no_followers = Database.Follow.count_followers user_link db in
+      let+ no_posts = Database.Post.count_posts_by_author user_link db in
+      let+ is_following =
+        match current_user_link with
+        | None -> return_ok None
+        | Some current_user_link ->
+          Database.Follow.is_following ~author:current_user_link ~target:user_link db
+          |> Lwt_result.map Option.some in
+      return_ok (user, no_followers, no_posts, is_following)
+    ) users
+    |> lift_pure
+    >>= (fun r -> return (Result.flatten_l r))
+    |> map_err (fun e -> `DatabaseError e) in
+
+  render_users_page req `Local users_w_stats
 
 
 let handle_users_get _config req =
@@ -395,7 +436,7 @@ let handle_users_get _config req =
   | `Local ->
     handle_local_users_get _config req
   | `Remote ->
-    assert false
+    handle_remote_users_get _config req
 
 let handle_users_follow_post _config req =
   let username = Dream.param req "username" in

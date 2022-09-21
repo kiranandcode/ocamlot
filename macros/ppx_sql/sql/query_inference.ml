@@ -42,12 +42,13 @@ let lookup all_tables table_map table_context ?table_name column =
 
 
 let type_of_sql_query_value all_tables (table_map: string StringMap.t) (tables: Types.table list) (value: Query_ast.sql_value) :
-  Query_type.core_type =
+  string option * Query_type.core_type =
   match value with
   | Query_ast.C (table_name, column) ->
-    (snd (lookup all_tables table_map tables ?table_name column)).ty
-  | Query_ast.COUNT _ -> int
-  | Query_ast.STRING _ -> string
+    let tbl, col = (lookup all_tables table_map tables ?table_name column) in
+    Some tbl.name, col.ty
+  | Query_ast.COUNT _ -> None, int
+  | Query_ast.STRING _ -> None, string
   | Query_ast.STAR -> failwith "STAR const not expected in this context"
   | Query_ast.INT _ -> failwith "INT const not expected in this context"
   | Query_ast.BOOL _ -> failwith "BOOL const not expected in this context"
@@ -219,6 +220,9 @@ let combine_opt ls rs =
       loop ((l,r) :: acc) ls rs in
   loop [] ls rs
 
+(* let simplify_types (tables: Types.table list) (tys: Query_type.core_type list) : Query_type.core_type list =
+ *   let rec loop outputs tys = *)
+
 let simplify_types (tables: Types.table list) (tys: Query_type.core_type list) : Query_type.core_type list =
   let check_eq (col: Types.column) (cty: Ppxlib.core_type) =
     let to_string (s: Ppxlib.core_type) = Format.to_string Ppxlib.Pprintast.core_type s in
@@ -231,7 +235,45 @@ let simplify_types (tables: Types.table list) (tys: Query_type.core_type list) :
       then table.ty |> Option.map (fun v -> [v])
       else None
   ) tables
-  |> Option.value ~default:tys
+  |> function Some tys -> tys | None -> tys
+
+let group ls =
+  let rec loop acc current_acc current_key = function
+    | (k, vl) :: t when Equal.poly k current_key ->
+      loop acc (vl :: current_acc) k t
+    | (k, vl) :: t ->
+      loop ((current_key, List.rev current_acc) :: acc) [vl] k t
+    | [] -> List.rev ((current_key, List.rev current_acc) :: acc) in
+  match ls with
+  | [] -> []
+  | (k, vl) :: t ->
+    loop [] [vl] k t
+
+let simplify_return_types (tables: Types.table list) (tys: (string option * Query_type.core_type) list) : Query_type.core_type list =
+  let check_eq (col: Types.column) (cty: Ppxlib.core_type) =
+    let to_string (s: Ppxlib.core_type) = Format.to_string Ppxlib.Pprintast.core_type s in
+    String.equal (to_string col.ty) (to_string cty) in
+  group tys
+  |> List.concat_map (fun (tbl, tys) ->
+    let flat_tys = 
+      let open Option in
+      let* tbl = tbl in
+      let tbl = List.find (fun (tbl': Types.table) -> String.equal tbl'.name tbl) tables in
+      let* combined = combine_opt tbl.columns tys in
+      if List.for_all (fun (col, ty) -> check_eq col ty) combined
+      then Option.map (fun v -> [v]) tbl.ty
+      else None in
+    match flat_tys with
+    | None -> tys
+    | Some tys -> tys
+  )
+
+let simplify_return_types tables tys =
+  let s1 = simplify_return_types tables tys in
+  let s2 = simplify_types tables (List.map snd tys) in
+  if List.compare_lengths s1 s2 <= 0
+  then s1
+  else s2
      
 
 let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_type.ty =
@@ -276,13 +318,13 @@ let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_ty
        | [STAR] ->
          let tys = 
            List.concat_map (fun (tbl: Types.table) ->
-             List.map (fun (col: Types.column) -> col.ty) tbl.columns
-           )  table_context in
-         let tys = simplify_types table_context tys in
+             List.map (fun (col: Types.column) -> (Some tbl.name, col.ty)) tbl.columns
+           ) table_context in
+         let tys = simplify_return_types table_context tys in
          Tuple {many=returning_multiple; tys}
        | tys ->
          let tys = List.map (type_of_sql_query_value tables table_map table_context) tys in
-         let tys = simplify_types table_context tys in
+         let tys = simplify_return_types table_context tys in
          Tuple {many=returning_multiple; tys} in
      let hole_types = IntMap.empty in
      let hole_types =

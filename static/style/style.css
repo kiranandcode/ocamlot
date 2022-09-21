@@ -173,6 +173,16 @@ div.post-content {
     display: flex;
 }
 
+.page-title > h1 {
+  margin-bottom: 0.25rem;
+  padding-bottom: 0;
+  background-color: var(--header-color);
+  padding-left: 0.5rem;
+  padding-top: 0.5rem;
+  color: var(--header-text-color);
+}
+
+
 .post-buttons {
   display: flex;
   justify-content: space-evenly;
@@ -438,14 +448,6 @@ div.post-replies-list {
   color: var(--element-text-color);
 }
 
-.feed-title > h1 {
-  margin-bottom: 0.25rem;
-  padding-bottom: 0;
-  background-color: var(--header-color);
-  padding-left: 0.5rem;
-  padding-top: 0.5rem;
-  color: var(--header-text-color);
-}
 
 .feed-item {
   background-color: var(--element-color);

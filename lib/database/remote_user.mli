@@ -30,6 +30,8 @@ val get_known_remote_actors : (module Caqti_lwt.CONNECTION) -> ((string * string
 
 val find_remote_users: ?offset:int * int -> string -> (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
 
+val collect_remote_users: ?offset:int * int -> (module Caqti_lwt.CONNECTION) -> ((t * string) list, string) Lwt_result.t
+
 val collect_remote_users_following:
   ?offset:int * int -> Local_user.t Link.t ->
   (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t

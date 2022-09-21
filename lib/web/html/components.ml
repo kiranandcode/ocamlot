@@ -2,6 +2,12 @@ open Containers
 open Pure.Utils
 
 
+let page_title title =
+  Pure.grid_col [
+    H.div ~a:[H.a_class ["page-title"]] [
+      H.h1 [H.txt title]
+    ];
+  ]
 
 let header fields =
   H.header ~a:[H.a_class ["header"]] [
@@ -72,11 +78,12 @@ let subnavigation_menu entries =
        ) entries)
   ]
 
-let search_box ?a ?a_class ?(placeholder="Search...") ?(button_text="🔎") ?(name="search") () =
+let search_box ?a ?a_class ?(placeholder="Search...") ?value ?(button_text="🔎") ?(name="search") () =
   Pure.grid_row [
     Pure.grid_col ~a_class:["search-box"] [
       Pure.form ?a ?a_class [
-        H.input ~a:[H.a_input_type `Text; H.a_placeholder placeholder; H.a_name name] ();
+        H.input ~a:((!! (Option.map (fun v -> [H.a_value v]) value)) @
+                    [H.a_input_type `Text; H.a_placeholder placeholder; H.a_name name]) ();
         H.input ~a:[H.a_input_type `Submit; H.a_value button_text] ();
       ]
     ]
