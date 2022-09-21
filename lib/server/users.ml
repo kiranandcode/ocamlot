@@ -403,13 +403,13 @@ let handle_remote_users_get _config req =
   let limit = 10 in
   let+ users =
     Dream.sql req (fun db ->
-      Database.RemoteUser.collect_remote_users_following
+      Database.RemoteUser.collect_remote_users
         ~offset:(limit, offset_start * limit) db)
     |> map_err (fun err -> `DatabaseError err) in
   let+ users_w_stats =
-    Lwt_list.map_p (fun user ->
+    Lwt_list.map_p (fun (user, _url) ->
       Dream.sql req @@ fun db ->
-      let+ user_link = Database.Actor.of_local (Database.LocalUser.self user) db in
+      let+ user_link = Database.Actor.of_remote (Database.RemoteUser.self user) db in
       let+ no_followers = Database.Follow.count_followers user_link db in
       let+ no_posts = Database.Post.count_posts_by_author user_link db in
       let+ is_following =
@@ -423,9 +423,27 @@ let handle_remote_users_get _config req =
     |> lift_pure
     >>= (fun r -> return (Result.flatten_l r))
     |> map_err (fun e -> `DatabaseError e) in
-
-  render_users_page req `Local users_w_stats
-
+  let users =
+    List.map (fun (user, no_followers, no_posts, is_following) ->
+      Html.Users.user ~can_follow:true
+        (object
+          method about = []
+          method display_name = Database.RemoteUser.display_name user
+          method username = Database.RemoteUser.username user
+          method follow_link = ("/users/" ^ (Database.RemoteUser.username user) ^ "/follow")
+          method profile_page = ("/users/" ^ (Database.RemoteUser.username user))
+          method following = is_following
+          method profile = object
+            method image = "/static/images/unknown.png"
+            method name = ""
+          end
+          method stats = object
+            method followers = no_followers
+            method posts = no_posts
+          end
+        end)
+    ) users_w_stats in
+  render_users_page req `Remote users
 
 let handle_users_get _config req =
   let user_list_ty =
