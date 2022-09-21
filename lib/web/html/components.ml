@@ -61,3 +61,25 @@ let navigation_panel ~from_ ~to_ =
       ]
     ];
   ]
+
+let subnavigation_menu entries =
+  Pure.grid_row [
+    Pure.grid_col ~a_class:["subnavigation-menu"; "pure-menu"; "pure-menu-horizontal"; "pure-menu-scrollable"]
+      (List.map (fun (name, link) ->
+         Pure.a_menu_heading ~a:[Tyxml.Html.a_href link] [
+           Tyxml.Html.txt name
+         ]
+       ) entries)
+  ]
+
+let search_box ?a ?a_class ?(placeholder="Search...") ?(button_text="🔎") ?(name="search") () =
+  Pure.grid_row [
+    Pure.grid_col ~a_class:["search-box"] [
+      Pure.form ?a ?a_class [
+        H.input ~a:[H.a_input_type `Text; H.a_placeholder placeholder; H.a_name name] ();
+        H.input ~a:[H.a_input_type `Submit; H.a_value button_text] ();
+      ]
+    ]
+  ]
+
+  

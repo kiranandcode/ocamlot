@@ -358,38 +358,29 @@ let handle_local_users_get _config req =
     |> map_err (fun e -> `DatabaseError e) in
 
   tyxml (Html.build_page ~headers ~title:"Users" Tyxml.Html.[
-    Pure.grid_row [
-      Pure.grid_col ~a_class:[
-        "feed-subnavigation-menu";
-        "pure-menu"; "pure-menu-horizontal";
-        "pure-menu-scrollable"
-      ] [
-        Pure.a_menu_heading ~a:[
-          a_href "/users?type=local"
-        ] [(txt "Local")];
-        Pure.a_menu_heading ~a:[
-          a_href "/users?type=remote"
-        ] [(txt "Remote")]
-      ]
+    Html.Components.subnavigation_menu [
+      "Local", "/users?type=local";
+      "Remote", "/users?type=remote";
     ];
-      div ~a:[a_class ["users-list"]] (
+    Html.Components.search_box ();
+    div ~a:[a_class ["users-list"]] (
       List.map (fun (user, no_followers, no_posts, is_following) ->
         Html.Users.user ~can_follow:(can_follow user) object
-          method about = []
-          method display_name = Database.LocalUser.display_name user
-          method username = Database.LocalUser.username user
-          method follow_link = ("/users/" ^ (Database.LocalUser.username user) ^ "/follow")
-          method profile_page = ("/users/" ^ (Database.LocalUser.username user))
-          method following = is_following
-          method profile = object
-            method image = "/static/images/unknown.png"
-            method name = ""
-          end
-          method stats = object
-            method followers = no_followers
-            method posts = no_posts
-          end
-        end
+                                      method about = []
+                                      method display_name = Database.LocalUser.display_name user
+                                      method username = Database.LocalUser.username user
+                                      method follow_link = ("/users/" ^ (Database.LocalUser.username user) ^ "/follow")
+                                      method profile_page = ("/users/" ^ (Database.LocalUser.username user))
+                                      method following = is_following
+                                      method profile = object
+                                        method image = "/static/images/unknown.png"
+                                        method name = ""
+                                      end
+                                      method stats = object
+                                        method followers = no_followers
+                                        method posts = no_posts
+                                      end
+                                    end
       ) users_w_stats
     )
   ])

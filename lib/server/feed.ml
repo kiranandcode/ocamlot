@@ -49,10 +49,9 @@ let extract_post req (post: Database.Post.t) :
   end
 
 let build_feed_navigation_panel options =
+  Html.Components.subnavigation_menu @@
   List.map (fun feed ->
-    Pure.a_menu_heading ~a:[Tyxml.Html.a_href ("/feed?feed-ty=" ^ encode_feed feed)] [
-      Tyxml.Html.txt (feed_type_to_string feed)
-    ]
+    (feed_type_to_string feed, ("/feed?feed-ty=" ^ encode_feed feed))
   ) options
 
 let route config =
@@ -116,12 +115,8 @@ let route config =
     tyxml @@ Html.build_page ~headers ~title @@ List.concat [
       [
         Html.Feed.feed_title title;
-        Pure.grid_row [
-          Pure.grid_col ~a_class:["feed-subnavigation-menu"; "pure-menu"; "pure-menu-horizontal"; "pure-menu-scrollable"]
-            (build_feed_navigation_panel feed_navigation)
-        ]
+        (build_feed_navigation_panel feed_navigation)
       ];
-
       write_post_button;
 
       [
