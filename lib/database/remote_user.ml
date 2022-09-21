@@ -137,6 +137,30 @@ LIMIT ? OFFSET ?
       DB.collect_list collect_remote_users_offset_request (local_user, limit, offset)
       |> flatten_error
 
+let find_remote_users =
+  let%sql.query find_remote_users_request = {|
+SELECT id, username, instance_id, display_name, url, inbox, outbox, followers, following, summary, public_key_pem 
+FROM RemoteUser
+WHERE username LIKE ? OR display_name LIKE ?
+ORDER BY username DESC
+|} in
+  let%sql.query find_remote_users_offset_request = {|
+SELECT id, username, instance_id, display_name, url, inbox, outbox, followers, following, summary, public_key_pem 
+FROM RemoteUser
+WHERE username LIKE ? OR display_name LIKE ?
+ORDER BY username DESC
+LIMIT ? OFFSET ?
+|} in
+  fun ?offset query (module DB: DB) ->
+    match offset with
+    | None ->
+      DB.collect_list find_remote_users_request (query, query)
+      |> flatten_error
+    | Some (limit, offset) ->
+      DB.collect_list find_remote_users_offset_request
+        (query, query, limit, offset)
+      |> flatten_error
+
 let self (t: t) : t Link.t = t.id, resolve_remote_user
 let username (t: t) = t.username
 let instance (t: t) : Remote_instance.t Link.t = t.instance_id, Remote_instance.resolve_instance
