@@ -3,7 +3,6 @@ open Common
 
 let log = Logging.add_logger "web.home"
 
-
 let parse_feed = function
   | "feed" -> Some `Feed
   | "direct" -> Some `Direct
@@ -33,7 +32,8 @@ let extract_post req (post: Database.Post.t) :
      contents : [< Html_types.div_content_fun > `H3 ] Tyxml_html.elt list;
      date : string; stats : < cheers : int; toasts : int; .. >;
      title : string; .. >, _) Lwt_result.t =
-  let+ author = Database.Post.author post |> fun p -> Dream.sql req (Database.Link.resolve p) in
+  let+ author = Database.Post.author post
+                |> fun p -> Dream.sql req (Database.Link.resolve p) in
 
   return_ok object
     method author = object

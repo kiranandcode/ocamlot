@@ -88,6 +88,7 @@ let _EXISTS = string_ci "exists" <* not_prefix
 let _IS = string_ci "is" <* not_prefix
 let _NOT = string_ci "not" <* not_prefix
 let _NULL = string_ci "null" <* not_prefix
+let _LIKE = string_ci "like" <* not_prefix
 
 let _PRAGMA = string_ci "pragma" <* not_prefix
 let _OFF = string_ci "off" <* not_prefix
@@ -179,6 +180,12 @@ let identifier =
   if StringSet.mem (String.lowercase_ascii s) keywords
   then fail "invalid identifier"
   else return s
+
+let string_constant =
+  choice ~failure_msg:"expected a string constant" [
+    char '"' *>> take_till (Char.(<>) '"') <<* char '"' <?> "Double quoted string constant";
+    char '\'' *>> take_till (Char.(<>) '\'') <<* char '\'' <?> "Double quoted string constant";
+  ]
 
 let fail_to_string marks err =
   String.concat " > " marks ^ ": " ^ err

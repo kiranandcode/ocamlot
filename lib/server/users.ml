@@ -94,7 +94,7 @@ let handle_actor_get_html _config req =
       end
     end
   ]
-  (* tyxml (invalid_arg "TODO") (\* (Html.Profile.build config current_user ~state ~posts ~following ~followers user req) *\) *)
+(* tyxml (invalid_arg "TODO") (\* (Html.Profile.build config current_user ~state ~posts ~following ~followers user req) *\) *)
 
 let handle_actor_get_json config req =
   let username = Dream.param req "username" in
@@ -312,10 +312,23 @@ let handle_outbox_get req =
  *            } : string Activitypub.Types.ordered_collection) in
  *   activity_json data *)
 
-let handle_users_get _config req =
+let parse_user_types = function
+  | "local" -> Some `Local
+  | "remote" -> Some `Remote
+  | _ -> None
+
+let handle_local_users_get _config req =
   let+ headers = Navigation.build_navigation_bar req in
-  let+ current_user = current_user_link req in
-  let can_follow = Option.is_some current_user in
+  let+ current_user = current_user req in
+  let+ current_user_link = current_user_link req in
+  let can_follow =
+    match current_user with
+    | None -> fun _ -> false
+    | Some current_user ->
+      fun other_user ->
+        not @@ String.equal
+          (Database.LocalUser.username current_user)
+          (Database.LocalUser.username other_user) in
   let offset_start =
     Dream.query req "offset-start"
     |> Option.flat_map Int.of_string
@@ -333,10 +346,10 @@ let handle_users_get _config req =
       let+ no_followers = Database.Follow.count_followers user_link db in
       let+ no_posts = Database.Post.count_posts_by_author user_link db in
       let+ is_following =
-        match current_user with
+        match current_user_link with
         | None -> return_ok None
-        | Some current_user ->
-          Database.Follow.is_following ~author:current_user ~target:user_link db
+        | Some current_user_link ->
+          Database.Follow.is_following ~author:current_user_link ~target:user_link db
           |> Lwt_result.map Option.some in
       return_ok (user, no_followers, no_posts, is_following)
     ) users
@@ -345,9 +358,23 @@ let handle_users_get _config req =
     |> map_err (fun e -> `DatabaseError e) in
 
   tyxml (Html.build_page ~headers ~title:"Users" Tyxml.Html.[
-    div ~a:[a_class ["users-list"]] (
+    Pure.grid_row [
+      Pure.grid_col ~a_class:[
+        "feed-subnavigation-menu";
+        "pure-menu"; "pure-menu-horizontal";
+        "pure-menu-scrollable"
+      ] [
+        Pure.a_menu_heading ~a:[
+          a_href "/users?type=local"
+        ] [(txt "Local")];
+        Pure.a_menu_heading ~a:[
+          a_href "/users?type=remote"
+        ] [(txt "Remote")]
+      ]
+    ];
+      div ~a:[a_class ["users-list"]] (
       List.map (fun (user, no_followers, no_posts, is_following) ->
-        Html.Users.user ~can_follow object
+        Html.Users.user ~can_follow:(can_follow user) object
           method about = []
           method display_name = Database.LocalUser.display_name user
           method username = Database.LocalUser.username user
@@ -366,6 +393,18 @@ let handle_users_get _config req =
       ) users_w_stats
     )
   ])
+
+
+let handle_users_get _config req =
+  let user_list_ty =
+    Dream.query req "type"
+    |> Option.flat_map parse_user_types
+    |> Option.value ~default:`Local in
+  match user_list_ty with
+  | `Local ->
+    handle_local_users_get _config req
+  | `Remote ->
+    assert false
 
 let handle_users_follow_post _config req =
   let username = Dream.param req "username" in
@@ -422,7 +461,7 @@ let route config =
     (* Dream.post ":username/inbox" (handle_inbox_post config); *)
     Dream.get "/:username/outbox" handle_outbox_get;
     (* Dream.post "/:username/outbox" handle_outbox_post; *)
-    
+
     (* Dream.get "/:username/followers" (handle_followers_get config); *)
     (* Dream.get "/:username/following" (handle_following_get config); *)
   ]

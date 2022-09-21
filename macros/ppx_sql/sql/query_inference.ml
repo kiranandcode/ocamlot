@@ -5,6 +5,7 @@ module IntMap = Map.Make(Int)
 
 let int = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident "int"; loc=Location.none} []
 let bool = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident "bool"; loc=Location.none} []
+let string = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident "string"; loc=Location.none} []
 let ty n args = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident n; loc=Location.none} args
 
 let datetime =
@@ -46,6 +47,7 @@ let type_of_sql_query_value all_tables (table_map: string StringMap.t) (tables: 
   | Query_ast.C (table_name, column) ->
     (snd (lookup all_tables table_map tables ?table_name column)).ty
   | Query_ast.COUNT _ -> int
+  | Query_ast.STRING _ -> string
   | Query_ast.STAR -> failwith "STAR const not expected in this context"
   | Query_ast.INT _ -> failwith "INT const not expected in this context"
   | Query_ast.BOOL _ -> failwith "BOOL const not expected in this context"
@@ -61,6 +63,7 @@ let rec type_of_expected_constant_sql_value all_tables
   | Query_ast.C (table_name, column) ->
     Some (snd (lookup all_tables table_map tables ?table_name column)).ty
   | Query_ast.COUNT _ -> Some int
+  | Query_ast.STRING _ -> Some string
   | Query_ast.STAR -> None
   | Query_ast.INT _ -> Some int
   | Query_ast.BOOL _ -> Some bool
@@ -75,6 +78,7 @@ let rec assert_no_holes (value: Query_ast.sql_value) =
   | Query_ast.STAR -> ()
   | Query_ast.INT _ -> ()
   | Query_ast.BOOL _ -> ()
+  | Query_ast.STRING _ -> ()
   | Query_ast.COALESCE vls ->
     List.iter assert_no_holes vls
   | Query_ast.DATETIME vl -> assert_no_holes vl
@@ -87,6 +91,7 @@ let rec visit_sql_value (value: Query_ast.sql_value) ty mapping =
   | Query_ast.STAR -> mapping
   | Query_ast.INT _ -> mapping
   | Query_ast.BOOL _ -> mapping
+  | Query_ast.STRING _ -> mapping
   | Query_ast.COALESCE vls ->
     List.fold_left (fun mapping value -> visit_sql_value value ty mapping) mapping vls
   | Query_ast.DATETIME dt -> assert_no_holes dt; mapping
@@ -114,6 +119,7 @@ let rec check_where_constraint_unique all_tables (table_map: string StringMap.t)
   | Query_ast.LT (_, _)
   | Query_ast.GEQ (_, _)
   | Query_ast.GT (_, _) -> false
+  | Query_ast.LIKE (_, _) -> false
   | Query_ast.IS_NOT_NULL _ -> false
   | Query_ast.EXISTS _ -> false
 
@@ -147,6 +153,10 @@ let rec visit_where_constraint all_tables (table_map: string StringMap.t) (table
       visit_sql_value l ty mapping
     | None, None -> assert_no_holes l; assert_no_holes r; mapping
     end
+  | Query_ast.LIKE (l, r) ->    (* like constraints occur on strings *)
+    mapping
+    |> visit_sql_value r string
+    |> visit_sql_value l string 
   | Query_ast.IS_NOT_NULL vl ->
     begin match type_of_expected_constant_sql_value all_tables table_map tables vl with
     | Some ty -> visit_sql_value vl ty mapping

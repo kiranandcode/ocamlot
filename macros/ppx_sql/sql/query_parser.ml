@@ -37,6 +37,7 @@ type dispatch = {
   select_query: dispatch -> select_query t;
 }
 
+
 let sql_value =
   fix (fun sql_value ->
     choice ~failure_msg:"expected a sql value" [
@@ -45,6 +46,7 @@ let sql_value =
       char '?' >>| (fun _ -> HOLE (next_id ()));
       int >>| (fun v -> INT v);
       bool >>| (fun v -> BOOL v);
+      string_constant >>| (fun c -> STRING c);
       _COALESCE *>> char '(' *>> sep_by1 (ws *> char ',' *> ws) sql_value <<* char ')' >>| (fun elts -> COALESCE elts) <?> "COALESCE";
       _DATETIME *>> char '(' *>> sql_value <<* char ')' >>| (fun elt -> DATETIME elt) <?> "DATETIME";
       _COUNT *>> char '(' *>> sql_value <<* char ')' >>| (fun elt -> COUNT elt) <?> "COUNT";
@@ -63,7 +65,8 @@ let where_constraint_base d =
       (string ">=" >>| fun _ -> `GEQ);
       (string "<" >>| fun _ -> `LT);
       (string ">" >>| fun _ -> `GT);
-      (_IS *> commit *>> _NOT *>> _NULL >>| fun _ -> `IS_NOT_NULL)
+      (_IS *> commit *>> _NOT *>> _NULL >>| fun _ -> `IS_NOT_NULL);
+      (_LIKE >>| fun _ -> `LIKE)
     ] in
     match op with
     | #comparison as op ->
@@ -75,6 +78,10 @@ let where_constraint_base d =
         | `LEQ -> LEQ (l, r)
         | `LT -> LT (l, r)
       end
+    | `LIKE ->
+      let* _ = commit in
+      let* r = ws *> sql_value in
+      return (LIKE (l, r))
     | `IS_NOT_NULL -> return (IS_NOT_NULL l) in
   choice ~failure_msg:"expected a basic where constraint - either a comparison or equality" [
     (let* _ = char '(' in
