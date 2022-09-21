@@ -83,7 +83,7 @@ SELECT
     RU.public_key_pem,
     RI.url
 FROM RemoteUser AS RU
-JOIN RemoteInstance AS RI on RemoteUser.instance_id = RemoteInstance.id
+JOIN RemoteInstance AS RI on RU.instance_id = RI.id
 ORDER BY (RU.display_name, RI.url)
 |} in
   let%sql.query collect_remote_users_offset_request = {|
@@ -101,7 +101,7 @@ SELECT
     RU.public_key_pem,
     RI.url
 FROM RemoteUser AS RU
-JOIN RemoteInstance AS RI on RemoteUser.instance_id = RemoteInstance.id
+JOIN RemoteInstance AS RI on RU.instance_id = RI.id
 ORDER BY RU.display_name DESC
 LIMIT ? OFFSET ?
 |} in
