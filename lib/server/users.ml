@@ -342,11 +342,19 @@ let handle_local_users_get _config req =
     |> Option.flat_map Int.of_string
     |> Option.value ~default:0 in
   let limit = 10 in
+  let search_query = Dream.query req "search" in
   let+ users =
-    Dream.sql req (fun db ->
-      Database.LocalUser.collect_local_users
-        ~offset:(limit, offset_start * limit) db)
-    |> map_err (fun err -> `DatabaseError err) in
+    match search_query with
+    | None ->
+      Dream.sql req (fun db ->
+        Database.LocalUser.collect_local_users
+          ~offset:(limit, offset_start * limit) db)
+      |> map_err (fun err -> `DatabaseError err)
+    | Some query ->
+      Dream.sql req (fun db ->
+        Database.LocalUser.collect_local_users
+          ~offset:(limit, offset_start * limit) db)
+      |> map_err (fun err -> `DatabaseError err) in
   let+ users_w_stats =
     Lwt_list.map_p (fun user ->
       Dream.sql req @@ fun db ->

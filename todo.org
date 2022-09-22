@@ -2,8 +2,18 @@
 ** DONE Add list users option to [[file:lib/server/navigation.ml::let build_navigation_bar req =][header builder]]
 CLOSED: [2022-09-21 Wed 06:49]
 ** TODO create users page with search bar + follow button for each entry 
-*** TODO Create users page and list users
-*** TODO Add option to search for remote users
+*** DONE Create users page and list users
+CLOSED: [2022-09-22 Thu 11:58]
+*** DONE Add option to search for remote users
+CLOSED: [2022-09-22 Thu 11:58]
+*** TODO On local search query, do query search
+*** TODO On remote search query
+**** TODO do search using like for users
+**** TODO match query - if username without domain
+***** TODO collect known remote instances who don't have the user
+***** TODO if there are remote instances without the user, add task for search user to worker
+**** TODO match query - if username with domain 
+***** TODO send task for search user to worker
 ** TODO send [[file:lib/server/worker.ml::type task =][local follow task]] to worker
 ** TODO Update worker to [[file:lib/server/worker.ml][send follow request]]
 ** TODO Add routing for [[file:lib/server/server.ml::Activity.route config; *][retrieving activities]] (for follow requests)
