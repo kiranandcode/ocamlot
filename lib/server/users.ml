@@ -321,6 +321,19 @@ let encode_user_types = function
   | `Local -> "Local Users"
   | `Remote -> "Remote Users"
 
+let classify_query s =
+  let s = String.trim s in
+  let has_spaces = String.contains s ' ' in
+  let contains_at = (String.contains s '@') in
+  if has_spaces || not contains_at
+  then `SearchLike (String.split_on_char ' ' s)
+  else begin
+    let domain = String.split_on_char '@' s in
+    match domain with
+    | [username; domain] -> `Resolve (username, domain)
+    | username :: _ -> `SearchLike [username]
+    | _ -> `SearchLike [s]
+  end
 
 let render_users_page ?search_query req user_type users =
   let+ headers = Navigation.build_navigation_bar req in
@@ -345,12 +358,14 @@ let handle_local_users_get _config req =
   let search_query = Dream.query req "search" in
   let+ users =
     match search_query with
-    | None ->
+    | Some query when not (String.is_empty query) ->
+      let query = "%" ^ (String.replace ~sub:" " ~by:"%" query) ^ "%" in
       Dream.sql req (fun db ->
-        Database.LocalUser.collect_local_users
-          ~offset:(limit, offset_start * limit) db)
+        Database.LocalUser.find_local_users
+          ~offset:(limit, offset_start * limit)
+          query db)
       |> map_err (fun err -> `DatabaseError err)
-    | Some query ->
+    | _ ->
       Dream.sql req (fun db ->
         Database.LocalUser.collect_local_users
           ~offset:(limit, offset_start * limit) db)
@@ -400,7 +415,7 @@ let handle_local_users_get _config req =
           end
         end)
     ) users_w_stats in
-  render_users_page req `Local users
+  render_users_page ?search_query req `Local users
 
 let handle_remote_users_get _config req =
   let+ current_user_link = current_user_link req in
@@ -409,11 +424,30 @@ let handle_remote_users_get _config req =
     |> Option.flat_map Int.of_string
     |> Option.value ~default:0 in
   let limit = 10 in
+  let search_query = Dream.query req "search" in
   let+ users =
-    Dream.sql req (fun db ->
-      Database.RemoteUser.collect_remote_users
-        ~offset:(limit, offset_start * limit) db)
-    |> map_err (fun err -> `DatabaseError err) in
+    match search_query with
+    | None ->
+      Dream.sql req (fun db ->
+        Database.RemoteUser.collect_remote_users
+          ~offset:(limit, offset_start * limit) db)
+      |> map_err (fun err -> `DatabaseError err)
+    | Some query ->
+      match classify_query query with
+      | `Resolve (user, _) ->
+        let query = "%" ^ user ^ "%" in
+        Dream.sql req (fun db ->
+          Database.RemoteUser.find_remote_users
+            ~offset:(limit, offset_start * limit) query db
+        )
+        |> map_err (fun err -> `DatabaseError err)
+      | `SearchLike query ->
+        let query = "%" ^ (String.concat "%" query) ^ "%" in
+        Dream.sql req (fun db ->
+          Database.RemoteUser.find_remote_users
+            ~offset:(limit, offset_start * limit) query db
+        )
+        |> map_err (fun err -> `DatabaseError err) in
   let+ users_w_stats =
     Lwt_list.map_p (fun (user, _url) ->
       Dream.sql req @@ fun db ->

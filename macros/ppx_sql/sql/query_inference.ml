@@ -163,7 +163,7 @@ let rec visit_where_constraint all_tables (table_map: string StringMap.t) (table
     | Some ty -> visit_sql_value vl ty mapping
     | None -> mapping
     end
-  | Query_ast.EXISTS select_query ->
+  | Query_ast.EXISTS (_, select_query) ->
     visit_select_query all_tables table_map tables select_query mapping
 and visit_select_query all_tables (table_map: string StringMap.t) (tables: Types.table list)
       {

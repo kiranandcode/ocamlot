@@ -28,7 +28,7 @@ val lookup_remote_user_by_address: username:string -> domain:string -> (module C
 val lookup_remote_user_by_address_exn : username:string -> domain:string -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 val get_known_remote_actors : (module Caqti_lwt.CONNECTION) -> ((string * string * string) list, string) Lwt_result.t
 
-val find_remote_users: ?offset:int * int -> string -> (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+val find_remote_users: ?offset:int * int -> string -> (module Caqti_lwt.CONNECTION) -> ((t * string) list, string) Lwt_result.t
 
 val collect_remote_users: ?offset:int * int -> (module Caqti_lwt.CONNECTION) -> ((t * string) list, string) Lwt_result.t
 

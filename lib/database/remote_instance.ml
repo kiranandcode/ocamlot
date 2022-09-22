@@ -37,6 +37,40 @@ INSERT OR IGNORE INTO RemoteInstance (url, last_unreachable)  VALUES (?, ?)
     let* () = DB.exec create_instance_request (hostname,None) |> flatten_error in
     DB.find lookup_instance_request hostname |> flatten_error
 
+let find_possible_remote_instances_to_query =
+  let%sql.query find_remote_instances_request = {|
+SELECT RI.id, RI.url, RI.last_unreachable
+FROM RemoteInstance as RI
+WHERE 
+   NOT EXISTS(
+     SELECT RU.id, RU.username, RU.instance_id, RU.display_name, RU.url, RU.inbox, RU.outbox, RU.followers, RU.following, RU.summary, RU.public_key_pem 
+     FROM RemoteUser as RU
+     WHERE RU.instance_id = RI.id AND (RU.username LIKE ? OR RU.display_name LIKE ?)
+   )
+ORDER BY RI.url DESC
+|} in
+  let%sql.query find_remote_instances_offset_request = {|
+SELECT RI.id, RI.url, RI.last_unreachable
+FROM RemoteInstance as RI
+WHERE 
+   NOT EXISTS(
+     SELECT RU.id, RU.username, RU.instance_id, RU.display_name, RU.url, RU.inbox, RU.outbox, RU.followers, RU.following, RU.summary, RU.public_key_pem 
+     FROM RemoteUser as RU
+     WHERE RU.instance_id = RI.id AND (RU.username LIKE ? OR RU.display_name LIKE ?)
+   )
+ORDER BY RI.url DESC
+LIMIT ? OFFSET ?
+|} in
+  fun ?offset query (module DB: DB) ->
+    match offset with
+    | None ->
+      DB.collect_list find_remote_instances_request (query, query)
+      |> flatten_error
+    | Some (limit, offset) ->
+      DB.collect_list find_remote_instances_offset_request (query, query, limit, offset)
+      |> flatten_error
+
+
 let record_instance_reachable (remote_instance: t) (module DB: DB) =
   let* () = DB.exec update_instance_request (None, remote_instance.id) |> flatten_error in
   remote_instance.last_unreachable <- None;

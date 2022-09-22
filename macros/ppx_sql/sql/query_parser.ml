@@ -87,7 +87,8 @@ let where_constraint_base d =
     (let* _ = char '(' in
      let* res = ws *> (d.where_constraint d) <<* char ')' in
      return res );
-    (_EXISTS *>> char '(' *>>>  lazy (d.select_query d) <<* char ')' >>| (fun q -> EXISTS q));
+    (_NOT *>> _EXISTS *>> char '(' *>>>  lazy (d.select_query d) <<* char ')' >>| (fun q -> EXISTS (true, q)));
+    (_EXISTS *>> char '(' *>>>  lazy (d.select_query d) <<* char ')' >>| (fun q -> EXISTS (false, q)));
     (let* cn = column_name <<* char '=' in
      let* vl = ws *> sql_value in
      return (EQ (cn, vl))) <?> "WHERE.EXISTS";

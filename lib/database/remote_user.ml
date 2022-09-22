@@ -183,14 +183,16 @@ LIMIT ? OFFSET ?
 
 let find_remote_users =
   let%sql.query find_remote_users_request = {|
-SELECT id, username, instance_id, display_name, url, inbox, outbox, followers, following, summary, public_key_pem 
-FROM RemoteUser
+SELECT RU.id, RU.username, RU.instance_id, RU.display_name, RU.url, RU.inbox, RU.outbox, RU.followers, RU.following, RU.summary, RU.public_key_pem, RI.url
+FROM RemoteUser as RU
+JOIN RemoteInstance AS RI on RemoteUser.instance_id = RI.id
 WHERE username LIKE ? OR display_name LIKE ?
 ORDER BY username DESC
 |} in
   let%sql.query find_remote_users_offset_request = {|
-SELECT id, username, instance_id, display_name, url, inbox, outbox, followers, following, summary, public_key_pem 
-FROM RemoteUser
+SELECT RU.id, RU.username, RU.instance_id, RU.display_name, RU.url, RU.inbox, RU.outbox, RU.followers, RU.following, RU.summary, RU.public_key_pem, RI.url
+FROM RemoteUser as RU
+JOIN RemoteInstance AS RI on RemoteUser.instance_id = RI.id
 WHERE username LIKE ? OR display_name LIKE ?
 ORDER BY username DESC
 LIMIT ? OFFSET ?

@@ -44,7 +44,7 @@ and where_constraint =
   | GT of sql_value * sql_value
   | LIKE of sql_value * sql_value
   | IS_NOT_NULL of sql_value
-  | EXISTS of select_query
+  | EXISTS of bool * select_query
 
 
 and query =

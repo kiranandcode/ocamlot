@@ -6,7 +6,8 @@ CLOSED: [2022-09-21 Wed 06:49]
 CLOSED: [2022-09-22 Thu 11:58]
 *** DONE Add option to search for remote users
 CLOSED: [2022-09-22 Thu 11:58]
-*** TODO On local search query, do query search
+*** DONE On local search query, do query search
+CLOSED: [2022-09-22 Thu 12:12]
 *** TODO On remote search query
 **** TODO do search using like for users
 **** TODO match query - if username without domain
