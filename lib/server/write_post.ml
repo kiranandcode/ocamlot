@@ -88,7 +88,7 @@ let handle_post_write config req =
                  user=user;  title; scope; content_type;
                  post_to=post_to |> Option.map (String.split_on_char ',' ); 
                  content=contents
-               }))in
+               })) in
 
     redirect req "/feed"
 [@@warning "-8"]

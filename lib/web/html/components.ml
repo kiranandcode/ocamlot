@@ -78,14 +78,18 @@ let subnavigation_menu entries =
        ) entries)
   ]
 
-let search_box ?a ?a_class ?(placeholder="Search...") ?value ?(button_text="🔎") ?(name="search") () =
+let search_box ?(fields=[]) ?a ?a_class ?(placeholder="Search...") ?value ?(button_text="🔎") ?(name="search") () =
   Pure.grid_row [
     Pure.grid_col ~a_class:["search-box"] [
-      Pure.form ?a ?a_class [
+      Pure.form ?a ?a_class ([
         H.input ~a:((!! (Option.map (fun v -> [H.a_value v]) value)) @
                     [H.a_input_type `Text; H.a_placeholder placeholder; H.a_name name]) ();
         H.input ~a:[H.a_input_type `Submit; H.a_value button_text] ();
-      ]
+      ]  @
+        List.map (fun (k,v) ->
+          H.input ~a:[H.a_input_type `Hidden; H.a_name k; H.a_value v] ()
+        ) fields
+      )
     ]
   ]
 

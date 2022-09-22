@@ -42,6 +42,10 @@ type task =
    *     target: Database.LocalUser.t;
    *   } *)
 
+  | SearchUser of {
+    username: string;
+    domain: string option;
+  }
   (* post by local user *)
   | LocalPost of {
     user: Database.LocalUser.t;
@@ -238,6 +242,10 @@ open struct
     log.debug (fun f -> f "completed user's %s post" (Database.LocalUser.username user));
     Lwt.return_ok ()
 
+  let handle_search_user pool config username domain =
+    log.debug (fun f -> f "received search query for user %s(@%a)?" username (Option.pp String.pp) domain);
+    return_ok ()
+
   let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) task_in config =
     log.debug (fun f -> f "worker now waiting for task");
     Lwt_stream.iter_s 
@@ -245,6 +253,9 @@ open struct
          log.debug (fun f -> f "worker woken up with task");
          try
            begin match task with
+           | SearchUser {username; domain} ->
+             let res = handle_search_user pool config username domain in
+             handle_error res
            | LocalPost {user; title; content; content_type; scope; post_to;} -> 
              let res = handle_local_post pool config user scope post_to title content_type content in
              handle_error res

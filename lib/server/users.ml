@@ -318,8 +318,13 @@ let parse_user_types = function
   | _ -> None
 
 let encode_user_types = function
+  | `Local -> "local"
+  | `Remote -> "remote"
+
+let show_user_types = function
   | `Local -> "Local Users"
   | `Remote -> "Remote Users"
+
 
 let classify_query s =
   let s = String.trim s in
@@ -337,13 +342,15 @@ let classify_query s =
 
 let render_users_page ?search_query req user_type users =
   let+ headers = Navigation.build_navigation_bar req in
-  tyxml (Html.build_page ~headers ~title:(encode_user_types user_type) Tyxml.Html.[
-    Html.Components.page_title (encode_user_types user_type);
+  tyxml (Html.build_page ~headers ~title:(show_user_types user_type) Tyxml.Html.[
+    Html.Components.page_title (show_user_types user_type);
     Html.Components.subnavigation_menu [
       "Local", "/users?type=local";
       "Remote", "/users?type=remote";
     ];
-    Html.Components.search_box ?value:search_query ();
+    Html.Components.search_box
+      ~fields:["type", encode_user_types user_type]
+      ?value:search_query ();
     div ~a:[a_class ["users-list"]]
       users
   ])
@@ -417,7 +424,7 @@ let handle_local_users_get _config req =
     ) users_w_stats in
   render_users_page ?search_query req `Local users
 
-let handle_remote_users_get _config req =
+let handle_remote_users_get config req =
   let+ current_user_link = current_user_link req in
   let offset_start =
     Dream.query req "offset-start"
@@ -434,7 +441,11 @@ let handle_remote_users_get _config req =
       |> map_err (fun err -> `DatabaseError err)
     | Some query ->
       match classify_query query with
-      | `Resolve (user, _) ->
+      | `Resolve (user, domain) ->
+        log.debug (fun f -> f "received explicit search - sending task to worker");
+        Configuration.Params.send_task config Worker.(SearchUser {
+          username=user; domain=Some domain
+        });
         let query = "%" ^ user ^ "%" in
         Dream.sql req (fun db ->
           Database.RemoteUser.find_remote_users
@@ -442,6 +453,15 @@ let handle_remote_users_get _config req =
         )
         |> map_err (fun err -> `DatabaseError err)
       | `SearchLike query ->
+        log.debug (fun f -> f "received implicit search");
+        begin match query with
+        | [username] -> 
+          log.debug (fun f -> f "implicit search over single parameter - sending task to worker");
+          Configuration.Params.send_task config Worker.(SearchUser {
+            username; domain=None
+          });
+        | _ -> ()
+        end;
         let query = "%" ^ (String.concat "%" query) ^ "%" in
         Dream.sql req (fun db ->
           Database.RemoteUser.find_remote_users
@@ -485,7 +505,7 @@ let handle_remote_users_get _config req =
           end
         end)
     ) users_w_stats in
-  render_users_page req `Remote users
+  render_users_page ?search_query req `Remote users
 
 let handle_users_get _config req =
   let user_list_ty =
