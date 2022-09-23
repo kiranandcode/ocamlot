@@ -225,14 +225,17 @@ let accept_remote_follow config follow remote local db =
     |> Uri.to_string in
   let priv_key =
     Database.LocalUser.privkey local in
-  print_endline @@ Printf.sprintf "sending accept follow request to %s\n\ndata is %s"
-                     (Uri.to_string uri)
-                     (Yojson.Safe.pretty_to_string accept_follow) ;
+  log.debug (fun f ->
+    f "sending accept follow request to %s\n\ndata is %s"
+      (Uri.to_string uri) (Yojson.Safe.pretty_to_string accept_follow)
+  );
 
   let+ resp, body  = signed_post (key_id, priv_key) uri
                      (Yojson.Safe.to_string accept_follow) in
   let+ body = Cohttp_lwt.Body.to_string body >> Result.return in
-  print_endline @@ Printf.sprintf "response from server was %s" body;
+
+  log.debug (fun f -> f  "response from server was %s" body);
+
   match resp.status with
   | `OK ->
     let+ () =
