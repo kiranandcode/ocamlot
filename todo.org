@@ -23,13 +23,18 @@ CLOSED: [2022-09-23 Fri 09:26]
 CLOSED: [2022-09-23 Fri 09:26]
 ***** DONE send task for search user to worker
 CLOSED: [2022-09-23 Fri 09:26]
-** TODO send [[file:lib/server/worker.ml::type task =][local follow task]] to worker
+** DONE send [[file:lib/server/worker.ml::type task =][local follow task]] to worker
+CLOSED: [2022-09-23 Fri 10:18]
 ** TODO Update worker to [[file:lib/server/worker.ml][send follow request]]
+*** TODO resolve remote user
+*** TODO create follow object
 ** TODO Add routing for [[file:lib/server/server.ml::Activity.route config; *][retrieving activities]] (for follow requests)
 ** TODO Fix [[file:lib/server/actor.ml::Dream.post ":username/inbox" (handle_inbox_post config); *][post to inbox]] enough to receive follow requests*
 ** TODO Update [[file:lib/server/actor.ml::let handle_actor_get_html _config req =][profile page]] to list following, followers and posts
+** TODO show pending follow requests in list
 * TODO Support viewing posts by remote users
 ** TODO Follow remote user on pleroma
+** TODO Update view actor html to allow displaying remote users
 ** TODO Fix [[file:lib/server/actor.ml::Dream.post ":username/inbox" (handle_inbox_post config); *][post to inbox]] enough to receive posts*
 * TODO Update worker [[file:lib/server/worker.ml::""][post function]] to build proper activitypub post
 * TODO Allow editing own profile

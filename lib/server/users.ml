@@ -433,17 +433,17 @@ let handle_remote_users_get config req =
   let limit = 10 in
   let search_query = Dream.query req "search" in
   let+ users =
-    match search_query with
-    | None ->
+    match search_query, current_user_link with
+    | None, _ | Some _, None ->
       Dream.sql req (fun db ->
         Database.RemoteUser.collect_remote_users
           ~offset:(limit, offset_start * limit) db)
       |> map_err (fun err -> `DatabaseError err)
-    | Some query ->
+    | Some query, Some _ ->
       match classify_query query with
       | `Resolve (user, domain) ->
         log.debug (fun f -> f "received explicit search - sending task to worker");
-        Configuration.Params.send_task config Worker.(SearchUser {
+        Configuration.Params.send_task config Worker.(SearchRemoteUser {
           username=user; domain=Some domain
         });
         let query = "%" ^ user ^ "%" in
@@ -457,7 +457,7 @@ let handle_remote_users_get config req =
         begin match query with
         | [username] -> 
           log.debug (fun f -> f "implicit search over single parameter - sending task to worker");
-          Configuration.Params.send_task config Worker.(SearchUser {
+          Configuration.Params.send_task config Worker.(SearchRemoteUser {
             username; domain=None
           });
         | _ -> ()
@@ -469,7 +469,7 @@ let handle_remote_users_get config req =
         )
         |> map_err (fun err -> `DatabaseError err) in
   let+ users_w_stats =
-    Lwt_list.map_p (fun (user, _url) ->
+    Lwt_list.map_p (fun (user, url) ->
       Dream.sql req @@ fun db ->
       let+ user_link = Database.Actor.of_remote (Database.RemoteUser.self user) db in
       let+ no_followers = Database.Follow.count_followers user_link db in
@@ -480,30 +480,31 @@ let handle_remote_users_get config req =
         | Some current_user_link ->
           Database.Follow.is_following ~author:current_user_link ~target:user_link db
           |> Lwt_result.map Option.some in
-      return_ok (user, no_followers, no_posts, is_following)
+      return_ok (user, url, no_followers, no_posts, is_following)
     ) users
     |> lift_pure
     >>= (fun r -> return (Result.flatten_l r))
     |> map_err (fun e -> `DatabaseError e) in
   let users =
-    List.map (fun (user, no_followers, no_posts, is_following) ->
+    List.map (fun (user, url, no_followers, no_posts, is_following) ->
       Html.Users.user ~can_follow:true
-        (object
-          method about = []
-          method display_name = Database.RemoteUser.display_name user
-          method username = Database.RemoteUser.username user
-          method follow_link = ("/users/" ^ (Database.RemoteUser.username user) ^ "/follow")
-          method profile_page = ("/users/" ^ (Database.RemoteUser.username user))
-          method following = is_following
-          method profile = object
-            method image = "/static/images/unknown.png"
-            method name = ""
-          end
-          method stats = object
-            method followers = no_followers
-            method posts = no_posts
-          end
-        end)
+        (let fqn = (Database.RemoteUser.username user) ^ "@" ^ url in
+         object
+           method about = []
+           method display_name = Database.RemoteUser.display_name user
+           method username = Database.RemoteUser.username user ^ "@" ^ url
+           method follow_link = ("/users/" ^ fqn ^ "/follow")
+           method profile_page = ("/users/" ^ fqn)
+           method following = is_following
+           method profile = object
+             method image = "/static/images/unknown.png"
+             method name = ""
+           end
+           method stats = object
+             method followers = no_followers
+             method posts = no_posts
+           end
+         end)
     ) users_w_stats in
   render_users_page ?search_query req `Remote users
 
@@ -518,13 +519,9 @@ let handle_users_get _config req =
   | `Remote ->
     handle_remote_users_get _config req
 
-let handle_users_follow_post _config req =
-  let username = Dream.param req "username" in
-  let+ current_user =
-    let+ current_user = current_user_link req in
-    lift_opt ~else_:(fun _ -> `InvalidPermissions ("Attempt to follow user while logged out"))
-      current_user
-    |> return in
+let handle_follow_local_user _config current_user username req =
+  let+ current_user = Dream.sql req Database.(Actor.of_local (LocalUser.self current_user))
+                      |> map_err (fun err -> `DatabaseError err) in
   let+ target_user =
     Dream.sql req
       (Database.LocalUser.lookup_user ~username)
@@ -564,13 +561,91 @@ let handle_users_follow_post _config req =
       |> map_err (fun e -> `DatabaseError e) in
     redirect req "/users"
 
+let handle_follow_remote_user config current_user username domain req =
+  Configuration.Params.send_task config Worker.(
+    FollowRemoteUser {
+      user=current_user;
+      username;
+      domain
+    }
+  );
+  redirect req "/users"
+
+let handle_users_follow_post _config req =
+  let username = Dream.param req "username" in
+  let+ current_user =
+    let+ current_user = current_user req in
+    lift_opt ~else_:(fun _ -> `InvalidPermissions ("Attempt to follow user while logged out"))
+      current_user
+    |> return in
+  match String.split_on_char '@' username with
+  | username :: domain ->
+    let domain = String.concat "@" domain in
+    handle_follow_remote_user _config current_user username domain req
+  | _ ->
+    handle_follow_local_user _config current_user username req
+
+
+
+let handle_inbox_post config req =
+  log.debug (fun f -> f "validating request");
+  let+ valid_request =
+    Http_sig.verify_request
+      ~resolve_public_key:Resolver.resolve_public_key req
+    |> map_err (fun err -> `ResolverError err) in
+  log.debug (fun f -> f "request validation completed with result %b" valid_request);
+  let+ () =
+    if valid_request
+    then return_ok ()
+    else return (Error (`InvalidSignature)) in
+  let username = Dream.param req "username" in
+  let+ _user = 
+    Dream.sql req (Database.LocalUser.lookup_user ~username)
+    |> map_err (fun err -> `DatabaseError err)
+    >>= (fun v -> return (lift_opt ~else_:(fun () -> `UserNotFound username) v)) in
+  let+ data = Dream.body req
+              |> Lwt.map Activitypub.Decode.(decode_string obj)
+              |> map_err (fun err -> `ActivitypubFormat err) in
+  log.debug (fun f ->
+    f "received activitypub object %a"
+      Activitypub.Types.pp_obj data
+  );
+  log.debug (fun f ->
+    f "headers were %s"
+      ([%show: (string * string) list] (Dream.all_headers req))
+  );
+
+  let+ _ =
+    match[@warning "-27"] data with
+    | `Accept { obj=`Follow { id=follow_id; _ }; id=accept_activity_id; raw=accept_obj; actor; _ } ->
+      Configuration.Params.send_task config Worker.(
+        HandleAcceptFollow { follow_id }
+      );
+      return_ok ()
+    | `Accept _
+    | `Follow _
+    | `Announce _
+    | `Block _
+    | `Note _
+    | `Person _
+    | `Undo _
+    | `Delete _
+    | `Create _
+    | `Like _ -> return_ok ()
+  in
+  
+  json (`Assoc [
+    "ok", `List []
+  ])
+
+
 let route config = 
   Dream.scope "/users" [] [
     Dream.get "" @@ Error_handling.handle_error_html config (handle_users_get config);
     Dream.get "/:username" @@ (handle_actor_get config);
     Dream.post "/:username/follow" @@ Error_handling.handle_error_html config (handle_users_follow_post config);
     (* Dream.get "/:username/inbox" handle_inbox_get; *)
-    (* Dream.post ":username/inbox" (handle_inbox_post config); *)
+    Dream.post ":username/inbox" @@ Error_handling.handle_error_json config (handle_inbox_post config);
     Dream.get "/:username/outbox" handle_outbox_get;
     (* Dream.post "/:username/outbox" handle_outbox_post; *)
 

@@ -2,6 +2,8 @@
 open Containers
 open Common
 
+let log = Logging.add_logger "back.resolver"
+
 let req_post ~headers url body =
   let body = Cohttp_lwt.Body.of_string body in
   try
@@ -44,7 +46,7 @@ let json_rd_req ?(headers=[]) url =
     ("Accept", APConstants.Webfinger.json_rd) in
   req ~headers:(json_rd_header :: headers) url
 
-let lookup_request url =
+let resolve_public_key url =
   (* NOTE: Not obvious, but you need to specify accept headers, else pleroma will return html *)
   let+ (_resp, body) = activity_req (Uri.of_string url) in
   let+ actor = Cohttp_lwt.Body.to_string body
@@ -150,12 +152,18 @@ let create_accept_follow config follow remote local db =
   Lwt_result.return accept
 
 let build_follow_request config local remote db =
-  let id = Database.Activity.fresh_id () in
+  log.debug (fun f -> f "building follow request");
+  let id = try Database.Activity.fresh_id () with exn ->
+    log.debug (fun f -> f "failed with error %s" (Printexc.to_string exn));
+    raise exn in
+  log.debug (fun f -> f "created fresh id %s" (Database.Activity.id_to_string id));
   let local_actor_url = 
     Database.LocalUser.username local
     |> Configuration.Url.user config
     |> Uri.to_string in
+  log.debug (fun f -> f "calculated local actor url %s" local_actor_url);
   let remote_actor_url = Database.RemoteUser.url remote in
+  log.debug (fun f -> f "calculated remote actor url %s" remote_actor_url);
   let follow_request =
     let id =
       Database.Activity.id_to_string id
@@ -168,23 +176,31 @@ let build_follow_request config local remote db =
       raw=`Null
     }  in
   let data = Activitypub.Encode.follow follow_request in
+  log.debug (fun f -> f "constructed yojson object %a" Yojson.Safe.pp data);
   let+ _ =
+    log.debug (fun f -> f "resolving remote author");
     let+ author = Database.Actor.of_local (Database.LocalUser.self local) db in
+    log.debug (fun f -> f "resolving target");
     let+ target = Database.Actor.of_remote (Database.RemoteUser.self remote) db in
+    log.debug (fun f -> f "creating follow");
     Database.Follow.create_follow
       ~url:(Configuration.Url.activity_endpoint config (Database.Activity.id_to_string id)
             |> Uri.to_string)
       ~public_id:(Database.Activity.id_to_string id)
       ~author ~target ~pending:true
       ~created:(CalendarLib.Calendar.now ()) db in
+  log.debug (fun f -> f "creating follow in activity db");
   let+ _ = Database.Activity.create ~id ~data db in
   Lwt_result.return (data |> Yojson.Safe.to_string)
 
 let follow_remote_user config
       (local: Database.LocalUser.t)
       ~username ~domain db: (unit,string) Lwt_result.t =
+  log.debug (fun f -> f "resolving remote user %s@%s" username domain);
   let+ remote = resolve_remote_user ~username ~domain db in
+  log.debug (fun f -> f "successfully resolved remote user %s@%s" username domain);
   let+ follow_request = build_follow_request config local remote db in
+  log.debug (fun f -> f "built follow request %s" follow_request);
   let uri = Database.RemoteUser.inbox remote in
   let key_id =
     Database.LocalUser.username local
@@ -192,7 +208,10 @@ let follow_remote_user config
     |> Uri.to_string in
   let priv_key =
     Database.LocalUser.privkey local in
-  let+ resp, _  = signed_post (key_id, priv_key) uri follow_request in
+  log.debug (fun f -> f "sending signed follow request");
+  let+ resp, body  = signed_post (key_id, priv_key) uri follow_request in
+  let+ body = lift_pure (Cohttp_lwt.Body.to_string body) in
+  log.debug (fun f -> f "follow request response was (STATUS: %s) %s" (Cohttp.Code.string_of_status resp.status) body);
   match resp.status with
   | `OK -> Lwt_result.return ()
   | _ -> Lwt_result.fail "request failed"

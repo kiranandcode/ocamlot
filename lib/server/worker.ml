@@ -41,8 +41,13 @@ type task =
    *     author: Database.RemoteUser.t;
    *     target: Database.LocalUser.t;
    *   } *)
-
-  | SearchUser of {
+  | HandleAcceptFollow of { follow_id: string; }
+  | FollowRemoteUser of {
+    user: Database.LocalUser.t;
+    username: string;
+    domain: string;
+  }
+  | SearchRemoteUser of {
     username: string;
     domain: string option;
   }
@@ -277,19 +282,49 @@ open struct
       log.debug (fun f ->  f "successfully resolved user %s@%s" username domain);
       return_ok ()
 
+  let handle_follow_remote_user pool config user username domain =
+    log.debug (fun f ->
+      f "handling follow remote user %s@%s by %s" username domain (Database.LocalUser.username user)
+    );
+    let+ _ =
+      with_pool pool @@ fun db ->
+      Resolver.follow_remote_user config user ~username ~domain db
+      |> map_err (fun err -> `ResolverError err) in
+    return_ok ()
+
+  let handle_accept_follow pool config follow_id =
+    log.debug (fun f -> f "worker accepting follow %s" follow_id);
+    let+ follow = 
+      with_pool pool @@ fun db ->
+      Database.Follow.lookup_follow_by_url_exn follow_id db
+      |> map_err (fun err -> `DatabaseError err) in
+    log.debug (fun f -> f "worker found follow with id %s" follow_id);
+    let+ _ =
+      with_pool pool @@ fun db ->
+      Database.Follow.update_follow_pending_status Database.Follow.(self follow) false db
+      |> map_err (fun err -> `DatabaseError err) in
+    log.debug (fun f -> f "worker updated follow status");
+    return_ok ()
+
   let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) task_in config =
     log.debug (fun f -> f "worker now waiting for task");
     Lwt_stream.iter_s 
       (fun task ->
          log.debug (fun f -> f "worker woken up with task");
          try
-           begin match task with
-           | SearchUser {username; domain} ->
+           begin match[@warning "-8"] task with
+           | HandleAcceptFollow {follow_id} ->
+             let res = handle_accept_follow pool config follow_id in
+             handle_error res
+           | SearchRemoteUser {username; domain} ->
              let res = handle_search_user pool config username domain in
              handle_error res
            | LocalPost {user; title; content; content_type; scope; post_to;} -> 
              let res = handle_local_post pool config user scope post_to title content_type content in
              handle_error res
+           | FollowRemoteUser {user; username; domain} ->
+             let res = handle_follow_remote_user pool config user username domain in
+             handle_error res             
            end |> Lwt.map ignore
          with
          | exn ->

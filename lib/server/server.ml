@@ -111,6 +111,7 @@ let from_static local_root path req =
 let (let+) x f = Lwt_result.bind x f
 
 let run config =
+  let () = Mirage_crypto_rng_lwt.initialize () in
   let task_in, send_task = Lwt_stream.create () in
   if Configuration.Params.debug config then begin
     Dream.initialize_log ~level:`Info ~enable:true ();
