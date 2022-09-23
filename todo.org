@@ -31,10 +31,11 @@ CLOSED: [2022-09-23 Fri 14:43]
 CLOSED: [2022-09-23 Fri 14:42]
 *** DONE create follow object
 CLOSED: [2022-09-23 Fri 14:43]
+** DONE show pending follow requests in user list
+CLOSED: [2022-09-23 Fri 14:57]
 ** TODO Add routing for [[file:lib/server/server.ml::Activity.route config; *][retrieving activities]] (for follow requests)
 ** TODO Fix [[file:lib/server/actor.ml::Dream.post ":username/inbox" (handle_inbox_post config); *][post to inbox]] enough to receive follow requests*
 ** TODO Update [[file:lib/server/actor.ml::let handle_actor_get_html _config req =][profile page]] to list following, followers and posts
-** TODO show pending follow requests in list
 * TODO Support viewing posts by remote users
 ** TODO Follow remote user on pleroma
 ** TODO Update view actor html to allow displaying remote users

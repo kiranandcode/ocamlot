@@ -240,77 +240,85 @@ let handle_outbox_get req =
  *   Dream.log "DATA: %s" body;
  *   Dream.respond ~status:`OK "" *)
 
-(* let handle_followers_get config req =
- *   let> user = with_user req in
- *   let offset =
- *     let open Option in
- *     let* page = Dream.query req "page"
- *     and* start_time = Dream.query req "start" in
- *     let* page = Int.of_string page 
- *     and* start_time, _, _ = Ptime.of_rfc3339 start_time
- *                             |> Result.to_opt in
- *     let start_time = Ptime.to_float_s start_time
- *                    |> CalendarLib.Calendar.from_unixfloat in
- *     return (page, start_time) in
- *   let is_page = Option.is_some offset in
- *   let offset, start_time = Option.value ~default:(0, CalendarLib.Calendar.now ())
- *                        offset in
- *   let> followers_collection_page =
- *     Dream.sql req
- *       (Resolver.build_followers_collection_page
- *          config start_time offset user)
- *     |> or_errorP ~req ~err:internal_error in
- *   let data =
- *     if is_page
- *     then Activitypub.Encode.ordered_collection_page (Decoders_yojson.Safe.Encode.string)
- *            followers_collection_page
- *     else Activitypub.Encode.ordered_collection (Decoders_yojson.Safe.Encode.string)
- *            ({
- *              id = Some (
- *                Configuration.Url.user_followers config (Database.LocalUser.username user)
- *                |> Uri.to_string
- *              );
- *              total_items=followers_collection_page.total_items
- *                          |> Option.get_exn_or "invalid assumption";
- *              contents=`First followers_collection_page; 
- *            } : string Activitypub.Types.ordered_collection) in
- *   activity_json data *)
+let handle_followers_get config req =
+  let username = Dream.param req "username" in
+  let+ user = Dream.sql req (Database.LocalUser.lookup_user ~username)
+              |> map_err (fun err -> `DatabaseError err) in
+  let+ user = return @@ lift_opt ~else_:(fun _ -> `UserNotFound username)
+                          user in
+  let offset =
+    let open Option in
+    let* page = Dream.query req "page"
+    and* start_time = Dream.query req "start" in
+    let* page = Int.of_string page 
+    and* start_time, _, _ = Ptime.of_rfc3339 start_time
+                            |> Result.to_opt in
+    let start_time = Ptime.to_float_s start_time
+                   |> CalendarLib.Calendar.from_unixfloat in
+    return (page, start_time) in
+  let is_page = Option.is_some offset in
+  let offset, start_time = Option.value ~default:(0, CalendarLib.Calendar.now ())
+                       offset in
+  let+ followers_collection_page =
+    Dream.sql req
+      (Resolver.build_followers_collection_page
+         config start_time offset user)
+    |> map_err (fun err -> `DatabaseError err) in
+  let data =
+    if is_page
+    then Activitypub.Encode.ordered_collection_page (Decoders_yojson.Safe.Encode.string)
+           followers_collection_page
+    else Activitypub.Encode.ordered_collection (Decoders_yojson.Safe.Encode.string)
+           ({
+             id = Some (
+               Configuration.Url.user_followers config (Database.LocalUser.username user)
+               |> Uri.to_string
+             );
+             total_items=followers_collection_page.total_items
+                         |> Option.get_exn_or "invalid assumption";
+             contents=`First followers_collection_page; 
+           } : string Activitypub.Types.ordered_collection) in
+  activity_json data
 
-(* let handle_following_get config req =
- *   let> user = with_user req in
- *   let offset =
- *     let open Option in
- *     let* page = Dream.query req "page"
- *     and* start_time = Dream.query req "start" in
- *     let* page = Int.of_string page 
- *     and* start_time, _, _ = Ptime.of_rfc3339 start_time
- *                             |> Result.to_opt in
- *     let start_time = Ptime.to_float_s start_time
- *                    |> CalendarLib.Calendar.from_unixfloat in
- *     return (page, start_time) in
- *   let is_page = Option.is_some offset in
- *   let offset, start_time = Option.value ~default:(0, CalendarLib.Calendar.now ())
- *                        offset in
- *   let> following_collection_page =
- *     Dream.sql req
- *       (Resolver.build_following_collection_page
- *          config start_time offset user)
- *     |> or_errorP ~req ~err:internal_error in
- *   let data =
- *     if is_page
- *     then Activitypub.Encode.ordered_collection_page (Decoders_yojson.Safe.Encode.string)
- *            following_collection_page
- *     else Activitypub.Encode.ordered_collection (Decoders_yojson.Safe.Encode.string)
- *            ({
- *              id = Some (
- *                Configuration.Url.user_following config (Database.LocalUser.username user)
- *                |> Uri.to_string
- *              );
- *              total_items=following_collection_page.total_items
- *                          |> Option.get_exn_or "invalid assumption";
- *              contents=`First following_collection_page; 
- *            } : string Activitypub.Types.ordered_collection) in
- *   activity_json data *)
+let handle_following_get config req =
+  let username = Dream.param req "username" in
+  let+ user = Dream.sql req (Database.LocalUser.lookup_user ~username)
+              |> map_err (fun err -> `DatabaseError err) in
+  let+ user = return @@ lift_opt ~else_:(fun _ -> `UserNotFound username)
+                          user in
+  let offset =
+    let open Option in
+    let* page = Dream.query req "page"
+    and* start_time = Dream.query req "start" in
+    let* page = Int.of_string page 
+    and* start_time, _, _ = Ptime.of_rfc3339 start_time
+                            |> Result.to_opt in
+    let start_time = Ptime.to_float_s start_time
+                   |> CalendarLib.Calendar.from_unixfloat in
+    return (page, start_time) in
+  let is_page = Option.is_some offset in
+  let offset, start_time = Option.value ~default:(0, CalendarLib.Calendar.now ())
+                       offset in
+  let+ following_collection_page =
+    Dream.sql req
+      (Resolver.build_following_collection_page
+         config start_time offset user)
+    |> map_err (fun err -> `DatabaseError err) in
+  let data =
+    if is_page
+    then Activitypub.Encode.ordered_collection_page (Decoders_yojson.Safe.Encode.string)
+           following_collection_page
+    else Activitypub.Encode.ordered_collection (Decoders_yojson.Safe.Encode.string)
+           ({
+             id = Some (
+               Configuration.Url.user_following config (Database.LocalUser.username user)
+               |> Uri.to_string
+             );
+             total_items=following_collection_page.total_items
+                         |> Option.get_exn_or "invalid assumption";
+             contents=`First following_collection_page; 
+           } : string Activitypub.Types.ordered_collection) in
+  activity_json data
 
 let parse_user_types = function
   | "local" -> Some `Local
@@ -478,8 +486,13 @@ let handle_remote_users_get config req =
         match current_user_link with
         | None -> return_ok None
         | Some current_user_link ->
-          Database.Follow.is_following ~author:current_user_link ~target:user_link db
-          |> Lwt_result.map Option.some in
+          let+ follow =
+            Database.Follow.find_follow_between
+              ~author:current_user_link ~target:user_link db in
+          return_ok @@ match follow with
+          | Some follow when Database.Follow.pending follow -> None
+          | Some _ -> Some true
+          | None -> Some false in
       return_ok (user, url, no_followers, no_posts, is_following)
     ) users
     |> lift_pure
@@ -551,7 +564,7 @@ let handle_follow_local_user _config current_user username req =
   | true ->
     let+ follow =
       Dream.sql req @@
-      Database.Follow.find_follow_between
+      Database.Follow.find_follow_between_exn
         ~author:current_user
         ~target:target_user
       |> map_err (fun e -> `DatabaseError e) in
@@ -584,8 +597,6 @@ let handle_users_follow_post _config req =
     handle_follow_remote_user _config current_user username domain req
   | _ ->
     handle_follow_local_user _config current_user username req
-
-
 
 let handle_inbox_post config req =
   log.debug (fun f -> f "validating request");
@@ -622,8 +633,26 @@ let handle_inbox_post config req =
         HandleAcceptFollow { follow_id }
       );
       return_ok ()
+    | `Follow { id; actor; cc; to_; object_; state; raw } ->
+      let user_re = Configuration.Regex.local_user_id_format config in
+      let+ re_matches = Re.exec_opt (Re.compile user_re) object_
+                       |> lift_opt ~else_:(fun () -> `InvalidData "follow target was not a valid user")
+                       |> return in
+      let username = Re.Group.get re_matches 1 in
+      let+ target = Dream.sql req (Database.LocalUser.lookup_user ~username)
+                    |> map_err (fun err -> `DatabaseError err) in
+      let+ target = lift_opt ~else_:(fun _ -> `UserNotFound object_) target
+                    |> return in
+      Configuration.Params.send_task config Worker.(
+        HandleRemoteFollow { id; actor; target; raw }
+      );
+      return_ok ()
+    | `Undo { obj=`Follow { id=follow_id; _ }; _ } ->
+      Configuration.Params.send_task config Worker.(
+        HandleUndoFollow { follow_id }
+      );
+      return_ok ()
     | `Accept _
-    | `Follow _
     | `Announce _
     | `Block _
     | `Note _
@@ -649,6 +678,6 @@ let route config =
     Dream.get "/:username/outbox" handle_outbox_get;
     (* Dream.post "/:username/outbox" handle_outbox_post; *)
 
-    (* Dream.get "/:username/followers" (handle_followers_get config); *)
-    (* Dream.get "/:username/following" (handle_following_get config); *)
+    Dream.get "/:username/followers" @@ Error_handling.handle_error_json config (handle_followers_get config);
+    Dream.get "/:username/following" @@ Error_handling.handle_error_json config (handle_following_get config);
   ]

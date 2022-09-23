@@ -41,7 +41,19 @@ type task =
    *     author: Database.RemoteUser.t;
    *     target: Database.LocalUser.t;
    *   } *)
+  | HandleUndoFollow of {
+    follow_id: string;
+  }
+
+  | HandleRemoteFollow of {
+    id: string;
+    actor: string;
+    target: Database.LocalUser.t;
+    raw: Yojson.Safe.t;
+  }
+
   | HandleAcceptFollow of { follow_id: string; }
+
   | FollowRemoteUser of {
     user: Database.LocalUser.t;
     username: string;
@@ -306,6 +318,22 @@ open struct
     log.debug (fun f -> f "worker updated follow status");
     return_ok ()
 
+  let handle_remote_follow pool config id actor target raw =
+    with_pool pool @@ fun db ->
+    Resolver.follow_local_user config id actor target raw db
+    |> map_err (fun err -> `DatabaseError err)
+
+  let handle_undo_follow pool config follow_id =
+    let+ follow =
+      with_pool pool @@ fun db ->
+      Database.Follow.lookup_follow_by_url_exn follow_id db
+      |> map_err (fun err -> `DatabaseError err) in
+    let+ () =
+      with_pool pool @@ fun db ->    
+      Database.Follow.delete_follow (Database.Follow.self follow) db
+      |> map_err (fun err -> `DatabaseError err) in
+    return_ok ()
+
   let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) task_in config =
     log.debug (fun f -> f "worker now waiting for task");
     Lwt_stream.iter_s 
@@ -313,6 +341,12 @@ open struct
          log.debug (fun f -> f "worker woken up with task");
          try
            begin match[@warning "-8"] task with
+           | HandleUndoFollow {follow_id} ->
+             let res = handle_undo_follow pool config follow_id in
+             handle_error res
+           | HandleRemoteFollow {id; actor; target; raw} ->
+             let res = handle_remote_follow pool config id actor target raw in
+             handle_error res
            | HandleAcceptFollow {follow_id} ->
              let res = handle_accept_follow pool config follow_id in
              handle_error res

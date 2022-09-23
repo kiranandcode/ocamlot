@@ -124,6 +124,16 @@ FROM Follows
 WHERE author_id = ? AND target_id = ? AND pending = FALSE
 |} in
   fun ~author:((author_id, _): Actor.t Link.t) ~target:((target_id, _): Actor.t Link.t) (module DB: DB) ->
+    DB.find_opt find_follow_request (author_id, target_id)
+    |> flatten_error
+
+let find_follow_between_exn =
+  let%sql.query find_follow_request = {|
+SELECT id, public_id, url, raw_data, pending, created, updated, author_id, target_id
+FROM Follows
+WHERE author_id = ? AND target_id = ? AND pending = FALSE
+|} in
+  fun ~author:((author_id, _): Actor.t Link.t) ~target:((target_id, _): Actor.t Link.t) (module DB: DB) ->
     DB.find find_follow_request (author_id, target_id)
     |> flatten_error
 

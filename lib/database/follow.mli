@@ -29,7 +29,10 @@ val collect_follows_for_actor:
 
 val is_following: author:Actor.t Link.t -> target:Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (bool, string) Lwt_result.t
 
-val find_follow_between: author:Actor.t Link.t -> target:Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
+val find_follow_between: author:Actor.t Link.t -> target:Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t option, string) Lwt_result.t
+
+
+val find_follow_between_exn: author:Actor.t Link.t -> target:Actor.t Link.t -> (module Caqti_lwt.CONNECTION) -> (t, string) Lwt_result.t
 
 val count_following:
   Actor.t Link.t ->
