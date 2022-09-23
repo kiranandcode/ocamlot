@@ -41,6 +41,11 @@ type task =
    *     author: Database.RemoteUser.t;
    *     target: Database.LocalUser.t;
    *   } *)
+  | CreateRemoteNote of {
+    author : Database.RemoteUser.t;
+    direct_message: bool;
+    note: Activitypub.Types.note;
+  }
   | HandleUndoFollow of {
     follow_id: string;
   }
@@ -334,6 +339,97 @@ open struct
       |> map_err (fun err -> `DatabaseError err) in
     return_ok ()
 
+  let handle_create_remote_note pool config author direct_message (note: Activitypub.Types.note) =
+
+    log.debug (fun f -> f "creating remote note!");
+    let url = note.id in
+    let raw_data = Yojson.Safe.to_string note.raw in
+    let post_source = Option.get_or ~default:note.content note.source in
+    let published =
+      Option.get_lazy (CalendarLib.Calendar.now)
+        (Option.map Fun.(CalendarLib.Calendar.from_unixfloat % Ptime.to_float_s) note.published) in
+    let summary = Option.filter (Fun.negate String.is_empty) note.summary in
+
+    let is_public, is_follower_public = ref false, ref false in
+    let extract_target =
+      let local_user_regex =
+        Configuration.Regex.local_user_id_format config
+        |> Re.compile in
+      fun to_ ->
+      if String.equal to_ Activitypub.Constants.ActivityStreams.public
+      then (is_public := true; return_ok None)
+      else match Re.exec_opt local_user_regex to_ with
+        | Some group ->
+          let username = Re.Group.get group 1 in
+          let+ local_user =
+            with_pool pool @@ fun db ->
+            Database.LocalUser.lookup_user ~username db
+            |> map_err (fun err -> `DatabaseError err) in
+          begin match local_user with
+          | None -> return_ok None
+          | Some local_user ->
+            let+ user =
+              with_pool pool @@ fun db ->
+              Database.Actor.of_local (Database.LocalUser.self local_user) db
+              |> map_err (fun err -> `DatabaseError err) in
+            return_ok (Some user)
+          end
+        | None ->
+          is_follower_public := !is_follower_public ||
+                                Uri.of_string to_ |> Uri.path |> String.split_on_char '/'
+                                |> List.last_opt |> Option.exists (String.equal "followers");
+          return_ok None in
+    let+ to_ =
+      Lwt_list.map_p extract_target note.to_
+      >> List.filter_map (function
+        | Ok v -> v
+        | Error err ->
+          let _, msg, details = Error_handling.extract_error_details err in
+          log.debug (fun f -> f "resolving target of post errored with msg %s: %s" msg details);
+          None
+      ) |> lift_pure in
+    let+ cc_ =
+      Lwt_list.map_p extract_target note.cc
+      >> List.filter_map (function
+        | Ok v -> v
+        | Error err ->
+          let _, msg, details = Error_handling.extract_error_details err in
+          log.debug (fun f -> f "resolving ccd of post errored with msg %s: %s" msg details);
+          None
+      ) |> lift_pure in
+    let+ author =
+      with_pool pool @@ fun db ->
+      Database.Actor.of_remote (Database.RemoteUser.self author) db
+      |> map_err (fun err -> `DatabaseError err) in
+
+    let+ post =
+      with_pool pool @@ fun db -> 
+      Database.Post.create_post
+        ?summary
+        ~raw_data
+        ~url
+        ~author
+        ~is_public:(!is_public && not direct_message)
+        ~is_follower_public:(!is_follower_public)
+        ~post_source
+        ~post_content:`Text
+        ~published db
+      |> map_err (fun err -> `DatabaseError err) in
+    log.debug (fun f -> f "created post");
+
+    let+ _ =
+      with_pool pool @@ fun db ->
+      Database.Post.add_post_tos (Database.Post.self post) to_ db
+      |> map_err (fun err -> `DatabaseError err) in
+    log.debug (fun f -> f "to_s added");
+    let+ _ =
+      with_pool pool @@ fun db ->
+      Database.Post.add_post_ccs (Database.Post.self post) cc_ db
+      |> map_err (fun err -> `DatabaseError err) in
+    log.debug (fun f -> f "ccs added");
+
+    return_ok ()
+
   let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) task_in config =
     log.debug (fun f -> f "worker now waiting for task");
     Lwt_stream.iter_s 
@@ -359,6 +455,10 @@ open struct
            | FollowRemoteUser {user; username; domain} ->
              let res = handle_follow_remote_user pool config user username domain in
              handle_error res             
+           | CreateRemoteNote { author; direct_message; note } ->
+             let res = handle_create_remote_note pool config author direct_message note in
+             handle_error res             
+
            end |> Lwt.map ignore
          with
          | exn ->

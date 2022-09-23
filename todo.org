@@ -43,8 +43,8 @@ CLOSED: [2022-09-23 Fri 16:19]
 * TODO Support viewing posts by remote users
 ** DONE Follow remote user on pleroma
 CLOSED: [2022-09-23 Fri 16:20]
-** TODO Update view actor html to allow displaying remote users
 ** TODO Fix [[file:lib/server/actor.ml::Dream.post ":username/inbox" (handle_inbox_post config); *][post to inbox]] enough to receive posts*
+** TODO Update view actor html to allow displaying remote users
 * TODO Update worker [[file:lib/server/worker.ml::""][post function]] to build proper activitypub post
 * TODO Allow editing own profile
 * TODO Allow viewing individual posts

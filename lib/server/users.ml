@@ -636,8 +636,8 @@ let handle_inbox_post config req =
     | `Follow { id; actor; cc; to_; object_; state; raw } ->
       let user_re = Configuration.Regex.local_user_id_format config in
       let+ re_matches = Re.exec_opt (Re.compile user_re) object_
-                       |> lift_opt ~else_:(fun () -> `InvalidData "follow target was not a valid user")
-                       |> return in
+                        |> lift_opt ~else_:(fun () -> `InvalidData "follow target was not a valid user")
+                        |> return in
       let username = Re.Group.get re_matches 1 in
       let+ target = Dream.sql req (Database.LocalUser.lookup_user ~username)
                     |> map_err (fun err -> `DatabaseError err) in
@@ -652,6 +652,17 @@ let handle_inbox_post config req =
         HandleUndoFollow { follow_id }
       );
       return_ok ()
+    | `Create { obj=`Note note; actor; published; direct_message; _ } ->
+      let+ remote_user =
+        Dream.sql req
+          (Database.RemoteUser.lookup_remote_user_by_url actor)
+        |> map_err (fun err -> `DatabaseError err)
+        (* if the remote user isn't registered in our database, then ignore it *)
+        >> Result.flat_map (lift_opt ~else_:(fun _ -> `UnknownRemoteUser actor)) in
+      Configuration.Params.send_task config Worker.(
+        CreateRemoteNote { author=remote_user; direct_message; note }
+      );
+      return_ok ()
     | `Accept _
     | `Announce _
     | `Block _
@@ -662,7 +673,7 @@ let handle_inbox_post config req =
     | `Create _
     | `Like _ -> return_ok ()
   in
-  
+
   json (`Assoc [
     "ok", `List []
   ])
