@@ -1,20 +1,28 @@
 * TODO Support Following [remote] users
 ** DONE Add list users option to [[file:lib/server/navigation.ml::let build_navigation_bar req =][header builder]]
 CLOSED: [2022-09-21 Wed 06:49]
-** TODO create users page with search bar + follow button for each entry 
+** DONE create users page with search bar + follow button for each entry 
+CLOSED: [2022-09-23 Fri 09:26]
 *** DONE Create users page and list users
 CLOSED: [2022-09-22 Thu 11:58]
 *** DONE Add option to search for remote users
 CLOSED: [2022-09-22 Thu 11:58]
 *** DONE On local search query, do query search
 CLOSED: [2022-09-22 Thu 12:12]
-*** TODO On remote search query
-**** TODO do search using like for users
-**** TODO match query - if username without domain
-***** TODO collect known remote instances who don't have the user
-***** TODO if there are remote instances without the user, add task for search user to worker
-**** TODO match query - if username with domain 
-***** TODO send task for search user to worker
+*** DONE On remote search query
+CLOSED: [2022-09-23 Fri 09:26]
+**** DONE do search using like for users
+CLOSED: [2022-09-23 Fri 09:24]
+**** DONE match query - if username without domain
+CLOSED: [2022-09-23 Fri 09:26]
+***** DONE collect known remote instances who don't have the user
+CLOSED: [2022-09-23 Fri 09:25]
+***** DONE if there are remote instances without the user, add task for search user to worker
+CLOSED: [2022-09-23 Fri 09:26]
+**** DONE match query - if username with domain 
+CLOSED: [2022-09-23 Fri 09:26]
+***** DONE send task for search user to worker
+CLOSED: [2022-09-23 Fri 09:26]
 ** TODO send [[file:lib/server/worker.ml::type task =][local follow task]] to worker
 ** TODO Update worker to [[file:lib/server/worker.ml][send follow request]]
 ** TODO Add routing for [[file:lib/server/server.ml::Activity.route config; *][retrieving activities]] (for follow requests)

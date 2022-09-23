@@ -311,7 +311,7 @@ let init config task_in =
     ) (Dream.request "");
     match !vl with
     | None -> raise (Failure "worker failed to acquire access to pool")
-    | Some pool -> pool  in
+    | Some pool -> pool in
   (* configure journal with WAL and busy timeout to avoid busy errors *)
   log.info (fun f -> f "setting up worker database configurations");
   Lwt.join [
