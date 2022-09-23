@@ -243,8 +243,39 @@ open struct
     Lwt.return_ok ()
 
   let handle_search_user pool config username domain =
-    log.debug (fun f -> f "received search query for user %s(@%a)?" username (Option.pp String.pp) domain);
-    return_ok ()
+    log.debug (fun f ->
+      f "received search query for user %s(@%a)?"
+        username (Option.pp String.pp) domain);
+    match domain with
+    | None ->
+      (* no domain given, we'll search any instances that don't have the user *)
+      let+ instances =
+        with_pool pool @@ fun db ->
+        Database.RemoteInstance.find_possible_remote_instances_to_query
+          ("%" ^ username ^ "%") db
+        |> map_err (fun err -> `DatabaseError err) in
+      let+ query_res =
+        Lwt_list.map_p (fun instance ->
+          let domain = Database.RemoteInstance.url instance in
+          let+ _ = with_pool pool @@ fun db ->
+            Resolver.resolve_remote_user ~username ~domain db
+            |> map_err (fun err -> `DatabaseError err)
+          in
+          return_ok ()
+        ) instances
+        |> lift_pure in
+      List.iter (function Ok () -> () | Error err ->
+        let _, msg, details = Error_handling.extract_error_details err in
+        log.error (fun f -> f "search query failed with error %s: %s" msg details)
+      ) query_res;
+      return_ok ()      
+    | Some domain ->
+      log.debug (fun f ->  f "resolving user %s@%s?" username domain);
+      let+ _ = with_pool pool @@ fun db ->
+        Resolver.resolve_remote_user ~username ~domain db
+        |> map_err (fun err -> `DatabaseError err) in
+      log.debug (fun f ->  f "successfully resolved user %s@%s" username domain);
+      return_ok ()
 
   let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) task_in config =
     log.debug (fun f -> f "worker now waiting for task");
