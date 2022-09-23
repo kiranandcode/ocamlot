@@ -8,13 +8,13 @@ CREATE TABLE dream_session (
   payload TEXT NOT NULL
 );
 
-CREATE TABLE Activity /* t */ (
+CREATE TABLE Activity /* Types.activity */ (
   id TEXT PRIMARY KEY /* uuid */,                 -- uuid of the activity
   raw_data BLOB NOT NULL /* data: yojson */        -- json data
 );
 
 -- table for local users
-CREATE TABLE LocalUser /* t */ (
+CREATE TABLE LocalUser /* Types.local_user */ (
    id INTEGER PRIMARY KEY,
    username TEXT UNIQUE NOT NULL,                        -- username
    password TEXT NOT NULL /* password_hash: string */,   -- password hash + salt
@@ -29,7 +29,7 @@ CREATE TABLE LocalUser /* t */ (
 CREATE index idxLocalUser_username on LocalUser(username);
 
 -- table for remote instances
-CREATE TABLE RemoteInstance /* t */ (
+CREATE TABLE RemoteInstance /* Types.remote_instance */ (
    id INTEGER PRIMARY KEY,                             -- internal id used for keeping track of remote instances
    url TEXT NOT NULL UNIQUE,                           -- url of instance
    last_unreachable  TEXT /* timestamp option */      -- timestamp of the last time the instance was unreachable, null if never unreachable
@@ -37,7 +37,7 @@ CREATE TABLE RemoteInstance /* t */ (
 CREATE index idxRemoteInstance_url on RemoteInstance(url);
 
 -- table for remote users
-CREATE TABLE RemoteUser /* t */ (
+CREATE TABLE RemoteUser /* Types.remote_user */ (
    id INTEGER PRIMARY KEY,             -- internal id used for keeping track of remote users
    username TEXT UNIQUE NOT NULL,      -- username
    instance_id INTEGER NOT NULL,       -- instance of user
@@ -74,18 +74,20 @@ CREATE TABLE Actor (
 );
 
 -- table for posts
-CREATE TABLE Posts /* t */ (
+CREATE TABLE Posts /* Types.post */ (
    id INTEGER PRIMARY KEY,                             -- internal post id, not exposed
    public_id TEXT,                                     -- if post is by an local user, then assign a public id for the url
    url TEXT NOT NULL UNIQUE,                           -- url/id of the post, if local, then /api/posts/<public_id>
-   author_id INTEGER NOT NULL /* author: int64 */,                         -- author of the post
+   author_id INTEGER NOT NULL /* author: int64 */,     -- author of the post
 
-   is_public BOOLEAN NOT NULL,                                  -- is the post public? or only to the mentioned users
+   is_public BOOLEAN NOT NULL,                         -- is the post public? or only to the mentioned users
+   is_follower_public BOOLEAN NOT NULL,                -- is the post sent to followers mentioned users
 
    summary TEXT,                                       -- subject of the post
+   content_type INTEGER NOT NULL /* content_type */,   -- type of the content
    post_source TEXT NOT NULL,                          -- source of the post
 
-   published TEXT NOT NULL /* timestamp */,           -- date at which post was published
+   published TEXT NOT NULL /* timestamp */,            -- date at which post was published
 
    raw_data BLOB /* raw_text: string option */,        -- if by an external user, then keep raw json of the post
    FOREIGN KEY (author_id)
@@ -151,7 +153,7 @@ CREATE TABLE Mention (
 );
 
 -- table for Tags
-CREATE TABLE Tags /* t */ (
+CREATE TABLE Tags /* Types.tag */ (
    tag_id INTEGER PRIMARY KEY /* id: int64 */,             -- tag id
    tag_name TEXT NOT NULL UNIQUE /* name: string */        -- tag name
 );
@@ -175,7 +177,7 @@ CREATE TABLE PostTags (
 CREATE index idxPostTags_tag_url on PostTags(url);
 
 -- table for likes
-CREATE TABLE Likes /* t */ (
+CREATE TABLE Likes /* Types.like */ (
    id INTEGER PRIMARY KEY,         -- internal like id, not exposed
    public_id TEXT,                 -- if like by a local user, then assign a public id for the like object
    url TEXT NOT NULL,              -- url of the like object, if local, then /api/likes/<public_id>
@@ -202,7 +204,7 @@ CREATE index idxLikes_public_id on Likes(public_id);
 
 
 -- table for follows 
-CREATE TABLE Follows /* t */ (
+CREATE TABLE Follows /* Types.follow */ (
    id INTEGER PRIMARY KEY,               -- internal like id, not exposed
    public_id TEXT,                       -- if follow by a local user, then assign a public id for the follow object
    url TEXT NOT NULL,                             -- url of the follow object, if local then /api/follows/<public_id>

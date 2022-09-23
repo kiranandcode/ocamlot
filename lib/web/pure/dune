@@ -1,0 +1,2 @@
+(library (name pure)
+ (libraries containers tyxml))

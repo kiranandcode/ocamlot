@@ -1,335 +1,138 @@
 [@@@warning "-33"]
 open Containers
+open Bos
+open Cmdliner
+let ( let* ) x f = Result.( let* ) x f
+let map_e f = Result.map_err (fun (`Msg e) -> `Msg (f e))
+let sql_err = function Sqlite3.Rc.OK -> Ok () | err -> Error (`Msg (Sqlite3.Rc.to_string err))
 
-let follow_cancel = IO.with_in "../resources/examples/pleroma-follow-undo.json"
-             IO.read_all
-         |> Yojson.Safe.from_string
+let default_schema = [%blob "../resources/schema.sql"]
 
-module D = Decoders_yojson.Safe.Decode
+let init_database path =
+  let db = Sqlite3.db_open path in
+  let* () = Sqlite3.exec db default_schema |> sql_err in
+  let close_count = ref 0 in
+  let close_status = ref (Sqlite3.db_close db) in
+  while not !close_status && !close_count < 10 do
+    incr close_count;
+    close_status := Sqlite3.db_close db; 
+  done;
+  if not !close_status
+  then Error (`Msg ("failed to close database"))
+  else Ok (())
 
-let timestamp =
-  let open D in
-  let* time = string in
-  match Ptime.of_rfc3339 time |> Ptime.rfc3339_error_to_msg with
-  | Ok (t, _, _) -> succeed t
-  | Error `Msg err -> fail err
+(** [enforce_database path] when given a path [path] ensures that
+    database exists at [path], creating it if not. *)
+let enforce_database path =
+  let* path = Fpath.of_string path in
+  let* exists = OS.File.exists path in
+  if exists
+  then Ok (Fpath.to_string path)
+  else begin
+    let* () =
+      try
+        init_database (Fpath.to_string path)
+      with Sqlite3.SqliteError err -> Error (`Msg ("failed to initialise a fresh database: " ^ err)) in
+    Ok (Fpath.to_string path)
+  end
 
-let singleton_or_list dec =
-  D.(one_of ["singleton", (dec >|= fun v -> [v]);
-             "list", list dec;
-             "null", null >|= fun () -> []])  
+(** [enforce_markdown path] when given a path [path] ensures that
+    a markdown file exists at [path]. *)
+let enforce_markdown path =
+  let* path = Fpath.of_string path in
+  let* path = OS.File.must_exist path in
+  let* contents = OS.File.read path in
+  Ok (Omd.of_string contents)
 
-let lossy_list_of dec =
-  let open D in
-  list (one_of ["known", (dec >|= fun v -> `Value v); "unknown", value >|= fun v -> `Raw v])
+let run key_file certificate_file about_this_instance_path database_path domain port debug =
+  let* database_path = enforce_database database_path in
+  let* about_this_instance =
+    match about_this_instance_path with
+    | None -> Ok None
+    | Some path ->
+      let* path = Fpath.of_string path in
+      let* about_this_instance = OS.File.read path in
+      Ok (Some about_this_instance) in
+  let database_path =  "sqlite3://:" ^ database_path in
+  let config = Configuration.Params.create ?key_file ?certificate_file ?about_this_instance ~debug ?port ~database_path domain in
+  Ok (Server.run config)
 
-let id = D.(one_of ["string", string; "id", field "id" string])
+let debug =
+  let info =
+    Arg.info
+      ~doc:{| Determines whether the OCamlot server should be run in debug mode. |}
+      ["D"; "debug"] in
+  Arg.flag info
 
-let constant ?msg target =
-  let open D in
-  let* str = string in
-  if String.equal str target
-  then succeed ()
-  else match msg with
-    | None -> fail (Printf.sprintf "expected %s received %s" target str)
-    | Some msg -> fail (Printf.sprintf msg str)
+let about_this_instance_path =
+  let info =
+    Arg.info
+      ~doc:{| $(docv) is the path to a markdown file describing the instance. A default message is used if not provided.  |}
+      ~docv:"ABOUT-THIS-INSTANCE"
+      ~absent:{|A default message is used if not provided.|}
+      ["a"; "about-this-instance"] in
+  Arg.(opt (some file) None) info
 
-let field_or_default field' decoder default =
-  let open D in
-  let+ field = field_opt field' decoder in
-  Option.value ~default field
+let key_file_path =
+  let info =
+    Arg.info
+      ~doc:{| $(docv) is the path to the key file for the domain on which this server will be running.  |}
+      ~docv:"KEY-FILE"
+      ~absent:{|The server will not use TLS encryption (use a proxy like Nginx to enable ssl in that case).|}
+      ["k"; "key-file"] in
+  Arg.(opt (some file) None) info
 
-type 'a create = {
-  id: string;
-  actor: string;
-  published: Ptime.t option;
-  to_: string list;
-  cc: string list;
-  direct_message: bool;
-  obj: 'a;
-  raw: Yojson.Safe.t;
-} [@@deriving show, eq]
-
-
-type 'a announce = {
-  id: string;
-  actor: string;
-  to_: string list;
-  cc: string list;
-  obj: 'a;
-  raw: Yojson.Safe.t;
-} [@@deriving show, eq]
-
-
-type tag = {
-  ty: [`Mention | `Hashtag ];
-  href: string;
-  name: string;
-} [@@deriving show, eq]
-
-type note = {
-  id: string;
-  actor: string;
-  to_: string list;
-  in_reply_to: string option;
-  cc: string list;
-  content: string;
-  sensitive: bool;
-  source: string option;
-  summary: string option;
-  published: Ptime.t option;
-  tags: [ `Raw of Yojson.Safe.t | `Value of tag ] list;
-  raw: Yojson.Safe.t;
-} [@@deriving show, eq]
-
-type follow = {
-  id: string;
-  actor: string;
-  cc: string list;
-  object_: string;
-  state: [`Pending | `Cancelled ] option;
-} [@@deriving show, eq]
-
-type person = {
-  id: string;
-  name: string option;
-  url: string option;
-
-  preferred_username: string option;
-
-  inbox: string;
-  outbox: string;
-
-  summary: string option;
-
-  public_key: string;
-
-  manually_approves_followers: bool;
-  
-  discoverable: bool;
-  followers: string option;
-  following: string option;
-  icon: string option;
-  raw: Yojson.Safe.t;
-}  [@@deriving show, eq]
-
-type 'a accept = {
-  id: string;
-  actor: string;
-  obj: 'a;
-  raw: Yojson.Safe.t;
-} [@@deriving show, eq]
-
-type block = {
-  id: string;
-  obj: string;
-  actor: string;
-  raw: Yojson.Safe.t;
-} [@@deriving show, eq]
-
-type 'a delete = {
-  id: string;
-  actor: string;
-  obj: 'a;
-  raw: Yojson.Safe.t;
-}
-[@@deriving show, eq]
-
-type like = {
-  id: string;
-  actor: string;
-  obj: string;
-  raw: Yojson.Safe.t;
-}
-[@@deriving show, eq]
-
-type 'a undo = {
-  id: string;
-  actor: string;
-  obj: 'a;
-  raw: Yojson.Safe.t;
-} [@@deriving show, eq]
+let certificate_file_path =
+  let info =
+    Arg.info
+      ~doc:{| $(docv) is the path to the certificate file for the domain on which this server will be running.  |}
+      ~docv:"CERTIFICATE-FILE"
+      ~absent:{|The server will not use TLS encryption (use a proxy like Nginx to enable ssl in that case).|}
+      ["c"; "certificate-file"] in
+  Arg.(opt (some file) None) info
 
 
+let database_path =
+  let info =
+    Arg.info
+      ~doc:{| $(docv) is the path to the database used by OCamlot. The database is generated if not present.  |}
+      ~docv:"DB"
+      ~absent:{|A fresh database is generated in the current working directory.|}
+      ["f"; "database-path"] in
+  Arg.(opt file "./ocamlot.db") info
 
-let mention =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Mention (received %s)" "Mention"
-  and* href = field "href" string
-  and* name = field "name" string in
-  succeed {ty=`Mention; href;name}
-let hashtag =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Hashtag (received %s)" "Hashtag"
-  and* href = field "href" string
-  and* name = field "name" string in
-  succeed {ty=`Hashtag; href;name}
+let domain =
+  let info =
+    Arg.info
+      ~doc:{| $(docv) is the domain on which the server is running. This is important for verifying the signatures of incoming messages, as they will expect an appropriate domain in the header.  |}
+      ~docv:"DOMAIN"
+      ~absent:{|The domain defaults to localhost.|}
+      ["d"; "domain"] in
+  Arg.(opt string "localhost") info
 
-let tag =
-  let open D in
-  let* ty = field "type" string in
-  match ty with
-  | "Mention" -> mention
-  | "Hashtag" -> hashtag
-  | _ -> fail (Printf.sprintf "unknown tag %s" ty)
+let port =
+  let info =
+    Arg.info
+      ~doc:{| $(docv) is the port on which the OCamlot server should run. |}
+      ~docv:"PORT"
+      ~absent:{|The port defaults to 7331.|}
+      ["p"; "port"] in
+  Arg.(opt (some int) (Some 7331)) info
 
-let undo obj =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Undo (received %s)" "Undo"
-  and* id = field "id" string
-  and* actor = field "actor" id
-  and* obj = field "object" obj
-  and* raw = value in
-  succeed ({id;actor;obj;raw}: _ undo)
+let _ =
+  let info =
+    Cmdliner.Cmd.info
+      ~version:{|%%VERSION%%|}
+      ~doc:"An OCaml Activitypub Server *with soul*!"
+      "OCamlot" in
+  let cmd = Term.(term_result @@ (
+    const run $
+    Arg.value key_file_path $
+    Arg.value certificate_file_path $
+    Arg.value about_this_instance_path $
+    Arg.value database_path $
+    Arg.value domain $
+    Arg.value port $
+    Arg.value debug)) in
 
-let like =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Like (received %s)" "Like"
-  and* id = field "id" string
-  and* actor = field "actor" id
-  and* obj = field "object" id
-  and* raw = value in
-  succeed {id; actor; obj; raw}
-
-
-let tombstone =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Tombstone (received %s)" "Tombstone"
-  and* id = field "id" string in
-  succeed id
-
-let delete obj =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Delete (received %s)" "Delete"
-  and* id = field "id" string
-  and* actor = field "actor" id
-  and* obj = field "object" obj
-  and* raw = value in
-  succeed {id;actor;obj;raw}
-
-let block =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Block (received %s)" "Block"
-  and* id = field "id" string
-  and* obj = field "object" string
-  and* actor = field "actor" id
-  and* raw = value in
-  succeed {id; obj;actor;raw}
-
-
-let accept obj =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Accept (received %s)" "Accept"
-  and* id = field "id" string
-  and* actor = field "actor" id
-  and* obj = field "object" obj
-  and* raw = value in
-  succeed {id;actor;obj;raw}
-
-let person =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Person (received %s)" "Person"
-  and* id = field "id" string
-  and* name = field_opt "name" string
-  and* url = field_or_default "url" (nullable string) None
-  and* preferred_username = field_opt "preferredUsername" string
-  and* inbox = field "inbox" string
-  and* outbox = field "outbox" string
-  and* summary = field_opt "summary" string
-  and* public_key = at ["publicKey"; "publicKeyPem"] string 
-  and* manually_approves_followers =
-    field_or_default "manuallyApprovesFollowers" bool false
-  and* discoverable = field_or_default "discoverable" bool false
-  and* followers = field_opt "followers" string
-  and* following = field_opt "following" string
-  and* icon = maybe (at ["icon";"url"] string)
-  and* raw = value in
-  succeed {
-    id;
-    name;
-    url;
-
-    preferred_username;
-
-    inbox;
-    outbox;
-
-    summary;
-
-    public_key;
-
-    manually_approves_followers;
-
-    discoverable;
-    followers;
-    following;
-    icon;
-    raw;
-  }
-
-let note = 
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Note (received %s)" "Note"
-  and* id = field "id" string
-  and* actor = one_of ["actor", field "actor" id; "attributed_to", field "attributedTo" id]
-  and* to_ = field "to" (singleton_or_list string)
-  and* in_reply_to = field_or_default "inReplyTo" (nullable string) None
-  and* cc = field_or_default "cc" (singleton_or_list string) []
-  and* content = field "content" string
-  and* source = field_opt "source"
-                  (one_of ["string", string; "multi-encode", field "content" string])
-  and* summary = field_or_default "summary" (nullable string) None
-  and* sensitive = field_or_default "sensitive" bool false
-  and* published = field_opt "published" timestamp
-  and* tags = field_or_default "tag" (lossy_list_of tag) []
-  and* raw = value in
-  succeed { id; actor; in_reply_to; to_; cc; sensitive; content; source; summary; tags; published; raw }
-
-let follow =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected create object (received %s)" "Follow"
-  and* actor = field "actor" id
-  and* cc = field_or_default "cc" (singleton_or_list string) []
-  and* id = field "id" string
-  and* object_ = field "object" string
-  and* state = field_opt "state" (string >>= function "pending" -> succeed `Pending
-                                                    | "cancelled" -> succeed `Cancelled
-                                                    | _ -> fail "unknown status") in
-  succeed {actor; cc; id; object_; state}
-
-let announce obj =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected create object (received %s)" "Announce"
-  and* actor = field "actor" id
-  and* id = field "id" string
-  and* to_ = field "to" (singleton_or_list string)
-  and* cc = field_or_default "cc" (singleton_or_list string) []
-  and* obj = field "object" obj
-  and* raw = value in
-  succeed {id; actor; to_; cc; obj; raw}
-
-let create obj =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected create object (received %s)" "Create"
-  and* id = field "id" string
-  and* actor = field "actor" id
-  and* direct_message = field_or_default "direct" bool false
-  and* published = field_opt "published" timestamp
-  and* to_ = field_or_default "to" (singleton_or_list string) []
-  and* cc = field_or_default "cc" (singleton_or_list string) []
-  and* obj = field "object" obj
-  and* raw = value in
-
-  succeed ({
-    id; actor; published;
-    to_; cc;
-    direct_message;
-    obj;
-    raw;
-  }: _ create)
-
-       
-
-
-let () = Yojson.Safe.to_string ~std:true follow_cancel
-         |> print_endline
+  Cmd.eval (Cmd.v info cmd)

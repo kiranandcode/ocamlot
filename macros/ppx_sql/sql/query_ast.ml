@@ -8,6 +8,7 @@ type sql_value =
   | HOLE of int
   | INT of int
   | BOOL of bool 
+  | STRING of string
   | COALESCE of sql_value list
   | DATETIME of sql_value
   | COUNT of sql_value
@@ -41,8 +42,9 @@ and where_constraint =
   | LT of sql_value * sql_value
   | GEQ of sql_value * sql_value
   | GT of sql_value * sql_value
+  | LIKE of sql_value * sql_value
   | IS_NOT_NULL of sql_value
-  | EXISTS of select_query
+  | EXISTS of bool * select_query
 
 
 and query =

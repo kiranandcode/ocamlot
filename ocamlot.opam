@@ -34,6 +34,9 @@ depends: [
   "jwto"
   "angstrom"
   "re"
+  "omd"
+  "crunch"
+  "ppx_blob"
   "odoc" {with-doc}
 ]
 build: [

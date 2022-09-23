@@ -5,6 +5,7 @@ module IntMap = Map.Make(Int)
 
 let int = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident "int"; loc=Location.none} []
 let bool = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident "bool"; loc=Location.none} []
+let string = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident "string"; loc=Location.none} []
 let ty n args = Ppxlib.Ast_builder.Default.ptyp_constr ~loc:Location.none {txt=Longident.Lident n; loc=Location.none} args
 
 let datetime =
@@ -41,11 +42,13 @@ let lookup all_tables table_map table_context ?table_name column =
 
 
 let type_of_sql_query_value all_tables (table_map: string StringMap.t) (tables: Types.table list) (value: Query_ast.sql_value) :
-  Query_type.core_type =
+  string option * Query_type.core_type =
   match value with
   | Query_ast.C (table_name, column) ->
-    (snd (lookup all_tables table_map tables ?table_name column)).ty
-  | Query_ast.COUNT _ -> int
+    let tbl, col = (lookup all_tables table_map tables ?table_name column) in
+    Some tbl.name, col.ty
+  | Query_ast.COUNT _ -> None, int
+  | Query_ast.STRING _ -> None, string
   | Query_ast.STAR -> failwith "STAR const not expected in this context"
   | Query_ast.INT _ -> failwith "INT const not expected in this context"
   | Query_ast.BOOL _ -> failwith "BOOL const not expected in this context"
@@ -61,6 +64,7 @@ let rec type_of_expected_constant_sql_value all_tables
   | Query_ast.C (table_name, column) ->
     Some (snd (lookup all_tables table_map tables ?table_name column)).ty
   | Query_ast.COUNT _ -> Some int
+  | Query_ast.STRING _ -> Some string
   | Query_ast.STAR -> None
   | Query_ast.INT _ -> Some int
   | Query_ast.BOOL _ -> Some bool
@@ -75,6 +79,7 @@ let rec assert_no_holes (value: Query_ast.sql_value) =
   | Query_ast.STAR -> ()
   | Query_ast.INT _ -> ()
   | Query_ast.BOOL _ -> ()
+  | Query_ast.STRING _ -> ()
   | Query_ast.COALESCE vls ->
     List.iter assert_no_holes vls
   | Query_ast.DATETIME vl -> assert_no_holes vl
@@ -87,6 +92,7 @@ let rec visit_sql_value (value: Query_ast.sql_value) ty mapping =
   | Query_ast.STAR -> mapping
   | Query_ast.INT _ -> mapping
   | Query_ast.BOOL _ -> mapping
+  | Query_ast.STRING _ -> mapping
   | Query_ast.COALESCE vls ->
     List.fold_left (fun mapping value -> visit_sql_value value ty mapping) mapping vls
   | Query_ast.DATETIME dt -> assert_no_holes dt; mapping
@@ -114,6 +120,7 @@ let rec check_where_constraint_unique all_tables (table_map: string StringMap.t)
   | Query_ast.LT (_, _)
   | Query_ast.GEQ (_, _)
   | Query_ast.GT (_, _) -> false
+  | Query_ast.LIKE (_, _) -> false
   | Query_ast.IS_NOT_NULL _ -> false
   | Query_ast.EXISTS _ -> false
 
@@ -147,12 +154,16 @@ let rec visit_where_constraint all_tables (table_map: string StringMap.t) (table
       visit_sql_value l ty mapping
     | None, None -> assert_no_holes l; assert_no_holes r; mapping
     end
+  | Query_ast.LIKE (l, r) ->    (* like constraints occur on strings *)
+    mapping
+    |> visit_sql_value r string
+    |> visit_sql_value l string 
   | Query_ast.IS_NOT_NULL vl ->
     begin match type_of_expected_constant_sql_value all_tables table_map tables vl with
     | Some ty -> visit_sql_value vl ty mapping
     | None -> mapping
     end
-  | Query_ast.EXISTS select_query ->
+  | Query_ast.EXISTS (_, select_query) ->
     visit_select_query all_tables table_map tables select_query mapping
 and visit_select_query all_tables (table_map: string StringMap.t) (tables: Types.table list)
       {
@@ -209,6 +220,9 @@ let combine_opt ls rs =
       loop ((l,r) :: acc) ls rs in
   loop [] ls rs
 
+(* let simplify_types (tables: Types.table list) (tys: Query_type.core_type list) : Query_type.core_type list =
+ *   let rec loop outputs tys = *)
+
 let simplify_types (tables: Types.table list) (tys: Query_type.core_type list) : Query_type.core_type list =
   let check_eq (col: Types.column) (cty: Ppxlib.core_type) =
     let to_string (s: Ppxlib.core_type) = Format.to_string Ppxlib.Pprintast.core_type s in
@@ -221,7 +235,45 @@ let simplify_types (tables: Types.table list) (tys: Query_type.core_type list) :
       then table.ty |> Option.map (fun v -> [v])
       else None
   ) tables
-  |> Option.value ~default:tys
+  |> function Some tys -> tys | None -> tys
+
+let group ls =
+  let rec loop acc current_acc current_key = function
+    | (k, vl) :: t when Equal.poly k current_key ->
+      loop acc (vl :: current_acc) k t
+    | (k, vl) :: t ->
+      loop ((current_key, List.rev current_acc) :: acc) [vl] k t
+    | [] -> List.rev ((current_key, List.rev current_acc) :: acc) in
+  match ls with
+  | [] -> []
+  | (k, vl) :: t ->
+    loop [] [vl] k t
+
+let simplify_return_types (tables: Types.table list) (tys: (string option * Query_type.core_type) list) : Query_type.core_type list =
+  let check_eq (col: Types.column) (cty: Ppxlib.core_type) =
+    let to_string (s: Ppxlib.core_type) = Format.to_string Ppxlib.Pprintast.core_type s in
+    String.equal (to_string col.ty) (to_string cty) in
+  group tys
+  |> List.concat_map (fun (tbl, tys) ->
+    let flat_tys = 
+      let open Option in
+      let* tbl = tbl in
+      let tbl = List.find (fun (tbl': Types.table) -> String.equal tbl'.name tbl) tables in
+      let* combined = combine_opt tbl.columns tys in
+      if List.for_all (fun (col, ty) -> check_eq col ty) combined
+      then Option.map (fun v -> [v]) tbl.ty
+      else None in
+    match flat_tys with
+    | None -> tys
+    | Some tys -> tys
+  )
+
+let simplify_return_types tables tys =
+  let s1 = simplify_return_types tables tys in
+  let s2 = simplify_types tables (List.map snd tys) in
+  if List.compare_lengths s1 s2 <= 0
+  then s1
+  else s2
      
 
 let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_type.ty =
@@ -266,13 +318,13 @@ let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_ty
        | [STAR] ->
          let tys = 
            List.concat_map (fun (tbl: Types.table) ->
-             List.map (fun (col: Types.column) -> col.ty) tbl.columns
-           )  table_context in
-         let tys = simplify_types table_context tys in
+             List.map (fun (col: Types.column) -> (Some tbl.name, col.ty)) tbl.columns
+           ) table_context in
+         let tys = simplify_return_types table_context tys in
          Tuple {many=returning_multiple; tys}
        | tys ->
          let tys = List.map (type_of_sql_query_value tables table_map table_context) tys in
-         let tys = simplify_types table_context tys in
+         let tys = simplify_return_types table_context tys in
          Tuple {many=returning_multiple; tys} in
      let hole_types = IntMap.empty in
      let hole_types =

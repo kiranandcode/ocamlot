@@ -11,6 +11,21 @@ let flatten_error err = R.map_error (fun err ->  Caqti_error.show err) err
 type timestamp = Calendar.t
 let timestamp = Caqti_type_calendar.ctime
 
+type content_type = [ `Markdown | `Org | `Text ]
+
+let content_type: content_type T.t =
+  let encode = function
+    | `Markdown -> Ok 0
+    | `Org -> Ok 1
+    | `Text -> Ok 2 in
+  let decode = function
+    | 0 -> Ok `Markdown
+    | 1 -> Ok `Org
+    | 2 -> Ok `Text
+    | cty -> Error (Format.sprintf "unsupported content type %d" cty) in
+  T.Std.custom ~encode ~decode
+    T.Std.(int)
+
 
 type uuid = Uuidm.t
 

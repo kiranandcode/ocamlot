@@ -1,59 +1,31 @@
 open Containers
 module APConstants = Activitypub.Constants
 
-let (let>) x f = x f
-let (let+) x f = Lwt.bind x f
-let (let+!) x f = Lwt_result.bind x f
-let (>|=) x f = Lwt_result.map f x
+let (let+) x f = Lwt_result.bind x f
+let (>>) x f = Lwt.map f x
 let (>>=) x f = Lwt_result.bind x f
+let map_err f x = Lwt_result.map_error f x
+let return_error f v = Lwt.return (Result.map_err f v)
+let return v = Lwt.return v
+let return_ok v = Lwt.return_ok v
+let lift_opt ~else_:else_ = function
+  | None -> Error (else_ ())
+  | Some v -> Ok v
+let lift_pure res = Lwt.map Result.return res
+let form_data key form = List.Assoc.get ~eq:String.equal key form |> Option.to_result (Format.sprintf "missing field %s" key)
 
-let internal_error = Dream.respond ~status:`Internal_Server_Error "Internal server error"
-let bad_request = Dream.respond ~status:`Bad_Request "Bad Request"
-let not_acceptable = Dream.respond ~status:`Not_Acceptable "Bad Request"
-let redirect req to_ = Dream.redirect req to_
-let not_found ?(msg="Not found") () = Dream.respond ~status:`Not_Found msg
+(* Result monad for validation *)
+module VResult = struct
+  include Result
 
-let activity_json json =
-  Dream.respond ~headers:[("Content-Type", Activitypub.Constants.ContentType.activity_json)]
-      (Yojson.Safe.to_string json)
+  let lift err = Result.map_err List.return err
 
-let or_error ?(err=internal_error) ?req vl knt = 
-  match vl with
-  | Ok vl -> knt vl
-  | Error e ->
-    Dream.error (fun log -> log ?request:req "error: %s" e);
-    err
-
-let or_errorP ?(err=internal_error) ~req vl knt =
-  Lwt.bind vl @@ function 
-  | Ok vl -> knt vl
-  | Error e ->
-    Dream.error (fun log -> log ~request:req "error: %s" e);
-    err
-
-let or_else ~else_ vl knt = 
-  match vl with
-  | Some vl -> knt vl
-  | _ -> else_
-
-let or_not_acceptable ?msg vl knt =
-  or_else ~else_:(not_found ?msg ()) vl knt
-
-let or_not_found ?msg vl knt =
-  or_else ~else_:(not_found ?msg ()) vl knt
-
-let or_bad_reqeust vl knt =
-  or_else ~else_:bad_request vl knt
-
-let or_redirect ~req ~to_ vl knt =
-  or_else ~else_:(Dream.redirect req to_) vl knt
-
-
-let holds_or_bad_request vl knt =
-  or_bad_reqeust (if vl then Some () else None) knt
-
-let holds_or ~else_ vl knt =
-  or_else ~else_ (if vl then Some () else None) knt
+  let (and*) x y = match x,y with
+      Ok x, Ok y -> Ok (x,y)
+    | Error l, Error r -> Error (l @ r)
+    | Error e, _ | _, Error e -> Error e
+  let ensure msg cond = if cond then Ok () else Error [msg]
+end
 
 module Middleware = struct
   let redirect_if_present var ~to_  : Dream.middleware =
@@ -63,7 +35,6 @@ module Middleware = struct
         Dream.redirect request to_
       | None -> handler request
 
-
   let enforce_present var ~else_  : Dream.middleware =
     fun handler request -> 
     match Dream.session_field request var with
@@ -72,40 +43,89 @@ module Middleware = struct
 
 end
 
-module Error = struct
-
-  let get request = 
-    let is_not_empty opt = opt |> Option.filter (Fun.negate String.is_empty) in
-    let error = Dream.session_field request "errors"
-                |> is_not_empty in
-    let+ () = Dream.set_session_field request "errors" "" in
-    Lwt.return error
-
-  let set request error = Dream.set_session_field request "errors" error
-
-end
-
-let request_bind request result f =
-  let+ result = result in 
-  match result with
-  | Error str ->
-    let+ () = Error.set request str in
-    Dream.redirect request "/error"
-  | Ok vl -> f vl
-
-let with_current_user request f =
-  let (let@) x f = request_bind request x f in
-  match Dream.session_field request "user" with
+let current_user req =
+  match Dream.session_field req "user" with
+  | None ->
+    return_ok None
   | Some username ->
-    let@ user = Dream.sql request @@ Database.LocalUser.lookup_user_exn ~username in
-    f (Some user)
-  | None -> f None
+    Dream.sql req @@ Database.LocalUser.lookup_user_exn ~username
+    |> map_err (fun err -> `Internal ("Lookup user failed", err))
+    |> Lwt_result.map Option.some
 
-let with_param param f req ~then_ ~else_ =
-  let (let+) x f = request_bind req x f in
-  let param = Dream.param req param in
-  let+ res = f req param in
-  match res with
-  | None -> else_ ()
-  | Some res -> then_ res
+let current_user_link req =
+  let+ current_user = current_user req in
+  match current_user with
+  | None as opt -> return_ok opt
+  | Some user ->
+    Dream.sql req (Database.Actor.of_local (Database.LocalUser.self user))
+    |> map_err (fun err -> `Internal ("Lookup user failed", err))
+    |> Lwt_result.map Option.some
+
+let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =
+  fun res ->
+  Lwt.map (function
+    | `Many_tokens data  -> Error (`FormError ("Many tokens", pp data))
+    | `Missing_token data -> Error (`FormError ("Missing token", pp data))
+    | `Invalid_token data -> Error (`FormError ("Wrong session", pp data))
+    | `Wrong_session data  -> Error (`FormError ("Wrong session", pp data))
+    | `Expired (data, _) -> Error (`FormError ("Expired form", pp data))
+    | `Wrong_content_type -> Error (`FormError ("Wrong Content Type", "No further information"))
+    | `Ok v -> Ok v
+  ) res
+
+let redirect ?status ?code ?headers req path =
+  Lwt.map Result.return @@ Dream.redirect ?status ?code ?headers req path
+
+
+let activity_json  ?(status:Dream.status option) ?code ?(headers=[])  json =
+  lift_pure @@
+  Dream.respond ?status ?code
+    ~headers:(("Content-Type", Activitypub.Constants.ContentType.activity_json) :: headers)
+    (Yojson.Safe.to_string json)
+
+let json_pure ?(status:Dream.status option) ?code ?(headers=[]) json =
+  Dream.respond ?status ?code ~headers:(("Content-Type", "application/json") :: headers)
+    (Yojson.Safe.to_string json)
+
+let json ?status ?code ?headers json =
+  lift_pure @@ json_pure ?status ?code ?headers json
+
+let tyxml_gen k : ?status:Dream.status ->
+  ?code:int ->
+  ?headers:(string * string) list -> Tyxml_html.doc -> _ =
+  let pp =
+    Tyxml.Html.pp
+      ~indent:false
+      ~advert:{|
+OCamlot
+Copyright (C) 2022 The OCamlot Developers
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+|} () in
+  fun ?(status: [< Dream.status] option) ?code ?headers res ->
+    Format.ksprintf ~f:(fun res -> k @@ Dream.html ?status ?code ?headers res)
+      "%a" pp res
+
+let tyxml_pure ?status ?code ?headers doc =
+  tyxml_gen Fun.id ?status ?code ?headers doc
+
+let tyxml ?status ?code ?headers doc =
+  tyxml_gen lift_pure ?status ?code ?headers doc
+
+let not_found_json ?headers msg =
+  json ~status:`Not_Found ?headers (`Assoc [
+    "type", `String "error";
+    "reason", `String msg
+  ])
   

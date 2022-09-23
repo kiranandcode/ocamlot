@@ -4,14 +4,24 @@ let local_username =
 let uuid =
   Re.(rep1 (alt [rg 'a' 'z'; rg '0' '9'; rg 'A' 'Z'; char '-']))
 
+let domain =
+  let open Re in
+  let alnum = alt [
+    rg 'a' 'z';
+    rg 'A' 'Z';
+    rg '0' '9';
+  ] in
+  let alnum_ = alt [alnum; char '-'] in
+  let segment = alt [ alnum; seq [ alnum; rep1 alnum_; alnum ] ] in
+  let segment_dot = seq [segment; char '.' ] in
+  seq [rep segment_dot; segment]
 
 let user_tag _config =
   Re.(seq [
     group local_username;
     char '@';
     group (rep1 any)
-  ]) 
-  
+  ])
 
 let webfinger_format config =
   Re.(seq [

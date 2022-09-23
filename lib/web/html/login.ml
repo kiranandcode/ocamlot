@@ -1,54 +1,87 @@
-open Common
+module H = Tyxml.Html
 
-let field elts = H.div ~a:[H.a_class ["field"]] elts
-let control elts = H.div ~a:[H.a_class ["control"]] elts
 
-let label ~for_ text = H.label ~a:[H.a_class ["label"]; H.a_label_for for_] [H.txt text]
-let text_input ~name () = H.input ~a:[H.a_class ["input"]; H.a_name name; H.a_input_type `Text] ()
-let password_input ~name () = H.input ~a:[H.a_class ["input"]; H.a_name name; H.a_input_type `Password] ()
+let login_info contents =
+  H.div ~a:[H.a_class ["login-info"]] [
+    H.div ~a:[H.a_class ["login-info-content"]]
+      contents
+  ]  
 
-let notification ?(classes=[]) elts =
-  H.div ~a:[H.a_class ("notification" :: classes)]
-    ((H.button ~a:[H.a_class ["delete"]] []) :: elts)
-
-let body ?(errors=[]) req =
-  H.body [
-    H.div ~a:[H.a_class ["hero"]] [
-      H.div ~a:[H.a_class ["container"; "hero-body"]] @@ List.concat [
-        [H.h1 ~a:[H.a_class ["title"]] [H.txt "Login to OCamlot"]];
-        (List.map (fun err -> notification ~classes:["is-danger"; "is-light"] [H.txt err]) errors);
-        [H.form ~a:[H.a_action "/login"; H.a_method `Post] [
-          Utils.csrf_tag req;
-          field [
-            label ~for_:"username" "Username:";
-            control [ text_input ~name:"username" () ]
-          ];
-          field [
-            label ~for_:"password" "Password:";
-            control [ password_input ~name:"password" () ]
-          ];
-          field [ control [
-            H.input ~a:[H.a_class ["button"; "is-link"];  H.a_value "Login"; H.a_input_type `Submit] ();
-            H.a ~a:[H.a_class ["button"; "is-light"]; H.a_href "/register"] [H.txt "Sign up"]
-          ] ]
-        ]];
+let login_box ?(fields=[]) ?errors () =
+  H.div ~a:[H.a_class ["login-component"]] @@ List.concat [
+    begin match errors with
+    | None -> []
+    | Some errors ->
+      [H.div ~a:[H.a_class ["login-component-errors"]]
+         (List.map (fun error ->
+            H.div ~a:[H.a_class ["login-error"]] [
+              H.b [H.txt "Error: "];
+              H.txt error
+            ]
+          ) errors)
       ]
-    ];
-    inline_script {|
-document.addEventListener('DOMContentLoaded', () => {
-  (document.querySelectorAll('.notification .delete') || []).forEach(($delete) => {
-    const $notification = $delete.parentNode;
+    end;
+    [H.div ~a:[H.a_class ["login-component-content"]] [
+       Pure.form ~a:[H.a_method `Post] ~stacked:true @@ List.concat [
+         [Pure.form_grouped_input [
+            H.label ~a:[H.a_label_for "username"] [H.txt "Username"];
+            H.input ~a:[H.a_name "username"; H.a_input_type `Text] ();
+          ];
+          Pure.form_grouped_input [
+            H.label ~a:[H.a_label_for "password"] [H.txt "Password"];
+            H.input ~a:[H.a_name "password"; H.a_input_type `Password] ();
+          ];];
+         List.map (fun (key, value) ->
+           H.input ~a:[H.a_name key; H.a_input_type `Hidden; H.a_value value] ()
+         ) fields;
+         [H.div ~a:[H.a_class ["login-button-group"]] [
+            H.button ~a:[H.a_class ["pure-button"]; H.a_button_type `Submit] [H.txt "Log in"];
+            Pure.a_button ~a:[H.a_href "/register"] [H.txt "Register"]
+          ] ]
+       ]]
+    ]]
 
-    $delete.addEventListener('click', () => {
-      $notification.parentNode.removeChild($notification);
-    });
-  });
-});
-|};
-    noscript "Javascript may be required (but don't worry, it's all Libre my friend!)"
+let register_box ?(fields=[]) ?errors () =
+  H.div ~a:[H.a_class ["login-component"]] @@ List.concat [
+    begin match errors with
+    | None | Some [] -> []
+    | Some errors ->
+      [H.div ~a:[H.a_class ["login-component-errors"]]
+         (List.map (fun error ->
+            H.div ~a:[H.a_class ["login-error"]] [
+              H.b [H.txt "Error: "];
+              H.txt error
+            ]
+          ) errors)
+      ]
+    end;
+    [H.div ~a:[H.a_class ["login-component-content"]] [
+       Pure.form ~a:[H.a_method `Post; H.a_action "/register"] ~stacked:true @@ List.concat [
+         [ Pure.form_grouped_input [
+             H.label ~a:[H.a_label_for "username"] [H.txt "Username"];
+             H.input ~a:[H.a_name "username"; H.a_input_type `Text] ();
+           ];
+           Pure.form_grouped_input [
+             H.label ~a:[H.a_label_for "password"] [H.txt "Password"];
+             H.input ~a:[H.a_name "password"; H.a_input_type `Password] ();
+           ];
+           Pure.form_grouped_input [
+             H.label ~a:[H.a_label_for "password2"] [H.txt "Confirm Password"];
+             H.input ~a:[H.a_name "password2"; H.a_input_type `Password] ();
+           ];
+           Pure.form_grouped_input [
+             H.label ~a:[H.a_label_for "reason"] [H.txt "Notes"];
+             H.textarea ~a:[H.a_rows 10; H.a_name "reason"; H.a_placeholder "Your reason for joining this instance."] (
+               H.txt ""
+             );
+           ]];
+         List.map (fun (key, value) ->
+           H.input ~a:[H.a_name key; H.a_input_type `Hidden; H.a_value value] ()
+         ) fields;
+         [H.div ~a:[H.a_class ["login-button-group"]] [
+            H.button ~a:[H.a_class ["pure-button"]; H.a_button_type `Submit] [H.txt "Sign up"];
+            Pure.a_button ~a:[H.a_href "/login"] [H.txt "Log in"]
+          ] ]
+       ]
+     ]]
   ]
-
-let build ?errors req =
-  let head = Components.build_header ~title:"Login to OCamlot" () in
-  let body = body ?errors req in
-  Utils.build_document head body

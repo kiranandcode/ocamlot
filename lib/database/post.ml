@@ -4,7 +4,7 @@ open Utils
 
 let () = declare_schema "../../resources/schema.sql"
 
-(* see ./resources/schema.sql:Post *)
+(* see ./resources/schema.sql:Posts *)
 type t = Types.post
 let t = Types.post
 
@@ -13,7 +13,7 @@ let lookup_post_by_public_id_request =
   let open Caqti_type.Std in
   let open Caqti_request.Infix in
   string -->! t @:- {|
-SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
+SELECT id, public_id, url, author_id, is_public, is_follower_public, summary, content_type, post_source, published, raw_data
 FROM Posts
 WHERE public_id = ?
 |}
@@ -22,14 +22,14 @@ let lookup_post_by_url_request =
   let open Caqti_type.Std in
   let open Caqti_request.Infix in
   string -->! t @:- {|
-SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
+SELECT id, public_id, url, author_id, is_public, is_follower_public, summary, content_type, post_source, published, raw_data
 FROM Posts
 WHERE url = ?
 |}
 
 let resolve_post =
   let%sql.query resolve_post_request = {|
-SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
+SELECT id, public_id, url, author_id, is_public, is_follower_public, summary, content_type, post_source, published, raw_data
 FROM Posts
 WHERE id = ?
 |} in
@@ -39,18 +39,18 @@ WHERE id = ?
 let create_post =
   let%sql.query create_post_request =  {|
 INSERT OR IGNORE
-INTO Posts (public_id, url, author_id, is_public, summary, post_source, published, raw_data)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INTO Posts (public_id, url, author_id, is_public, is_follower_public, summary, content_type, post_source, published, raw_data)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 |} in
   fun  ?public_id ?summary ?raw_data
     ~url ~author:((author_id, _) : Actor.t Link.t)
-    ~is_public ~post_source ~published
+    ~is_public ~is_follower_public ~post_source ~post_content ~published
     (module DB: DB) ->
     let* () =
       DB.exec create_post_request
         (public_id, url, author_id,
-         (is_public, summary, post_source,
-          (published, raw_data))) |> flatten_error in
+         (is_public, is_follower_public, summary,
+          (post_content, post_source,  published, raw_data))) |> flatten_error in
     DB.find lookup_post_by_url_request url |> flatten_error
 
 let lookup_post_by_url url (module DB: DB) =
@@ -75,13 +75,13 @@ WHERE author_id = ?
 
 let collect_posts_by_author =
   let%sql.query collect_posts_by_author_request = {|
-SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
+SELECT id, public_id, url, author_id, is_public, is_follower_public, summary, content_type, post_source, published, raw_data
 FROM Posts
 WHERE author_id = ? AND is_public = TRUE
 ORDER BY DATETIME(published) DESC
 |} in
   let%sql.query collect_posts_by_author_offset_request = {|
-SELECT id, public_id, url, author_id, is_public, summary, post_source, published, raw_data
+SELECT id, public_id, url, author_id, is_public, is_follower_public, summary, content_type, post_source, published, raw_data
 FROM Posts
 WHERE author_id = ? AND DATETIME(published) <= ? AND is_public = TRUE
 ORDER BY DATETIME(published) DESC
@@ -174,13 +174,8 @@ JOIN Tags ON PostTags.tag_id = Tags.tag_id
 WHERE PostTags.post_id = ?
 |} in
   fun (((post_id, _): t Link.t)) (module DB: DB) : ((Tag.t * string option) List.t, string) R.t ->
-    let* ls  = DB.collect_list collect_post_tags_request (Some post_id)
-               |> flatten_error in
-    let tags =
-      List.map
-        (fun (id, name', url) -> (Types.{id; name=name'}, url))
-        ls in
-    Lwt_result.return tags
+    DB.collect_list collect_post_tags_request (Some post_id)
+    |> flatten_error
 
 let add_post_mention =
   let%sql.query add_post_mention_request = {|
@@ -212,15 +207,16 @@ WHERE post_id = ?
 let collect_post_feed =
   let%sql.query collect_post_feed_request = {|
 -- select posts 
-SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.is_follower_public, P.summary, P.content_type, P.post_source, P.published, P.raw_data
 FROM Posts as P
 WHERE
     -- we are not blocking/muting the author 
     TRUE AND (
     -- where, we (1) are the author
     P.author_id = ? OR
--- or	we (1) are following the author of the post, and the post is public
-    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) AND P.is_public = TRUE) OR
+-- or	we (1) are following the author of the post, and the post is public or follower public
+    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) 
+     AND (P.is_public = TRUE OR P.is_follower_public = TRUE)) OR
 -- or we (1) are the recipients (cc, to) of the post    
     (EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
 EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)))
@@ -228,7 +224,7 @@ ORDER BY DATETIME(P.published) DESC
 |} in
   let%sql.query collect_post_feed_offset_request = {|
 -- select posts 
-SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.is_follower_public, P.summary, P.content_type, P.post_source, P.published, P.raw_data
 FROM Posts as P
 WHERE
     -- we are not blocking/muting the author 
@@ -237,33 +233,34 @@ WHERE
     -- where, we (1) are the author
     P.author_id = ? OR
 -- or	we (1) are following the author of the post, and the post is public
-    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) AND P.is_public = TRUE) OR
+    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) AND 
+     (P.is_public = TRUE OR P.is_follower_public = TRUE)) OR
 -- or we (1) are the recipients (cc, to) of the post    
     (EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
 EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)))
 ORDER BY DATETIME(P.published) DESC
 LIMIT ? OFFSET ?
 |} in
-  fun ?offset ((post_id, _): Actor.t Link.t) (module DB: DB) ->
+  fun ?offset ((author_id, _): Actor.t Link.t) (module DB: DB) ->
     match offset with
     | None ->
-      DB.collect_list collect_post_feed_request (post_id, post_id, post_id, post_id)
+      DB.collect_list collect_post_feed_request (author_id, author_id, author_id, author_id)
       |> flatten_error
     | Some (timestamp, limit, offset) ->
       DB.collect_list collect_post_feed_offset_request
-        (timestamp, post_id, post_id,
-         (post_id, post_id, limit, offset))
+        (timestamp, author_id, author_id,
+         (author_id, author_id, limit, offset))
       |> flatten_error
 
 let collect_post_direct =
   let%sql.query collect_post_direct_messages_request = {|
 -- select posts 
-SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.is_follower_public, P.summary, P.content_type, P.post_source, P.published, P.raw_data
 FROM Posts as P
 WHERE
     -- we are not blocking/muting the author 
     TRUE AND (
-    -- where, we (1) are the author and the post is public
+    -- where, we (1) are the author and the post is not public
     (P.author_id = ? AND P.is_public = FALSE) OR
     -- or we (1) are the recipients (cc, to) of the post    
     ((EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
@@ -273,13 +270,13 @@ ORDER BY DATETIME(P.published) DESC
 |} in
   let%sql.query collect_post_direct_messages_offset_request = {|
 -- select posts 
-SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.is_follower_public, P.summary, P.content_type, P.post_source, P.published, P.raw_data
 FROM Posts as P
 WHERE
     -- we are not blocking/muting the author 
     TRUE AND
     DATETIME(P.published) <= ? AND (
-    -- where, we (1) are the author and the post is public
+    -- where, we (1) are the author and the post is not public
     (P.author_id = ? AND P.is_public = FALSE) OR
     -- or we (1) are the recipients (cc, to) of the post    
     ((EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
@@ -301,7 +298,7 @@ LIMIT ? OFFSET ?
 let collect_post_whole_known_network =
   let%sql.query collect_post_whole_known_network_request = {|
 -- select posts 
-SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.is_follower_public, P.summary, P.content_type, P.post_source, P.published, P.raw_data
 FROM Posts as P
 WHERE
     -- we are not blocking/muting the author 
@@ -310,7 +307,7 @@ ORDER BY DATETIME(P.published) DESC
 |} in
   let%sql.query collect_post_whole_known_network_offset_request = {|
 -- select posts 
-SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.is_follower_public, P.summary, P.content_type, P.post_source, P.published, P.raw_data
 FROM Posts as P
 WHERE
     -- we are not blocking/muting the author 
@@ -332,7 +329,7 @@ LIMIT ? OFFSET ?
 
 let collect_post_local_network =
   let%sql.query collect_post_local_network_request = {|
-SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.is_follower_public, P.summary, P.content_type, P.post_source, P.published, P.raw_data
 FROM Posts as P
 WHERE
     -- we are not blocking/muting the author 
@@ -342,7 +339,7 @@ EXISTS (SELECT * FROM Actor as Act WHERE Act.id = P.author_id AND Act.local_id I
 ORDER BY DATETIME(P.published) DESC
 |} in
   let%sql.query collect_post_local_network_offset_request = {|
-SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.is_follower_public, P.summary, P.content_type, P.post_source, P.published, P.raw_data
 FROM Posts as P
 WHERE
     -- we are not blocking/muting the author 
@@ -364,11 +361,13 @@ LIMIT ? OFFSET ?
       |> flatten_error
 
 let self (t: t) : t Link.t = t.id, resolve_post
+let content_type (t: t) = t.content_type
 let public_id (t: t) = t.public_id
 let author (t: t) : Actor.t Link.t = t.author, Actor.resolve
 let url (t: t) = t.url
 let raw_data (t: t) = t.raw_text
 let is_public (t: t) : bool = t.is_public
+let is_follower_public (t: t) : bool = t.is_follower_public
 let summary (t: t) : string option = t.summary
 let post_source (t: t) : string = t.post_source
 let published (t: t) : Calendar.t = t.published

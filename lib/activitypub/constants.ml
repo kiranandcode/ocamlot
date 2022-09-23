@@ -37,6 +37,8 @@ end
 
 module ActivityStreams = struct
 
+  let public = "https://www.w3.org/ns/activitystreams#Public"
+
   let context : string * Yojson.Safe.t =
     "@context", `List [
       `String "https://www.w3.org/ns/activitystreams";

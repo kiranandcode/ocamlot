@@ -1,0 +1,4 @@
+(tests (names test_1)
+ (deps ../../bin/main.exe ./docker-compose.yml ./Dockerfile ../../ocamlot.opam)
+  (libraries bos containers)
+)

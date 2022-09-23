@@ -60,3 +60,4 @@ let of_remote ((remote_id, _): Remote_user.t Link.t) (module DB: DB) =
     let* () = DB.exec create_remote_user_request remote_id |> flatten_error in
     let* id = DB.find lookup_remote_id_request remote_id |> flatten_error in
     R.return (id, resolve)
+

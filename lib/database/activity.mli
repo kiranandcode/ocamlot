@@ -4,7 +4,7 @@ type id
 val id: t -> id
 val data: t -> Yojson.Safe.t
 
-val url: Configuration.Params.t -> id -> Uri.t
+val url: _ Configuration.Params.t -> id -> Uri.t
 
 
 val id_from_string: string -> id option

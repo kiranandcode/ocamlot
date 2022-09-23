@@ -22,6 +22,13 @@ type%sql.check[@schema "RemoteInstance"] remote_instance = {
   url: string;                            (* url to instance *)
   mutable last_unreachable: timestamp option;    (* time since the sever was unreachable *)
 }
+let remote_instance =
+  let encode ({id;url;last_unreachable}: remote_instance) =
+    Ok (id, url, last_unreachable) in
+  let decode (id, url, last_unreachable) =
+    Ok ({id;url;last_unreachable}: remote_instance) in
+  T.Std.custom ~encode ~decode
+    T.Std.(tup3 int64 string (option timestamp))
 
 (* see ./resources/schema.sql:RemoteUser *)
 type%sql.generate remote_user = SQL [@schema "RemoteUser"]

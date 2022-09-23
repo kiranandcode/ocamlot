@@ -1,5 +1,9 @@
+[@@@warning "-33"]
 open Containers
 open Common
+
+let log = Logging.add_logger "web.finger"
+
 
 let resource_to_username config queried_resource =
   let webfinger_format = Configuration.Regex.webfinger_format config |> Re.compile in
@@ -14,26 +18,28 @@ let resource_to_username config queried_resource =
 let handle_webfinger config req =
   let content_type = Dream.header req "Accept" in
   if not (Option.for_all String.(prefix ~pre:"application/json") content_type) then
-    Dream.log "webfinger for unsupported content type \"%s\", ignoring silently"
-      (Option.value ~default:"" content_type);
-  let> queried_resource = Dream.query req "resource" |> or_bad_reqeust in
-
+    log.warning (fun f -> f "webfinger for unsupported content type \"%s\", ignoring silently"
+                            (Option.value ~default:"" content_type));
+  let+ queried_resource = Dream.query req "resource"
+                          |> lift_opt ~else_:(fun () -> `InvalidWebfinger ("bad query", "missing params")) |> return in
+  log.debug (fun f -> f "queried resource: %s" queried_resource);
   match resource_to_username config queried_resource with
   | Some username ->
-    Dream.sql req begin fun db -> 
-      let+ query_res = Database.LocalUser.lookup_user ~username db in
-      let> local_user_opt = query_res |> or_error in
-      let> local_user = local_user_opt |> or_not_found in
-      let json =
-        Database.Interface.Webfinger.construct_query_result_for config local_user
-        |> Activitypub.Encode.Webfinger.query_result
-        |> Yojson.Safe.to_string in
-      Dream.json json
-    end
+    let+ user = 
+      Dream.sql req begin fun db -> 
+        let+ query_res = Database.LocalUser.lookup_user ~username db |> map_err (fun err -> `DatabaseError err) in
+        return @@ lift_opt ~else_:(fun () -> `DatabaseError ("Inconsistent state: user's link failed to resolve")) query_res
+      end in
+    let result = 
+      Database.Interface.Webfinger.construct_query_result_for config user
+      |> Activitypub.Encode.Webfinger.query_result in
+    log.debug (fun f -> f "result for webfinger query: %s" (Yojson.Safe.to_string result));
+    json result
   | None ->
-    not_found ()
+    log.debug (fun f -> f "user %s was not found" queried_resource);
+    not_found_json "User was not found"
 
 let route config =
   Dream.scope "/.well-known" [] [
-    Dream.get "/webfinger" (handle_webfinger config)
+    Dream.get "/webfinger" @@ Error_handling.handle_error_json config @@ (handle_webfinger config)
   ]

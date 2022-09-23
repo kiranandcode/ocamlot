@@ -1,24 +1,25 @@
+[@@@warning "-33"]
 open Containers
 open Common
+
+let log = Logging.add_logger "back.resolver"
 
 let req_post ~headers url body =
   let body = Cohttp_lwt.Body.of_string body in
   try
-    let+ pair =
-      Cohttp_lwt_unix.Client.post
-        ~headers
-        ~body
-        url in
-    Lwt_result.return pair
-  with exn -> Lwt.return (Result.of_exn exn)
+    Cohttp_lwt_unix.Client.post
+      ~headers
+      ~body
+      url >> Result.return
+  with exn ->
+    Lwt.return (Result.of_exn exn)
 
 let req ~headers url =
   try
-    let+ pair =
-      Cohttp_lwt_unix.Client.get
-        ~headers:(Cohttp.Header.of_list headers)
-        url in
-    Lwt_result.return pair
+    Cohttp_lwt_unix.Client.get
+      ~headers:(Cohttp.Header.of_list headers)
+      url
+    >> Result.return 
   with exn -> Lwt.return (Result.of_exn exn)
 
 let signed_req f (key_id, priv_key) uri body_str =
@@ -45,10 +46,10 @@ let json_rd_req ?(headers=[]) url =
     ("Accept", APConstants.Webfinger.json_rd) in
   req ~headers:(json_rd_header :: headers) url
 
-let lookup_request url =
+let resolve_public_key url =
   (* NOTE: Not obvious, but you need to specify accept headers, else pleroma will return html *)
-  let+! (_resp, body) = activity_req (Uri.of_string url) in
-  let+! actor = Cohttp_lwt.Body.to_string body
+  let+ (_resp, body) = activity_req (Uri.of_string url) in
+  let+ actor = Cohttp_lwt.Body.to_string body
                 |> Lwt.map Activitypub.Decode.(decode_string person) in
   let pub_key =
     actor.public_key.pem
@@ -59,7 +60,7 @@ let lookup_request url =
 
 let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
   : (Database.RemoteUser.t, string) Lwt_result.t =
-  let+! domain = Uri.host webfinger_uri |> Result.of_opt |> Lwt.return in
+  let+ domain = Uri.host webfinger_uri |> Result.of_opt |> Lwt.return in
   let extract_self_link query =
     query.Activitypub.Types.Webfinger.links
     |> List.find_map (function
@@ -69,31 +70,31 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
       | _ -> None)
     |> Result.of_opt
     |> Lwt.return in
-  let+! result = local_lookup db in
+  let+ result = local_lookup db in
   match result with
     Some v -> Lwt.return_ok v
   | None ->
     (* remote user not found *)
     (* webfinger to find user url *)
-    let+! remote_user_url =
-      let+! (_, body) = json_rd_req webfinger_uri in
-      let+ body = Cohttp_lwt.Body.to_string body in
-      let+! query_res = body
+    let+ remote_user_url =
+      let+ (_, body) = json_rd_req webfinger_uri in
+      let+ body = Cohttp_lwt.Body.to_string body >> Result.return in
+      let+ query_res = body
                         |> Activitypub.Decode.(decode_string Webfinger.query_result)
                         |> Lwt.return in
       extract_self_link query_res in
     (* retrieve json *)
-    let+! (_, body) = activity_req remote_user_url in
-    let+ body = Cohttp_lwt.Body.to_string body in
-    let+! person_res = body
+    let+ (_, body) = activity_req remote_user_url in
+    let+ body = Cohttp_lwt.Body.to_string body >> Result.return in
+    let+ person_res = body
                        |> Activitypub.Decode.(decode_string person)
                        |> Lwt.return in
-    let+! remote_instance = Database.RemoteInstance.create_instance domain db in
-    let+! () = Database.RemoteInstance.record_instance_reachable remote_instance db in
-    let+! username = person_res.preferred_username
+    let+ remote_instance = Database.RemoteInstance.create_instance domain db in
+    let+ () = Database.RemoteInstance.record_instance_reachable remote_instance db in
+    let+ username = person_res.preferred_username
                      |> Result.of_opt
                      |> Lwt.return in
-    let+! url = person_res.url
+    let+ url = person_res.url
                 |> Result.of_opt
                 |> Lwt.return in
     Database.RemoteUser.create_remote_user
@@ -151,12 +152,18 @@ let create_accept_follow config follow remote local db =
   Lwt_result.return accept
 
 let build_follow_request config local remote db =
-  let id = Database.Activity.fresh_id () in
+  log.debug (fun f -> f "building follow request");
+  let id = try Database.Activity.fresh_id () with exn ->
+    log.debug (fun f -> f "failed with error %s" (Printexc.to_string exn));
+    raise exn in
+  log.debug (fun f -> f "created fresh id %s" (Database.Activity.id_to_string id));
   let local_actor_url = 
     Database.LocalUser.username local
     |> Configuration.Url.user config
     |> Uri.to_string in
+  log.debug (fun f -> f "calculated local actor url %s" local_actor_url);
   let remote_actor_url = Database.RemoteUser.url remote in
+  log.debug (fun f -> f "calculated remote actor url %s" remote_actor_url);
   let follow_request =
     let id =
       Database.Activity.id_to_string id
@@ -169,23 +176,31 @@ let build_follow_request config local remote db =
       raw=`Null
     }  in
   let data = Activitypub.Encode.follow follow_request in
-  let+! _ =
-    let+! author = Database.Actor.of_local (Database.LocalUser.self local) db in
-    let+! target = Database.Actor.of_remote (Database.RemoteUser.self remote) db in
+  log.debug (fun f -> f "constructed yojson object %a" Yojson.Safe.pp data);
+  let+ _ =
+    log.debug (fun f -> f "resolving remote author");
+    let+ author = Database.Actor.of_local (Database.LocalUser.self local) db in
+    log.debug (fun f -> f "resolving target");
+    let+ target = Database.Actor.of_remote (Database.RemoteUser.self remote) db in
+    log.debug (fun f -> f "creating follow");
     Database.Follow.create_follow
       ~url:(Configuration.Url.activity_endpoint config (Database.Activity.id_to_string id)
             |> Uri.to_string)
       ~public_id:(Database.Activity.id_to_string id)
       ~author ~target ~pending:true
       ~created:(CalendarLib.Calendar.now ()) db in
-  let+! _ = Database.Activity.create ~id ~data db in
+  log.debug (fun f -> f "creating follow in activity db");
+  let+ _ = Database.Activity.create ~id ~data db in
   Lwt_result.return (data |> Yojson.Safe.to_string)
 
 let follow_remote_user config
       (local: Database.LocalUser.t)
       ~username ~domain db: (unit,string) Lwt_result.t =
-  let+! remote = resolve_remote_user ~username ~domain db in
-  let+! follow_request = build_follow_request config local remote db in
+  log.debug (fun f -> f "resolving remote user %s@%s" username domain);
+  let+ remote = resolve_remote_user ~username ~domain db in
+  log.debug (fun f -> f "successfully resolved remote user %s@%s" username domain);
+  let+ follow_request = build_follow_request config local remote db in
+  log.debug (fun f -> f "built follow request %s" follow_request);
   let uri = Database.RemoteUser.inbox remote in
   let key_id =
     Database.LocalUser.username local
@@ -193,13 +208,16 @@ let follow_remote_user config
     |> Uri.to_string in
   let priv_key =
     Database.LocalUser.privkey local in
-  let+! resp, _  = signed_post (key_id, priv_key) uri follow_request in
+  log.debug (fun f -> f "sending signed follow request");
+  let+ resp, body  = signed_post (key_id, priv_key) uri follow_request in
+  let+ body = lift_pure (Cohttp_lwt.Body.to_string body) in
+  log.debug (fun f -> f "follow request response was (STATUS: %s) %s" (Cohttp.Code.string_of_status resp.status) body);
   match resp.status with
   | `OK -> Lwt_result.return ()
   | _ -> Lwt_result.fail "request failed"
 
 let accept_remote_follow config follow remote local db =
-  let+! accept_follow = create_accept_follow config follow remote local db in
+  let+ accept_follow = create_accept_follow config follow remote local db in
   let uri = Database.RemoteUser.inbox remote in
   let key_id =
     Database.LocalUser.username local
@@ -207,17 +225,20 @@ let accept_remote_follow config follow remote local db =
     |> Uri.to_string in
   let priv_key =
     Database.LocalUser.privkey local in
-  print_endline @@ Printf.sprintf "sending accept follow request to %s\n\ndata is %s"
-                     (Uri.to_string uri)
-                     (Yojson.Safe.pretty_to_string accept_follow) ;
+  log.debug (fun f ->
+    f "sending accept follow request to %s\n\ndata is %s"
+      (Uri.to_string uri) (Yojson.Safe.pretty_to_string accept_follow)
+  );
 
-  let+! resp, body  = signed_post (key_id, priv_key) uri
+  let+ resp, body  = signed_post (key_id, priv_key) uri
                      (Yojson.Safe.to_string accept_follow) in
-  let+ body = Cohttp_lwt.Body.to_string body in
-  print_endline @@ Printf.sprintf "response from server was %s" body;
+  let+ body = Cohttp_lwt.Body.to_string body >> Result.return in
+
+  log.debug (fun f -> f  "response from server was %s" body);
+
   match resp.status with
   | `OK ->
-    let+! () =
+    let+ () =
       Database.Follow.update_follow_pending_status ~timestamp:(CalendarLib.Calendar.now ())
         (Database.Follow.self follow) false db in
     Lwt_result.return ()
@@ -225,15 +246,15 @@ let accept_remote_follow config follow remote local db =
 
 
 let accept_local_follow _config follow ~target:remote ~author:local db =
-  let+! () =
-    let+! follow_remote = Database.Link.resolve (Database.Follow.target follow) db
+  let+ () =
+    let+ follow_remote = Database.Link.resolve (Database.Follow.target follow) db
       >>= function Database.Actor.Remote r -> Lwt.return_ok (Database.RemoteUser.url r)
                  | _ -> Lwt.return_error "invalid user" in
     if String.equal (Database.RemoteUser.url remote) follow_remote
     then Lwt.return_ok ()
     else Lwt.return_error "inconsistent follow" in
-  let+! () =
-    let+! follow_local = Database.Link.resolve (Database.Follow.author follow) db
+  let+ () =
+    let+ follow_local = Database.Link.resolve (Database.Follow.author follow) db
       >>= function Database.Actor.Local l -> Lwt.return_ok (Database.LocalUser.username l)
                  | _ -> Lwt.return_error "invalid user" in
     if String.equal (Database.LocalUser.username local) follow_local
@@ -245,29 +266,29 @@ let accept_local_follow _config follow ~target:remote ~author:local db =
   Lwt_result.return ()
 
 let follow_local_user config follow_url remote_url local_user data db =
-  let+! remote = resolve_remote_user_by_url (Uri.of_string remote_url) db in
-  let+! follow = 
-    let+! author =
+  let+ remote = resolve_remote_user_by_url (Uri.of_string remote_url) db in
+  let+ follow = 
+    let+ author =
       Database.Actor.of_remote (Database.RemoteUser.self remote) db in
-    let+! target =
+    let+ target =
       Database.Actor.of_local (Database.LocalUser.self local_user) db in
     Database.Follow.create_follow
       ~raw_data:(Yojson.Safe.to_string data)
       ~url:follow_url ~author ~target ~pending:true
       ~created:(CalendarLib.Calendar.now ()) db in
-  let+! () =
+  let+ () =
     if not @@ Database.LocalUser.manually_accept_follows local_user
     then accept_remote_follow config follow remote local_user db
     else Lwt_result.return () in
   Lwt_result.return ()
 
 let build_followers_collection_page config start_time offset user db =
-  let+! followers, total_count =
-    let+! user = Database.Actor.of_local (Database.LocalUser.self user) db in
-    let+! followers =
+  let+ followers, total_count =
+    let+ user = Database.Actor.of_local (Database.LocalUser.self user) db in
+    let+ followers =
     Database.Follow.collect_followers
       ~offset:(start_time, 10, offset * 10) user db in
-    let+! total_count =
+    let+ total_count =
       Database.Follow.count_followers user db in
     Lwt.return_ok (followers, total_count) in
 
@@ -275,8 +296,8 @@ let build_followers_collection_page config start_time offset user db =
     Lwt_list.map_s (fun follow ->
       Database.Follow.author follow
       |> Fun.flip Database.Link.resolve db
-    ) followers in
-  let+! followers = Lwt.return @@ Result.flatten_l followers in
+    ) followers
+    >> Result.flatten_l in
   let followers =
     List.map (function
         Database.Actor.Local u ->
@@ -285,7 +306,7 @@ let build_followers_collection_page config start_time offset user db =
       | Database.Actor.Remote r ->
         Database.RemoteUser.url r
     ) followers in
-  let+! start_time =
+  let+ start_time =
     (CalendarLib.Calendar.to_unixfloat start_time
                    |> Ptime.of_float_s
                    |> Option.map (Ptime.to_rfc3339 ~tz_offset_s:0)
@@ -321,12 +342,12 @@ let build_followers_collection_page config start_time offset user db =
   } : string Activitypub.Types.ordered_collection_page)
 
 let build_following_collection_page config start_time offset user db =
-  let+! following, total_count =
-    let+! user = Database.Actor.of_local (Database.LocalUser.self user) db in
-    let+! following =
+  let+ following, total_count =
+    let+ user = Database.Actor.of_local (Database.LocalUser.self user) db in
+    let+ following =
     Database.Follow.collect_following
       ~offset:(start_time, 10, offset * 10) user db in
-    let+! total_count =
+    let+ total_count =
       Database.Follow.count_following user db in
     Lwt.return_ok (following, total_count) in
 
@@ -334,8 +355,8 @@ let build_following_collection_page config start_time offset user db =
     Lwt_list.map_s (fun follow ->
       Database.Follow.author follow
       |> Fun.flip Database.Link.resolve db
-    ) following in
-  let+! following = Lwt.return @@ Result.flatten_l following in
+    ) following
+      >> Result.flatten_l in
   let following =
     List.map (function
         Database.Actor.Local u ->
@@ -344,7 +365,7 @@ let build_following_collection_page config start_time offset user db =
       | Database.Actor.Remote r ->
         Database.RemoteUser.url r
     ) following in
-  let+! start_time =
+  let+ start_time =
     (CalendarLib.Calendar.to_unixfloat start_time
                    |> Ptime.of_float_s
                    |> Option.map (Ptime.to_rfc3339 ~tz_offset_s:0)

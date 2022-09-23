@@ -1,0 +1,61 @@
+version: "3.9"
+services:
+  cert-gen:
+    build:
+      context: ../../
+      dockerfile: ./tests/integration_tests/gen_certs.Dockerfile
+    volumes:
+      - 'certs:/certs'
+      - '../../:/home/opam/code'
+  postgres:
+    image: postgres:11.15
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres      
+    networks:
+      default:
+        aliases:
+          - postgres
+    volumes:
+      - ./setup_db.psql:/docker-entrypoint-initdb.d/01_setup_db.sql
+  pleroma:
+    build:
+      context: ../../
+      dockerfile: ./tests/integration_tests/pleroma-local.Dockerfile
+    networks:
+      default:
+        aliases:
+          - pleroma.ocamlot.xyz
+    depends_on:
+      - cert-gen
+      - postgres
+    volumes:
+      - './pleroma:/opt/pleroma'
+      - 'certs:/certs'
+    ports:
+      - "4000:443"
+  ocamlot:
+    build:
+      context: ../../
+      dockerfile: ./tests/integration_tests/ocamlot-local.Dockerfile
+    ports:
+      - "7331:443"
+    networks:
+      default:
+        aliases:
+          - testing.ocamlot.xyz
+    depends_on:
+      - cert-gen
+    volumes:
+      - '../../:/home/opam/code'
+      - 'certs:/certs'
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  certs:
+    driver: local
+

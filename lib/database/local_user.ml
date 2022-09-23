@@ -7,7 +7,6 @@ let () = declare_schema "../../resources/schema.sql"
 
 (* see ./resources/schema.sql:LocalUser *)
 type t = Types.local_user
-let t = Types.local_user
 
 let display_name (user: t) =
   user.display_name
@@ -87,6 +86,52 @@ WHERE id = ?
 |} in
   fun  ((user_id, _): t Link.t) is_admin (module DB: DB) ->
     DB.exec update_is_admin_request (is_admin, user_id) |> flatten_error
+
+let collect_local_users =
+  let%sql.query collect_local_users_request = {|
+SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
+FROM LocalUser
+ORDER BY username DESC
+|} in
+  let%sql.query collect_local_users_offset_request = {|
+SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
+FROM LocalUser
+ORDER BY username DESC
+LIMIT ? OFFSET ?
+|} in
+  fun ?offset (module DB: DB) ->
+    match offset with
+    | None ->
+      DB.collect_list collect_local_users_request ()
+      |> flatten_error
+    | Some (limit, offset) ->
+      DB.collect_list collect_local_users_offset_request
+        (limit, offset)
+      |> flatten_error
+
+let find_local_users =
+  let%sql.query find_local_users_request = {|
+SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
+FROM LocalUser
+WHERE username LIKE ? OR display_name LIKE ?
+ORDER BY username DESC
+|} in
+  let%sql.query find_local_users_offset_request = {|
+SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
+FROM LocalUser
+WHERE username LIKE ? OR display_name LIKE ?
+ORDER BY username DESC
+LIMIT ? OFFSET ?
+|} in
+  fun ?offset query (module DB: DB) ->
+    match offset with
+    | None ->
+      DB.collect_list find_local_users_request (query, query)
+      |> flatten_error
+    | Some (limit, offset) ->
+      DB.collect_list find_local_users_offset_request
+        (query, query, limit, offset)
+      |> flatten_error
 
 let self (user: t) : t Link.t = (user.id, resolve_user)
 let username (user: t) = user.username
