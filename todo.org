@@ -40,11 +40,14 @@ CLOSED: [2022-09-23 Fri 16:19]
 CLOSED: [2022-09-23 Fri 16:19]
 ** DONE Update [[file:lib/server/actor.ml::let handle_actor_get_html _config req =][profile page]] to list following, followers and posts
 CLOSED: [2022-09-23 Fri 16:19]
-* TODO Support viewing posts by remote users
+* DONE Support viewing posts by remote users
+CLOSED: [2022-09-24 Sat 09:13]
 ** DONE Follow remote user on pleroma
 CLOSED: [2022-09-23 Fri 16:20]
-** TODO Fix [[file:lib/server/actor.ml::Dream.post ":username/inbox" (handle_inbox_post config); *][post to inbox]] enough to receive posts*
-** TODO Update view actor html to allow displaying remote users
+** DONE Fix [[file:lib/server/actor.ml::Dream.post ":username/inbox" (handle_inbox_post config); *][post to inbox]] enough to receive posts*
+CLOSED: [2022-09-24 Sat 09:13]
+** DONE Update view actor html to allow displaying remote users
+CLOSED: [2022-09-24 Sat 09:13]
 * TODO Update worker [[file:lib/server/worker.ml::""][post function]] to build proper activitypub post
 * TODO Allow editing own profile
 * TODO Allow viewing individual posts
