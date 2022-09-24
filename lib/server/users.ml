@@ -614,9 +614,19 @@ let handle_inbox_post config req =
     Dream.sql req (Database.LocalUser.lookup_user ~username)
     |> map_err (fun err -> `DatabaseError err)
     >>= (fun v -> return (lift_opt ~else_:(fun () -> `UserNotFound username) v)) in
-  let+ data = Dream.body req
-              |> Lwt.map Activitypub.Decode.(decode_string obj)
-              |> map_err (fun err -> `ActivitypubFormat err) in
+  let+ body_text = lift_pure (Dream.body req) in
+  let+ data =
+    (Activitypub.Decode.(decode_string obj) body_text)
+    |> (function
+      | Ok _ as data -> data
+      | Error err ->
+        if Configuration.Params.debug config then
+          IO.with_out ~flags:[Open_append; Open_creat] "ocamlot-failed-events.json" (Fun.flip IO.write_line (body_text ^ "\n"));
+        Error err)
+    |> return
+    |> map_err (fun err -> `InvalidActivitypubObject err) in
+
+(* map_err (fun err -> `ActivitypubFormat err) *)
   log.debug (fun f ->
     f "received activitypub object %a"
       Activitypub.Types.pp_obj data

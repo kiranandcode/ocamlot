@@ -50,6 +50,19 @@ CLOSED: [2022-09-24 Sat 09:13]
 CLOSED: [2022-09-24 Sat 09:13]
 * DONE Update worker [[file:lib/server/worker.ml::""][post function]] to build proper activitypub post
 CLOSED: [2022-09-24 Sat 10:59]
-* TODO Allow editing own profile
+* DONE Log messages that fail to parse if debug mode
+CLOSED: [2022-09-24 Sat 12:59]
+* TODO UI Fixes
+** TODO Fix feed posts and correctly classify between posts with & w/o titles
+** TODO Fix next and prev buttons on posts
+** TODO Fix content and source in messages
+* TODO Implement user profiles
+** TODO Properly display user
+** TODO Implement support for uploading files
+* TODO Add support for replies
+* TODO Add support for likes
+* TODO Handle post deletion
+** TODO Handle deleted posts requests from remote 
+** TODO Allow deleting posts from remote
 * TODO Allow viewing individual posts
 

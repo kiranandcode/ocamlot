@@ -7,10 +7,12 @@ let extract_error_details err =
     let status = match err with
     | `UserNotFound _ -> `Not_Found
     | `ActivityNotFound _ -> `Not_Found
+    | `InvalidActivitypubObject _
     | `InvalidSignature
     | `InvalidData _ -> `Bad_Request
     | _ -> `Internal_Server_Error in
     let msg = match err with
+      | `InvalidActivitypubObject _ -> "Invalid activitypub object"
       | `InvalidSignature -> "Invalid Signature"
       | `InvalidData _ -> "Invalid Data"
       | `UserNotFound (_) -> "User not found"
@@ -21,6 +23,7 @@ let extract_error_details err =
       | _ -> "Unknown internal error" in
     let details =
       match err with
+      | `InvalidActivitypubObject msg -> msg
       | `InvalidData msg -> msg
       | `UserNotFound name -> "User " ^ name ^ " not found"
       | `ActivityNotFound name -> "Activity " ^ name ^ " not found"
