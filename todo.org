@@ -48,7 +48,8 @@ CLOSED: [2022-09-23 Fri 16:20]
 CLOSED: [2022-09-24 Sat 09:13]
 ** DONE Update view actor html to allow displaying remote users
 CLOSED: [2022-09-24 Sat 09:13]
-* TODO Update worker [[file:lib/server/worker.ml::""][post function]] to build proper activitypub post
+* DONE Update worker [[file:lib/server/worker.ml::""][post function]] to build proper activitypub post
+CLOSED: [2022-09-24 Sat 10:59]
 * TODO Allow editing own profile
 * TODO Allow viewing individual posts
 
