@@ -83,19 +83,32 @@ val collect_post_feed:
   ?offset:CalendarLib.Calendar.t * int * int ->
   Actor.t Link.t ->
   (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+val collect_post_feed_count:
+  Actor.t Link.t ->
+  (module Caqti_lwt.CONNECTION) -> (int, string) Lwt_result.t
 
 val collect_post_direct:
   ?offset:CalendarLib.Calendar.t * int * int ->
   Actor.t Link.t ->
   (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
 
+val collect_post_direct_count:
+  Actor.t Link.t ->
+  (module Caqti_lwt.CONNECTION) -> (int, string) Lwt_result.t
+
 val collect_post_whole_known_network:
   ?offset:CalendarLib.Calendar.t * int * int ->
   (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
 
+val collect_post_whole_known_network_count:
+  (module Caqti_lwt.CONNECTION) -> (int, string) Lwt_result.t
+
 val collect_post_local_network:
   ?offset:CalendarLib.Calendar.t * int * int ->
   (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+
+val collect_post_local_network_count:
+  (module Caqti_lwt.CONNECTION) -> (int, string) Lwt_result.t
 
 
 val self : t -> t Link.t

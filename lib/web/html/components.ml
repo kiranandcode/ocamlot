@@ -42,30 +42,38 @@ let profile_box ?a ?a_class author =
     H.b [H.txt (author#name)];
   ]
 
-let navigation_panel ~from_ ~to_ =
+let numeric_navigation_panel ~from_ ~to_ ~current link =
   H.div ~a:[H.a_class ["post-navigation"]] @@ List.concat [
-    [
-      H.a  ~a:[H.a_href "./single-post-second-page.html"; H.a_class ["post-navigation-button"]] [
+    if current > from_
+    then [
+      H.a  ~a:[H.a_href (link (current - 1)); H.a_class ["post-navigation-button"]] [
         H.div ~a:[H.a_class ["post-navigation-button-container"]] [
           H.span [H.txt "<-"];
         ]
       ]
-    ];
-    List.init (to_ - from_) (fun i ->
+    ]
+    else [];
+    List.init (to_ - from_ + 1) (fun i ->
       let i = from_ + i in
-      H.a  ~a:[H.a_href "./single-post-second-page.html"; H.a_class ["post-navigation-button"]] [
-        H.div ~a:[H.a_class ["post-navigation-button-container"]] [
-          H.span [H.txt (string_of_int i)];
+        H.a  ~a:[H.a_href (link i); H.a_class ["post-navigation-button"]] [
+          H.div ~a:[H.a_class ["post-navigation-button-container"]] [
+          H.span [
+            if i = current
+            then H.b [H.txt (string_of_int i)]
+            else H.txt (string_of_int i)
+          ];
+          ]
         ]
-      ]
     );
-    [
-      H.a  ~a:[H.a_href "./single-post-second-page.html"; H.a_class ["post-navigation-button"]] [
+    if current + 1 <= to_
+    then [
+      H.a  ~a:[H.a_href (link (current + 1)); H.a_class ["post-navigation-button"]] [
         H.div ~a:[H.a_class ["post-navigation-button-container"]] [
           H.span [H.txt "->"];
         ]
       ]
-    ];
+    ]
+    else [];
   ]
 
 let subnavigation_menu entries =

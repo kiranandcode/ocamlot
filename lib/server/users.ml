@@ -591,8 +591,8 @@ let handle_users_follow_post _config req =
     lift_opt ~else_:(fun _ -> `InvalidPermissions ("Attempt to follow user while logged out"))
       current_user
     |> return in
-  match String.split_on_char '@' username with
-  | username :: domain ->
+  match String.contains username '@', lazy (String.split_on_char '@' username) with
+  | true, lazy (username :: domain)  ->
     let domain = String.concat "@" domain in
     handle_follow_remote_user _config current_user username domain req
   | _ ->

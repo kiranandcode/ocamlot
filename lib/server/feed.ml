@@ -2,6 +2,7 @@ open Containers
 open Common
 
 let log = Logging.add_logger "web.home"
+let limit = 10
 
 let parse_feed = function
   | "feed" -> Some `Feed
@@ -93,27 +94,40 @@ let route config =
       |> Option.flat_map Int.of_string
       |> Option.value ~default:0 in
 
-    let limit = 10 in
 
-    let offset = (offset_date, limit, offset_start) in
+
+    let offset = (offset_date, limit, offset_start * limit) in
 
     let+ _current_user = current_user req in
     let+ current_user_link = current_user_link req in
 
-    let feed_elements =
-      match feed_ty, current_user_link with
-      | `Direct, Some user -> Database.Post.collect_post_direct ~offset user
-      | `Feed, Some user -> Database.Post.collect_post_feed ~offset user
-      | `WholeKnownNetwork, _ -> Database.Post.collect_post_whole_known_network ~offset
-      | _, _ -> Database.Post.collect_post_local_network ~offset in
-
-    let+ feed_results = Dream.sql req feed_elements
-                        |> map_err (fun err -> `DatabaseError err) in
+    let+ feed_elements, feed_element_count =
+      Dream.sql req @@ fun db ->
+      begin match feed_ty, current_user_link with
+      | `Direct, Some user ->
+        let+ posts = Database.Post.collect_post_direct ~offset user db in
+        let+ total_posts = Database.Post.collect_post_direct_count user db in
+        return_ok (posts, total_posts)
+      | `Feed, Some user ->
+        let+ posts = Database.Post.collect_post_feed ~offset user db in
+        let+ total_posts = Database.Post.collect_post_feed_count user db in
+        return_ok (posts, total_posts)
+      | `WholeKnownNetwork, _ ->
+        let+ posts = Database.Post.collect_post_whole_known_network ~offset db in
+        let+ total_posts = Database.Post.collect_post_whole_known_network_count db in
+        return_ok (posts, total_posts)        
+      | _, _ ->
+        let+ posts = Database.Post.collect_post_local_network ~offset db in
+        let+ total_posts = Database.Post.collect_post_local_network_count db in
+        return_ok (posts, total_posts)
+      end
+      |> map_err (fun err -> `DatabaseError err)
+    in
 
     let title = feed_type_to_string feed_ty in
 
     let+ posts =
-      Lwt_list.map_p (extract_post req) feed_results
+      Lwt_list.map_p (extract_post req) feed_elements
       |> Lwt.map Result.flatten_l
       |> map_err (fun e -> `DatabaseError e) in
 
@@ -136,6 +150,15 @@ let route config =
           ]
         ] in
 
+    let navigation_panel =
+            Html.Components.numeric_navigation_panel ~from_:1 ~to_:(feed_element_count / 10 + 1) ~current:(offset_start + 1)
+              (fun ind ->
+                 Format.sprintf "/feed?feed-ty=%s&offset-time=%f&offset-start=%d"
+                   (encode_feed feed_ty) (CalendarLib.Calendar.to_unixfloat offset_date)
+                   (ind - 1)
+              ) in
+              
+
     tyxml @@ Html.build_page ~headers ~title @@ List.concat [
       [
         Html.Components.page_title title;
@@ -148,6 +171,11 @@ let route config =
           List.map (fun post ->
             Pure.grid_col [Html.Feed.feed_item post]
           ) posts)
+      ];
+
+      [
+        navigation_panel
       ]
+
     ]
   )

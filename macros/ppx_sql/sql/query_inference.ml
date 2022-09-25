@@ -322,6 +322,8 @@ let type_of_query (tables: Types.table list) (query: Query_ast.query) : Query_ty
            ) table_context in
          let tys = simplify_return_types table_context tys in
          Tuple {many=returning_multiple; tys}
+       | [COUNT _] ->
+         Tuple {many=false; tys=[int]}
        | tys ->
          let tys = List.map (type_of_sql_query_value tables table_map table_context) tys in
          let tys = simplify_return_types table_context tys in

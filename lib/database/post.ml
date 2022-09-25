@@ -252,6 +252,27 @@ LIMIT ? OFFSET ?
          (author_id, author_id, limit, offset))
       |> flatten_error
 
+let collect_post_feed_count =
+  let%sql.query collect_post_feed_request = {|
+-- select posts 
+SELECT COUNT(*)
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND (
+    -- where, we (1) are the author
+    P.author_id = ? OR
+-- or	we (1) are following the author of the post, and the post is public or follower public
+    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) 
+     AND (P.is_public = TRUE OR P.is_follower_public = TRUE)) OR
+-- or we (1) are the recipients (cc, to) of the post    
+    (EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
+EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)))
+|} in
+  fun ((author_id, _): Actor.t Link.t) (module DB: DB) ->
+    DB.find collect_post_feed_request (author_id, author_id, author_id, author_id)
+    |> flatten_error
+
 let collect_post_direct =
   let%sql.query collect_post_direct_messages_request = {|
 -- select posts 
@@ -295,6 +316,25 @@ LIMIT ? OFFSET ?
         (timestamp, post_id, post_id, (post_id, limit, offset))
       |> flatten_error
 
+let collect_post_direct_count =
+  let%sql.query collect_post_direct_messages_request = {|
+-- select posts 
+SELECT COUNT(*)
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND (
+    -- where, we (1) are the author and the post is not public
+    (P.author_id = ? AND P.is_public = FALSE) OR
+    -- or we (1) are the recipients (cc, to) of the post    
+    ((EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
+EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)) AND
+      P.is_public = FALSE))
+|} in
+  fun ((post_id, _): Actor.t Link.t) (module DB: DB) ->
+    DB.find collect_post_direct_messages_request (post_id, post_id, post_id)
+    |> flatten_error
+
 let collect_post_whole_known_network =
   let%sql.query collect_post_whole_known_network_request = {|
 -- select posts 
@@ -326,6 +366,20 @@ LIMIT ? OFFSET ?
       DB.collect_list collect_post_whole_known_network_offset_request
         (timestamp, limit, offset)
       |> flatten_error
+
+let collect_post_whole_known_network_count =
+  let%sql.query collect_post_whole_known_network_request = {|
+-- select posts 
+SELECT COUNT(*)
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND (P.is_public = TRUE)
+|} in
+  fun (module DB: DB) ->
+    DB.find collect_post_whole_known_network_request ()
+    |> flatten_error
+
 
 let collect_post_local_network =
   let%sql.query collect_post_local_network_request = {|
@@ -359,6 +413,22 @@ LIMIT ? OFFSET ?
       DB.collect_list collect_post_local_network_offset_request
         (timestamp, limit, offset)
       |> flatten_error
+
+let collect_post_local_network_count =
+  let%sql.query collect_post_local_network_request = {|
+SELECT COUNT(*)
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND
+    (P.is_public = TRUE) AND 
+EXISTS (SELECT * FROM Actor as Act WHERE Act.id = P.author_id AND Act.local_id IS NOT NULL) 
+|} in
+  fun (module DB: DB) ->
+    DB.find collect_post_local_network_request ()
+    |> flatten_error
+
+
 
 let self (t: t) : t Link.t = t.id, resolve_post
 let content_type (t: t) = t.content_type

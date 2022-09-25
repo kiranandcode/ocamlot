@@ -54,7 +54,7 @@ let handle_post_write config req =
 
   let res =
     let open VResult in
-    let title = form_data "title" data |> Result.to_opt |> Option.filter (String.is_empty) in
+    let title = form_data "title" data |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
     let post_to = form_data "to" data |> Result.to_opt in
 
     let* contents = lift (form_data "contents" data) in
@@ -68,7 +68,7 @@ let handle_post_write config req =
 
   match res with
   | Error errors ->
-    let title = form_data "title" data |> Result.to_opt |> Option.filter (String.is_empty) in
+    let title = form_data "title" data |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
     let to_ = form_data "to" data |> Result.to_opt in
     let contents = form_data "contents" data |> Result.to_opt in
     let content_type = form_data "content-type" data |> Result.flat_map parse_content_type |> Result.to_opt in

@@ -109,6 +109,15 @@ LIMIT ? OFFSET ?
         (limit, offset)
       |> flatten_error
 
+let collect_local_users_count =
+  let%sql.query collect_local_users_request = {|
+SELECT COUNT(*)
+FROM LocalUser
+|} in
+  fun (module DB: DB) ->
+    DB.find collect_local_users_request ()
+    |> flatten_error
+
 let find_local_users =
   let%sql.query find_local_users_request = {|
 SELECT id, username, password, display_name, about, manually_accept_follows, is_admin, pubkey, privkey
@@ -132,6 +141,17 @@ LIMIT ? OFFSET ?
       DB.collect_list find_local_users_offset_request
         (query, query, limit, offset)
       |> flatten_error
+
+let find_local_users_count =
+  let%sql.query find_local_users_request = {|
+SELECT COUNT(*)
+FROM LocalUser
+WHERE username LIKE ? OR display_name LIKE ?
+|} in
+  fun query (module DB: DB) ->
+    DB.find find_local_users_request (query, query)
+    |> flatten_error
+
 
 let self (user: t) : t Link.t = (user.id, resolve_user)
 let username (user: t) = user.username

@@ -52,15 +52,22 @@ CLOSED: [2022-09-24 Sat 09:13]
 CLOSED: [2022-09-24 Sat 10:59]
 * DONE Log messages that fail to parse if debug mode
 CLOSED: [2022-09-24 Sat 12:59]
-* TODO UI Fixes
-** TODO Fix feed posts and correctly classify between posts with & w/o titles
-** TODO Fix next and prev buttons on posts
-** TODO Fix content and source in messages
+* DONE UI Fixes
+CLOSED: [2022-09-25 Sun 03:31]
+** DONE Fix feed posts and correctly classify between posts with & w/o titles
+CLOSED: [2022-09-25 Sun 02:18]
+** DONE Fix content and source in messages
+CLOSED: [2022-09-25 Sun 02:19]
+** DONE Fix next and prev buttons on posts
+CLOSED: [2022-09-25 Sun 03:31]
+* TODO Implement support for //posts/<post-id>//
+* TODO Implement support for //user/<user-name/outbox/ (it's essentially followers)
+* TODO Add support for likes
+* TODO Add support for listing user posts from remote instances (outbox?)
 * TODO Implement user profiles
 ** TODO Properly display user
 ** TODO Implement support for uploading files
 * TODO Add support for replies
-* TODO Add support for likes
 * TODO Handle post deletion
 ** TODO Handle deleted posts requests from remote 
 ** TODO Allow deleting posts from remote

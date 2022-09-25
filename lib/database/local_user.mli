@@ -26,9 +26,13 @@ val update_is_admin:
 
 val collect_local_users:
   ?offset:int * int -> (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+val collect_local_users_count:
+  (module Caqti_lwt.CONNECTION) -> (int, string) Lwt_result.t
 
 val find_local_users:
   ?offset:int * int -> string -> (module Caqti_lwt.CONNECTION) -> (t list, string) Lwt_result.t
+val find_local_users_count:
+  string -> (module Caqti_lwt.CONNECTION) -> (int, string) Lwt_result.t
 
 val self: t -> t Link.t
 val username: t -> string
