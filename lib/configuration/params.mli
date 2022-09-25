@@ -11,6 +11,7 @@ val is_tls_enabled: 'a t -> bool
 val certificate_file: 'a t -> string option
 val key_file: 'a t -> string option
 val about_this_instance: 'a t -> Omd.doc
+val host: 'a t -> string
 val domain: 'a t -> Uri.t
 val database_path: 'a t -> string
 val port: 'a t -> int

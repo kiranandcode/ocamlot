@@ -91,6 +91,7 @@ let with_current_time req f =
 let caqti path = Caqti_lwt.connect (Uri.of_string path)
                  |> Lwt.map Result.get_exn
 
+
 let from_static local_root path req =
   let mime_lookup filename =
     let content_type =
@@ -107,6 +108,12 @@ let from_static local_root path req =
       contents
   | None ->
     Dream.respond ~status:`Not_Found ""
+
+let enforce_domain config: Dream.middleware =
+  (fun f -> (fun req ->
+     Dream.set_header req "host" (Configuration.Params.host config);
+     f req))  
+
 
 let (let+) x f = Lwt_result.bind x f
 
@@ -148,6 +155,7 @@ let run config =
   @@ Dream.logger
   @@ Dream.sql_pool Configuration.Params.(database_path config)
   @@ Dream.sql_sessions
+  @@ enforce_domain config
   @@ Dream.router [
     Webfinger.route config;
 
