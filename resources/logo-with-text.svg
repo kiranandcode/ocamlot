@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   xmlns:dc="http://purl.org/dc/elements/1.1/"
-   xmlns:cc="http://creativecommons.org/ns#"
-   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-   xmlns:svg="http://www.w3.org/2000/svg"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   width="1491.7795"
-   height="483.77954"
-   viewBox="0 0 394.69712 128"
+   width="501.05835"
+   height="501.05835"
+   viewBox="0 0 132.57072 132.57168"
    version="1.1"
    id="svg8"
-   inkscape:version="1.0.2 (e86c870879, 2021-01-15)"
+   inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
    sodipodi:docname="logo-with-text.svg"
-   inkscape:export-filename="/home/kirang/Documents/code/ocaml/activitypub-server/resources/logo-with-text.png"
+   inkscape:export-filename="logo.png"
    inkscape:export-xdpi="203.2"
-   inkscape:export-ydpi="203.2">
+   inkscape:export-ydpi="203.2"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
   <title
      id="title1020">OCamlot Logo</title>
   <defs
@@ -36,8 +36,8 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.7071068"
-     inkscape:cx="965.60574"
-     inkscape:cy="184.10985"
+     inkscape:cx="82.024384"
+     inkscape:cy="349.31074"
      inkscape:document-units="px"
      inkscape:current-layer="svg8"
      inkscape:document-rotation="0"
@@ -49,9 +49,9 @@
      inkscape:object-nodes="true"
      inkscape:snap-nodes="false"
      inkscape:pagecheckerboard="true"
-     inkscape:window-width="2560"
-     inkscape:window-height="1402"
-     inkscape:window-x="1920"
+     inkscape:window-width="1920"
+     inkscape:window-height="1051"
+     inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
      units="px"
@@ -60,7 +60,9 @@
      fit-margin-right="0"
      fit-margin-bottom="0"
      lock-margins="true"
-     viewbox-width="128" />
+     viewbox-width="128"
+     inkscape:showpageshadow="0"
+     inkscape:deskcolor="#d1d1d1" />
   <metadata
      id="metadata5">
     <rdf:RDF>
@@ -96,11 +98,19 @@
       </cc:License>
     </rdf:RDF>
   </metadata>
+  <rect
+     style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:24.5377;stroke-dasharray:none;stroke-opacity:0;paint-order:stroke markers fill"
+     id="rect5627"
+     width="102.79531"
+     height="102.79531"
+     x="14.886748"
+     y="14.888185"
+     ry="51.397655" />
   <g
      inkscape:groupmode="layer"
      id="layer11"
      inkscape:label="background"
-     transform="translate(26.753679,3.1805072)"
+     transform="translate(26.71659,3.1434185)"
      style="display:none">
     <rect
        style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.941999;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
@@ -115,28 +125,28 @@
      inkscape:groupmode="layer"
      id="layer1"
      style="display:inline"
-     transform="translate(-30.377717,-26.877085)" />
+     transform="translate(-30.414806,-26.914174)" />
   <g
      inkscape:groupmode="layer"
      id="layer10"
      inkscape:label="Character"
      style="display:inline"
-     transform="translate(-30.377717,-26.877085)" />
+     transform="translate(-30.414806,-26.914174)" />
   <g
      inkscape:groupmode="layer"
      id="layer2"
      inkscape:label="Neck"
      style="display:inline"
-     transform="translate(-30.377717,-26.877085)" />
+     transform="translate(-30.414806,-26.914174)" />
   <g
      inkscape:groupmode="layer"
      id="layer3"
      inkscape:label="Head"
      style="display:inline"
-     transform="translate(-30.377717,-26.877085)" />
+     transform="translate(-30.414806,-26.914174)" />
   <g
      id="g888"
-     transform="translate(3.1922626)">
+     transform="translate(0.03933967,2.2858423)">
     <g
        id="g876">
       <path
@@ -155,21 +165,57 @@
       <path
          id="rect865"
          style="display:inline;fill:#ffbe6f;stroke-width:0.245222;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
-         d="m 76.085317,45.833484 -4.59093,0.501261 h -10.16579 l -1.961121,4.828646 H 49.322093 v 7.442957 l 1.825729,-2.231906 2.727483,2.231906 0.913638,0.661458 h 5.3e-4 15.390794 c 0.47301,0.301963 0.94602,0.603925 1.41903,0.905888 l 2.02933,-2.030367 v -8.492506 z"
+         d="m 76.085317,45.833484 -4.59093,0.501261 h -10.16579 l -1.961121,4.828646 H 49.322093 v 7.442957 l 1.561146,0.480073 2.099097,0.214458 1.806607,-0.03307 h 5.3e-4 15.390794 l 1.41903,0.905888 2.02933,-2.030367 v -8.492506 z"
          sodipodi:nodetypes="ccccccccccccccc" />
       <path
          id="rect944"
          style="fill:#ffbe6f;fill-opacity:1;stroke-width:0.4;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
          d="m 30.023864,89.226802 7.89056,6.526555 20.393169,1.31879 0.263549,-4.083991 -20.420457,-1.318784 z"
          sodipodi:nodetypes="cccccc" />
+      <g
+         id="g5625">
+        <g
+           id="g513"
+           transform="matrix(2.758901,0,0,2.758901,-181.78061,-199.4471)">
+          <g
+             id="g1628"
+             transform="translate(-0.33906374,0.27125099)"
+             style="fill:#bc5800;fill-opacity:1;stroke:#bc5800;stroke-opacity:1">
+            <circle
+               style="fill:#bc5800;fill-opacity:1;stroke:#bc5800;stroke-width:0.264583;stroke-opacity:1"
+               id="path507"
+               cx="89.077782"
+               cy="89.978165"
+               r="0.58990991" />
+            <circle
+               style="fill:#bc5800;fill-opacity:1;stroke:#bc5800;stroke-width:0.264583;stroke-opacity:1"
+               id="circle509"
+               cx="90.820305"
+               cy="89.978165"
+               r="0.58990991" />
+          </g>
+        </g>
+        <g
+           id="g1624"
+           transform="matrix(2.758901,0,0,2.758901,-194.30768,-198.6923)"
+           style="stroke:#bc5800;stroke-opacity:1">
+          <g
+             id="g1402"
+             transform="translate(0.08933763)"
+             style="stroke:#bc5800;stroke-opacity:1">
+            <path
+               style="fill:none;stroke:#bc5800;stroke-width:0.3;stroke-dasharray:none;stroke-opacity:1"
+               d="m 88.775157,92.658001 c 0.361513,0.695218 1.265291,0.543524 1.27375,-0.06952 0.0085,0.613044 0.912237,0.764738 1.27375,0.06952"
+               id="path569"
+               sodipodi:nodetypes="ccc" />
+          </g>
+          <path
+             style="fill:#1a1a1a;stroke:#bc5800;stroke-width:0.3;stroke-dasharray:none;stroke-opacity:1"
+             d="m 90.138245,92.316131 v 0.274844"
+             id="path1619"
+             sodipodi:nodetypes="cc" />
+        </g>
+      </g>
     </g>
-    <text
-       xml:space="preserve"
-       id="text850"
-       style="font-style:normal;font-weight:normal;font-size:50.8px;line-height:1.15;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;white-space:pre;shape-inside:url(#rect852);fill:#a0ddff;fill-opacity:1;stroke:none;"
-       transform="matrix(2.0692239,0,0,2.163165,-77.004207,-9.1407006)"><tspan
-         x="90.675781"
-         y="46.044764"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Dhurjati;-inkscape-font-specification:Dhurjati;fill:#a0ddff">Camlot</tspan></tspan></text>
   </g>
 </svg>

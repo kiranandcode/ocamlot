@@ -27,26 +27,50 @@ let parse_calendar s =
   let+ s = Float.of_string_opt s in
   Some (CalendarLib.Calendar.from_unixfloat s)
 
-let extract_post req (post: Database.Post.t) :
-  (< author : < image : Tyxml_xml.uri; name : string; .. >;
-     contents : [< Html_types.div_content_fun > `H3 ] Tyxml_html.elt list;
-     date : string; stats : < cheers : int; toasts : int; .. >;
-     title : string; .. >, _) Lwt_result.t =
+let extract_post req (post: Database.Post.t) =
   let+ author = Database.Post.author post
                 |> fun p -> Dream.sql req (Database.Link.resolve p) in
+  let+ author_instance =
+    match author with
+    | Local _ -> return_ok None
+    | Remote r ->
+      let+ instance =
+        Dream.sql req
+          (Database.Link.resolve
+             (Database.RemoteUser.instance r)) in
+      return_ok (Some (Database.RemoteInstance.url instance)) in
 
-  return_ok object
-    method author = object
-      method name = match author with
-          Local l -> Database.LocalUser.username l
-        | Remote l -> Database.RemoteUser.username l
-      method image = "/static/images/unknown.png"
+  let post_contents =
+    let source = Database.Post.post_source post in
+    match Database.Post.content_type post with
+    | `Markdown ->
+      Markdown.markdown_to_html (Omd.of_string source)
+    | _ -> [ Tyxml.Html.txt source ] in
+
+  let author_obj = object
+    method name = match author with
+        Local l -> Database.LocalUser.username l
+      | Remote l -> Database.RemoteUser.username l
+    method image = "/static/images/unknown.png"
+    method instance_url = author_instance
+  end in
+
+  return_ok @@ match Database.Post.summary post with
+  | None ->
+    `MicroPost object
+      method author = author_obj
+      method contents = post_contents
+      method date = Database.Post.published post |> CalendarLib.Printer.Calendar.to_string
+      method stats = object method cheers = 0 method toasts = 0 end
     end
-    method contents = [ Tyxml.Html.txt (Database.Post.post_source post) ]
-    method date = Database.Post.published post |> CalendarLib.Printer.Calendar.to_string
-    method stats = object method cheers = 0 method toasts = 0 end
-    method title = ""
-  end
+  | Some summary ->
+    `Post object
+      method author = author_obj
+      method contents = post_contents
+      method date = Database.Post.published post |> CalendarLib.Printer.Calendar.to_string
+      method stats = object method cheers = 0 method toasts = 0 end
+      method title = summary
+    end
 
 let build_feed_navigation_panel options =
   Html.Components.subnavigation_menu @@
@@ -122,7 +146,7 @@ let route config =
       [
         Pure.grid_row (
           List.map (fun post ->
-            Pure.grid_col [Html.Feed.feed_item (`Post post)]
+            Pure.grid_col [Html.Feed.feed_item post]
           ) posts)
       ]
     ]

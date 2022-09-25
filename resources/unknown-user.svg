@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="9.4386997mm"
+   height="18.645311mm"
+   viewBox="0 0 9.4386997 18.645311"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
+   sodipodi:docname="unknown-user.svg"
+   inkscape:export-filename="unknown-user.png"
+   inkscape:export-xdpi="968.77753"
+   inkscape:export-ydpi="968.77753"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title
+     id="title1760">Unknown-user OCamlot</title>
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#505050"
+     bordercolor="#ffffff"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:deskcolor="#505050"
+     inkscape:document-units="px"
+     showgrid="false"
+     inkscape:zoom="9.5144352"
+     inkscape:cx="28.483036"
+     inkscape:cy="26.906484"
+     inkscape:window-width="1920"
+     inkscape:window-height="1051"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2">
+    <rect
+       x="311.54678"
+       y="332.20755"
+       width="70.454758"
+       height="70.900673"
+       id="rect349" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-85.419076,-86.999859)">
+    <rect
+       style="fill:#666666;stroke-width:0.264583"
+       id="rect279"
+       width="2.9888771"
+       height="4.8765888"
+       x="88.643806"
+       y="91.711334" />
+    <circle
+       style="fill:#999999;stroke-width:0.264583"
+       id="path275"
+       cx="90.138245"
+       cy="90.617973"
+       r="3.6181142" />
+    <path
+       id="path277"
+       style="fill:#999999;stroke-width:0.25547"
+       d="m 90.138167,94.543066 a 7.7081566,7.1863031 0 0 0 -4.719091,1.512785 v 9.589319 h 9.4387 v -9.593654 a 7.7081566,7.1863031 0 0 0 -4.719609,-1.50845 z" />
+    <text
+       xml:space="preserve"
+       transform="matrix(0.22256695,0,0,0.23087291,17.809351,17.61371)"
+       id="text347"
+       style="font-size:48px;white-space:pre;shape-inside:url(#rect349);display:inline;fill:#4d4d4d"><tspan
+         x="311.54688"
+         y="376.13349"
+         id="tspan7017"><tspan
+           style="font-weight:bold;font-family:Comfortaa;-inkscape-font-specification:Comfortaa"
+           id="tspan7015">?</tspan></tspan></text>
+    <g
+       id="g1638"
+       transform="translate(0,-0.55058263)">
+      <g
+         id="g513"
+         transform="translate(0.01966858,0.89267098)">
+        <g
+           id="g1628">
+          <circle
+             style="fill:#4d4d4d;stroke-width:0.264583"
+             id="path507"
+             cx="88.840439"
+             cy="90.452858"
+             r="0.58990991" />
+          <circle
+             style="fill:#4d4d4d;stroke-width:0.264583"
+             id="circle509"
+             cx="91.396713"
+             cy="90.452858"
+             r="0.58990991" />
+        </g>
+      </g>
+      <g
+         id="g1624">
+        <g
+           id="g1402"
+           transform="translate(0.08933763)"
+           style="stroke:#333333">
+          <path
+             style="fill:none;stroke:#4d4d4d;stroke-width:0.3;stroke-dasharray:none;stroke-opacity:1"
+             d="m 88.775157,92.658001 c 0.361513,0.695218 1.265291,0.543524 1.27375,-0.06952 0.0085,0.613044 0.912237,0.764738 1.27375,0.06952"
+             id="path569"
+             sodipodi:nodetypes="ccc" />
+        </g>
+        <path
+           style="fill:#1a1a1a;stroke:#4d4d4d;stroke-width:0.3;stroke-dasharray:none;stroke-opacity:1"
+           d="m 90.138245,92.316131 v 0.274844"
+           id="path1619"
+           sodipodi:nodetypes="cc" />
+      </g>
+    </g>
+  </g>
+  <metadata
+     id="metadata1758">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>Unknown-user OCamlot</dc:title>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>OCamlot-devs</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:rights>
+          <cc:Agent>
+            <dc:title>CC-SA</dc:title>
+          </cc:Agent>
+        </dc:rights>
+        <dc:publisher>
+          <cc:Agent>
+            <dc:title>OCamlot</dc:title>
+          </cc:Agent>
+        </dc:publisher>
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by-sa/4.0/" />
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by-sa/4.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Notice" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Attribution" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#ShareAlike" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+</svg>

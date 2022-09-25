@@ -32,6 +32,16 @@ let post_teaser post =
     ]
   ]
 
+let feed_mini_post reply =
+  H.div ~a:[H.a_class ["feed-item"]] @@ [
+    H.div ~a:[H.a_class ["feed-item-date"]] [H.b [H.txt reply#date]];
+    H.div ~a:[H.a_class ["feed-item-body"]] [
+      Components.profile_box ~a_class:["feed-item-author"] reply#author;
+      H.div ~a:[H.a_class ["feed-item-contents"]] reply#contents;
+    ];
+    Components.stats_box ~a_class:["feed-stats"] reply#stats;
+  ]
+
 let follow_request req =
   H.div ~a:[H.a_class ["feed-item"; "feed-follow-request"]] [
     Components.profile_box ~a_class:["feed-item-author"] req#from;
@@ -66,4 +76,5 @@ let feed_item = function
   | `FollowRequest req -> follow_request req
   | `Reply reply -> feed_reply reply
   | `Post post -> post_teaser post
+  | `MicroPost post -> feed_mini_post post
   | _ -> H.div []

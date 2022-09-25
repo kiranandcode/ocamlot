@@ -112,8 +112,7 @@ let from_static local_root path req =
 let enforce_domain config: Dream.middleware =
   (fun f -> (fun req ->
      Dream.set_header req "host" (Configuration.Params.host config);
-     f req))  
-
+     f req))
 
 let (let+) x f = Lwt_result.bind x f
 

@@ -86,7 +86,7 @@ let handle_actor_get_html _config req =
     Html.Profile.profile object
       method name = Database.LocalUser.display_name user
       method details = []
-      method image = ""
+      method image = "/static/images/unknown.png"
       method stats = object
         method followers = no_followers
         method following = no_following

@@ -464,6 +464,15 @@ div.profile-box.feed-item-author {
     padding: .5rem;
 }
 
+.profile-image {
+  max-height: 12rem;
+  overflow: hidden;
+  margin: 0.25rem;
+}
+.profile-image > img {
+  width: 100%;
+}
+
 .profile-box.feed-item-author > img {
   max-width: 3rem;
   width: auto;
