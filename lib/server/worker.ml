@@ -4,43 +4,7 @@ open Common
 
 let log = Logging.add_logger "worker"
 
-(* let (let+!) x f = Lwt_result.bind (sanitize x) f *)
-
 type task =
-  (* | CreateNote of {
-   *   id: string;
-   *   author: string;
-   *   to_: string list; cc: string list;
-   *   sensitive: bool; direct_message: bool;
-   *   content: string; source: string option; summary: string option;
-   *   published: Ptime.t option;
-   *   tags: [ `Raw of Yojson.Safe.t | `Value of Activitypub.Types.tag ] list;
-   *   data: Yojson.Safe.t;
-   * }
-   * (\* follow by a local user *\)
-   * | LocalFollow of {
-   *   local: Database.LocalUser.t;   (\* local user doing the following  *\)
-   *   username: string;              (\* remote username being followed  *\)
-   *   domain: string;                (\* remote domain being followed *\)
-   * }
-   * | RecordAcceptLocalFollow of {
-   *     follow: Database.Follow.t;     (\* follow being accepted *\)
-   *     author: Database.LocalUser.t;  (\* local user who made the request accepted *\)
-   *     target: Database.RemoteUser.t; (\* url of remote user doing the accepting *\)
-   *   }
-   * 
-   * (\* follow by remote user *\)
-   * | RemoteFollow of {
-   *   id: string;                    (\* url of the follow object *\)
-   *   remote: string;                (\* url of remote actor making the follow *\)
-   *   target: Database.LocalUser.t;  (\* url of local actor being followed *\)
-   *   data: Yojson.Safe.t;           (\* raw data of the follow object *\)
-   * }
-   * | AcceptRemoteFollow of {
-   *     follow: Database.Follow.t;
-   *     author: Database.RemoteUser.t;
-   *     target: Database.LocalUser.t;
-   *   } *)
   | CreateRemoteNote of {
     author : Database.RemoteUser.t;
     direct_message: bool;
