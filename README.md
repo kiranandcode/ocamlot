@@ -44,9 +44,11 @@ docker-compose -f ./docker-compose.local.yml build
 ```bash
 docker-compose -f ./docker-compose.local.yml up
 ```
+Now pleroma will be available at `https://localhost:4000` and ocamlot at `https://localhost:7331`
+
 6. (optional), if you want to update the OCamlot server after making some changes locally, do the following:
 
    - 6.1. Find out the name of the OCamlot server container using `docker container list`
    - 6.2. Attach to the OCamlot container using `docker container exec -it <container-id> bash`
    - 6.3. Kill the running OCamlot process using `pkill -9 main.exe`
-   - 6.4. Run `dune build` and then `dune exec ./bin/main.exe -d testingl.ocamlot.xyz -D`
+   - 6.4. Run `eval $(opam env)`, then `dune build` then `dune exec -- ./bin/main.exe -d testing.ocamlot.xyz -D`
