@@ -1,5 +1,4 @@
 
-
 module LocalUser = struct
 
   type t = {
@@ -110,6 +109,33 @@ module LocalUser = struct
          then Some user
          else None)
 
+  let update_password ~id ~password conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let* password_hash =
+      Lwt.return @@ (Password.hash ~pwd:password
+                     |> Result.map_error (fun err -> `ArgonError err)) in
+    Query.update ~table:LocalUser.table
+      ~set:Expr.[
+        LocalUser.password := s password_hash
+      ]
+    |> Query.where Expr.(LocalUser.id = i id)
+    |> Request.make_zero
+    |> Petrol.exec conn
+
+  let update_display_name ~id ~display_name conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.update ~table:LocalUser.table
+      ~set:Expr.[
+        LocalUser.display_name := s display_name
+      ]
+    |> Query.where Expr.(LocalUser.id = i id)
+    |> Request.make_zero
+    |> Petrol.exec conn
+
   let update_about ~id ~about conn =
     let open Lwt_result.Syntax in
     let open Petrol in
@@ -145,5 +171,74 @@ module LocalUser = struct
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn
+
+  let collect_local_users ?(offset=0) ?(limit=10) conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select
+      Expr.[
+        LocalUser.id;
+        LocalUser.username;
+        LocalUser.password;
+        nullable LocalUser.display_name;
+        nullable LocalUser.about;
+        LocalUser.manually_accept_follows;
+        LocalUser.is_admin;
+        LocalUser.pubkey;
+        LocalUser.privkey
+      ]
+      ~from:LocalUser.table
+    |> Query.order_by ~direction:`ASC LocalUser.username
+    |> Query.limit Expr.(i limit)
+    |> Query.offset Expr.(i offset)
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
+
+  let local_user_count conn =
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[count_star] ~from:LocalUser.table
+    |> Request.make_one
+    |> Petrol.find conn
+
+  let find_local_users ?(offset=0) ?(limit=10) ~pattern conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select
+      Expr.[
+        LocalUser.id;
+        LocalUser.username;
+        LocalUser.password;
+        nullable LocalUser.display_name;
+        nullable LocalUser.about;
+        LocalUser.manually_accept_follows;
+        LocalUser.is_admin;
+        LocalUser.pubkey;
+        LocalUser.privkey
+      ]
+      ~from:LocalUser.table
+    |> Query.where Expr.(like LocalUser.username ~pat:(s pattern) ||
+                         like LocalUser.display_name ~pat:(s pattern))
+    |> Query.order_by ~direction:`ASC LocalUser.username
+    |> Query.limit Expr.(i limit)
+    |> Query.offset Expr.(i offset)
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
+
+  let find_local_user_count ~pattern conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[count_star]
+      ~from:LocalUser.table
+    |> Query.where Expr.(like LocalUser.username ~pat:(s pattern) ||
+                         like LocalUser.display_name ~pat:(s pattern))
+    |> Query.order_by ~direction:`ASC LocalUser.username
+    |> Request.make_one
+    |> Petrol.find conn
 
 end

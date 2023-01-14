@@ -22,7 +22,6 @@ end
 
 module LocalUser = struct
 
-
   let table, (Expr.[id; username; password; display_name; about; manually_accept_follows; is_admin; pubkey; privkey] as all_fields) =
     VersionedSchema.declare_table db ~name:"local_user"
       Schema.[
