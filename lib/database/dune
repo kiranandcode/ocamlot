@@ -8,6 +8,8 @@
    x509
    ;; database
    caqti-lwt caqti-driver-sqlite3 sqlite3 caqti-type-calendar
+
+   petrol
  )
  (preprocess (pps ppx_sql))
  (preprocessor_deps ../../resources/schema.sql)
