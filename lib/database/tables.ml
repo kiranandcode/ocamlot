@@ -78,7 +78,7 @@ module RemoteUser = struct
   ] = VersionedSchema.declare_table db ~name:"remote_user"
         Schema.[
           field ~constraints:[primary_key ()] "id" ~ty:Type.int;             (* internal id of the user *)
-          field ~constraints:[not_null ()] "username" ~ty:Type.int;          (* username *)
+          field ~constraints:[not_null ()] "username" ~ty:Type.text;          (* username *)
 
           field ~constraints:[
             foreign_key ~table:RemoteInstance.table

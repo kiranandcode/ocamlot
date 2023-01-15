@@ -1,3 +1,4 @@
+[@@@warning "-33"]              (* like to open Lwt_result + Petrol + Tables *)
 
 module LocalUser = struct
 
@@ -82,13 +83,13 @@ module LocalUser = struct
     let* () =
       Query.insert ~table:LocalUser.table
         ~values:(Expr.[
-          LocalUser.username := s username;
-          LocalUser.password := s password_hash;
-          LocalUser.manually_accept_follows := bl manually_accept_follows;
-          LocalUser.is_admin := bl is_admin;
-          LocalUser.pubkey := s (X509.Public_key.encode_pem pubkey |> Cstruct.to_string);
-          LocalUser.privkey := s (X509.Private_key.encode_pem privkey |> Cstruct.to_string);
-        ] @ (Option.map Expr.(fun about -> LocalUser.about := s about) about |> Option.to_list) 
+            LocalUser.username := s username;
+            LocalUser.password := s password_hash;
+            LocalUser.manually_accept_follows := bl manually_accept_follows;
+            LocalUser.is_admin := bl is_admin;
+            LocalUser.pubkey := s (X509.Public_key.encode_pem pubkey |> Cstruct.to_string);
+            LocalUser.privkey := s (X509.Private_key.encode_pem privkey |> Cstruct.to_string);
+          ] @ (Option.map Expr.(fun about -> LocalUser.about := s about) about |> Option.to_list) 
                  @ (Option.map Expr.(fun display_name -> LocalUser.display_name := s display_name) display_name |> Option.to_list))
       |> Request.make_zero
       |> Petrol.exec conn in
@@ -118,8 +119,8 @@ module LocalUser = struct
                      |> Result.map_error (fun err -> `ArgonError err)) in
     Query.update ~table:LocalUser.table
       ~set:Expr.[
-        LocalUser.password := s password_hash
-      ]
+          LocalUser.password := s password_hash
+        ]
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn
@@ -130,8 +131,8 @@ module LocalUser = struct
     let open Tables in
     Query.update ~table:LocalUser.table
       ~set:Expr.[
-        LocalUser.display_name := s display_name
-      ]
+          LocalUser.display_name := s display_name
+        ]
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn
@@ -142,8 +143,8 @@ module LocalUser = struct
     let open Tables in
     Query.update ~table:LocalUser.table
       ~set:Expr.[
-        LocalUser.about := s about
-      ]
+          LocalUser.about := s about
+        ]
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn
@@ -154,8 +155,8 @@ module LocalUser = struct
     let open Tables in
     Query.update ~table:LocalUser.table
       ~set:Expr.[
-        LocalUser.manually_accept_follows := bl manually_accept_follows 
-      ]
+          LocalUser.manually_accept_follows := bl manually_accept_follows 
+        ]
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn  
@@ -166,8 +167,8 @@ module LocalUser = struct
     let open Tables in
     Query.update ~table:LocalUser.table
       ~set:Expr.[
-        LocalUser.is_admin := bl is_admin
-      ]
+          LocalUser.is_admin := bl is_admin
+        ]
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn
@@ -240,5 +241,126 @@ module LocalUser = struct
     |> Query.order_by ~direction:`ASC LocalUser.username
     |> Request.make_one
     |> Petrol.find conn
+
+end
+
+module RemoteInstance = struct
+
+  type t = {
+    id: int;
+    url: string;
+    last_unreachable: Ptime.t option;
+  }
+
+  let decode (id, (url, (last_unreachable, ()))) =
+    let last_unreachable =
+      Option.map (fun s ->
+          Ptime.of_rfc3339 s
+          |> Result.get_ok
+          |> (fun (t, _, _) -> t)
+        ) last_unreachable in
+    {
+      id;
+      url;
+      last_unreachable
+    }
+
+  let lookup_instance ~url conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+        RemoteInstance.id;
+        RemoteInstance.url;
+        nullable RemoteInstance.last_unreachable
+      ] ~from:RemoteInstance.table
+    |> Query.where Expr.(RemoteInstance.url = s url)
+    |> Request.make_zero_or_one
+    |> Petrol.find_opt conn
+    |> Lwt_result.map (Option.map decode)
+
+  let update_instance_last_unreachable ~id ~last_unreachable conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.update ~table:RemoteInstance.table
+      ~set:Expr.[
+          RemoteInstance.last_unreachable :=
+            s (Ptime.to_rfc3339 last_unreachable)
+        ]
+    |> Query.where
+      Expr.(RemoteInstance.id = i id)
+    |> Request.make_zero
+    |> Petrol.exec conn
+
+  let unset_instance_last_unreachable ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.update ~table:RemoteInstance.table
+      ~set:Expr.[
+          unset RemoteInstance.last_unreachable
+        ]
+    |> Query.where
+      Expr.(RemoteInstance.id = i id)
+    |> Request.make_zero
+    |> Petrol.exec conn
+
+  let resolve_instance ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+        RemoteInstance.id;
+        RemoteInstance.url;
+        nullable RemoteInstance.last_unreachable
+      ] ~from:RemoteInstance.table
+    |> Query.where
+      Expr.(RemoteInstance.id = i id)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map decode
+
+  let create_instance ~url conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let* () = 
+      Query.insert ~table:RemoteInstance.table
+        ~values:Expr.[
+            RemoteInstance.url := s url
+          ]
+      |> Query.on_err `IGNORE
+      |> Request.make_zero
+      |> Petrol.exec conn in
+    let* instance = lookup_instance ~url conn in
+    Lwt_result.return (Option.get instance)
+
+  let find_possible_remote_instances_to_query
+      ?(offset=0) ?(limit=10) pattern conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select
+      Expr.[RemoteInstance.id; RemoteInstance.url;
+            nullable RemoteInstance.last_unreachable]
+      ~from:RemoteInstance.table
+    |> Query.where (
+      Expr.exists begin
+        Query.select
+          Expr.[RemoteUser.id]
+          ~from:RemoteUser.table
+        |> Query.where Expr.(
+            RemoteUser.instance_id = RemoteInstance.id &&
+            (like RemoteUser.username ~pat:(s pattern) ||
+             like RemoteUser.display_name ~pat:(s pattern))
+          )
+      end
+    )
+    |> Query.order_by RemoteInstance.url ~direction:`DESC
+    |> Query.offset Expr.(i offset)
+    |> Query.limit Expr.(i limit)
+    |> Request.make_many
+    |> Petrol.collect_list conn
 
 end
