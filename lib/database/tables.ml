@@ -6,11 +6,6 @@ let db = VersionedSchema.init version_0_0_1 ~name:"ocamlot"
 
 module Activity = struct
 
-  type t = {
-    id: string;
-    raw_data: Yojson.Safe.t
-  }
-
   let table, Expr.[id; raw_data] =
     VersionedSchema.declare_table db ~name:"activity"
       Schema.[
@@ -58,20 +53,6 @@ end
 
 module RemoteUser = struct
 
-  type t = {
-    id: int;
-    username: string;
-    instance_id: int;
-    display_name: string option;
-    url: string;
-    inbox: string option;
-    outbox: string option;
-    followers: string option;
-    following: string option;
-    summary: string option;
-    public_key_pem: string
-  }
-
   let table, Expr.[
     id; username; instance_id; display_name; url; inbox;
     outbox; followers; following; summary; public_key_pem
@@ -101,11 +82,6 @@ end
 
 module Actor = struct
 
-  type t = {
-    id: int;
-    link_id: [`Local of int | `Remote of int]
-  }
-
   let table, Expr.[id; local_id; remote_id] =
     VersionedSchema.declare_table db ~name:"actor"
       Schema.[
@@ -126,11 +102,6 @@ end
 
 module Tag = struct
 
-  type t = {
-    id: int;
-    name: string;
-  }
-
   let table, Expr.[id; name] =
     VersionedSchema.declare_table db ~name:"tags"
       Schema.[
@@ -141,23 +112,6 @@ module Tag = struct
 end
 
 module Posts = struct
-
-  type t = {
-    id: int;
-    public_id: string option;
-    url: string;
-    author_id: int;
-
-    is_public: bool;
-    is_follower_public: bool;
-
-    summary: string option;
-    content_type: [ `Markdown | `Org | `Text ];
-    post_source: string;
-    published: Ptime.t;
-
-    raw_data: Yojson.Safe.t option;
-  }
 
   let table, Expr.[
     id;
@@ -190,7 +144,7 @@ module Posts = struct
         field ~constraints:[not_null ()] "is_follower_public" ~ty:Type.bool;   (* is the post sent to followers mentioned users *)
 
         field "summary" ~ty:Type.text;                                         (* subject of the post *)
-        field ~constraints:[not_null ()] "content_type" ~ty:Type.text;         (* type of the content *)
+        field ~constraints:[not_null ()] "content_type" ~ty:Type.int;         (* type of the content *)
         field ~constraints:[not_null ()] "post_source" ~ty:Type.text;          (* source of the content *)
 
         field ~constraints:[not_null ()] "published" ~ty:Type.text;            (* date at which post was published (Ptime) *)
