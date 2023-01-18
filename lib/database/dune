@@ -9,6 +9,7 @@
    ;; database
    caqti-lwt caqti-driver-sqlite3 sqlite3 caqti-type-calendar
 
+   ptime ptime.clock.os
    petrol
  )
  (preprocess (pps ppx_sql))

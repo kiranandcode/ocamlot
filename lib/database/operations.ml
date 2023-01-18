@@ -1128,6 +1128,257 @@ module Posts = struct
     |> Request.make_zero
     |> Petrol.exec conn
 
+  (* a post is a direct message to actor(id) iff *)
+  let is_direct_message ~id =
+    let open Petrol in
+    let open Tables in
+    Expr.(
+      (* if there is an entry in the to list   *)
+      Expr.exists begin
+        Query.select [Posts.PostTo.post_id; Posts.PostTo.actor_id]
+          ~from:Posts.PostTo.table
+        |> Query.where
+          Expr.(
+            (* for the post *)
+            Posts.PostTo.post_id = Posts.id &&
+            (* where we are the actor *)
+            Posts.PostTo.actor_id = i id)
+      end
+      ||
+      (* or, if there is an entry in the cc list *)
+      Expr.exists begin
+        Query.select [Posts.PostCc.post_id; Posts.PostCc.actor_id]
+          ~from:Posts.PostCc.table
+        |> Query.where
+          Expr.(
+            (* for the post *)
+            Posts.PostCc.post_id = Posts.id &&
+            (* where we are the actor *)
+            Posts.PostCc.actor_id = i id)
+      end) 
+
+  let is_within_time ?end_time ~start_time () =
+    let open Petrol in
+    let open Tables in
+    match end_time with
+    | None ->
+      Expr.(Posts.published <= s start_time)
+    | Some end_time ->
+      Expr.(Posts.published <= s start_time && s end_time <= Posts.published)
+
+  let is_feed_post ~id =
+    let open Petrol in
+    let open Tables in
+    Expr.(
+      (
+        (* TODO: We are not blocking/muting the author *)
+        (* (1) we are the author *)
+        Posts.author_id = i id ||
+        (* we are following the author of the post && it is public *)
+        (Expr.exists begin
+            Query.select Expr.[Follows.author_id; Follows.target_id]
+              ~from:Follows.table
+            |> Query.where Expr.(
+                Follows.author_id = i id &&
+                Follows.target_id = Posts.author_id
+              )
+          end && (Posts.is_public || Posts.is_follower_public)
+        ) ||
+        (* it is a direct message to us *)
+        is_direct_message ~id
+      )
+    )
+
+  let is_local_post =  
+    let open Petrol in
+    let open Tables in
+    Expr.exists begin
+      Query.select [Actor.id; Actor.local_id] ~from:Actor.table
+      |> Query.where Expr.(
+          Actor.id = Posts.author_id &&
+          Expr.is_not_null Actor.local_id
+        )
+    end
+
+  let collect_feed ?(offset=0) ?(limit=10) ?start_time ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let start_time =
+      Option.value start_time
+        ~default:(Ptime_clock.now ())
+      |> Ptime.to_rfc3339 in
+    (* collect posts where *)
+    Query.select
+      Expr.[
+        Posts.id;
+        nullable Posts.public_id;
+        Posts.url;
+        Posts.author_id;
+        Posts.is_public;
+        Posts.is_follower_public;
+        nullable Posts.summary;
+        Posts.content_type;
+        Posts.post_source;
+        Posts.published;
+        nullable Posts.raw_data
+      ] ~from:Posts.table
+    |> Query.where Expr.(is_within_time ~start_time () && is_feed_post ~id)
+    |> Query.order_by Posts.published ~direction:`DESC
+    |> Query.limit Expr.(i limit)
+    |> Query.offset Expr.(i offset)
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
+
+  let count_feed ?start_time ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let start_time =
+      Option.value start_time
+        ~default:(Ptime_clock.now ())
+      |> Ptime.to_rfc3339 in
+    (* collect posts where *)
+    Query.select Expr.[ count_star ] ~from:Posts.table
+    |> Query.where Expr.(is_within_time ~start_time () && is_feed_post ~id)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (count, ()) -> count)
+
+  let collect_direct ?(offset=0) ?(limit=10) ?start_time ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let start_time =
+      Option.value start_time
+        ~default:(Ptime_clock.now ())
+      |> Ptime.to_rfc3339 in
+    (* collect posts where *)
+    Query.select
+      Expr.[
+        Posts.id;
+        nullable Posts.public_id;
+        Posts.url;
+        Posts.author_id;
+        Posts.is_public;
+        Posts.is_follower_public;
+        nullable Posts.summary;
+        Posts.content_type;
+        Posts.post_source;
+        Posts.published;
+        nullable Posts.raw_data
+      ] ~from:Posts.table
+    |> Query.where
+      Expr.(is_within_time ~start_time () &&
+            is_direct_message ~id)
+    |> Query.order_by Posts.published ~direction:`DESC
+    |> Query.limit Expr.(i limit)
+    |> Query.offset Expr.(i offset)
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
+
+  let count_direct ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    (* collect posts where *)
+    Query.select Expr.[ count_star ] ~from:Posts.table
+    |> Query.where  Expr.(is_direct_message ~id)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (count, ()) -> count)
+
+  let collect_twkn ?(offset=0) ?(limit=10) ?start_time conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let start_time =
+      Option.value start_time
+        ~default:(Ptime_clock.now ())
+      |> Ptime.to_rfc3339 in
+    (* collect posts where *)
+    Query.select
+      Expr.[
+        Posts.id;
+        nullable Posts.public_id;
+        Posts.url;
+        Posts.author_id;
+        Posts.is_public;
+        Posts.is_follower_public;
+        nullable Posts.summary;
+        Posts.content_type;
+        Posts.post_source;
+        Posts.published;
+        nullable Posts.raw_data
+      ] ~from:Posts.table
+    |> Query.where
+      Expr.(is_within_time ~start_time () &&
+            Posts.is_public)
+    |> Query.order_by Posts.published ~direction:`DESC
+    |> Query.limit Expr.(i limit)
+    |> Query.offset Expr.(i offset)
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
+
+  let count_twkn conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    (* collect posts where *)
+    Query.select Expr.[count_star] ~from:Posts.table
+    |> Query.where
+      Expr.(Posts.is_public)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (count, ()) -> count)
+
+  let collect_local ?(offset=0) ?(limit=10) ?start_time conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let start_time =
+      Option.value start_time
+        ~default:(Ptime_clock.now ())
+      |> Ptime.to_rfc3339 in
+    (* collect posts where *)
+    Query.select
+      Expr.[
+        Posts.id;
+        nullable Posts.public_id;
+        Posts.url;
+        Posts.author_id;
+        Posts.is_public;
+        Posts.is_follower_public;
+        nullable Posts.summary;
+        Posts.content_type;
+        Posts.post_source;
+        Posts.published;
+        nullable Posts.raw_data
+      ] ~from:Posts.table
+    |> Query.where Expr.(is_within_time ~start_time () &&
+                         Posts.is_public &&
+                         is_local_post)
+    |> Query.order_by Posts.published ~direction:`DESC
+    |> Query.limit Expr.(i limit)
+    |> Query.offset Expr.(i offset)
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
+
+  let count_local conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    (* collect posts where *)
+    Query.select Expr.[count_star] ~from:Posts.table
+    |> Query.where
+      Expr.(Posts.is_public && is_local_post)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (count, ()) -> count)
 
 end
 
