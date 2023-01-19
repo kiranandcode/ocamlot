@@ -1382,9 +1382,402 @@ module Posts = struct
 
 end
 
-module Likes = struct
+module Follows = struct
+
+  type follow = {
+    id: int;
+    public_id: string option;
+    url: string;
+    raw_data: Yojson.Safe.t option;
+    pending: bool;
+    created: Ptime.t;
+    updated: Ptime.t option;
+    author_id: int;
+    target_id: int;
+  }
+
+  let decode (id, (public_id, (url, (raw_data, (pending, (created, (updated, (author_id, (target_id, ()))))))))) =
+    let raw_data = Option.map Yojson.Safe.from_string raw_data in
+    let from_string s = Ptime.of_rfc3339 s |> Result.get_ok |> (fun (time, _, _) -> time) in
+    let created = from_string created in
+    let updated = Option.map from_string updated in
+    {
+      id;
+      public_id;
+      url;
+      raw_data;
+      pending;
+      created;
+      updated;
+      author_id;
+      target_id;
+    }
+
+  let lookup_by_public_id ~public_id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Follows.id;
+      nullable Follows.public_id;
+      Follows.url;
+      nullable Follows.raw_data;
+      Follows.pending;
+      Follows.created;
+      nullable Follows.updated;
+      Follows.author_id;
+      Follows.target_id;
+    ] ~from:Follows.table
+    |> Query.where Expr.(Follows.public_id = s public_id)
+    |> Request.make_zero_or_one
+    |> Petrol.find_opt conn
+    |> Lwt_result.map (Option.map decode)
+
+  let lookup_by_url ~url conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Follows.id;
+      nullable Follows.public_id;
+      Follows.url;
+      nullable Follows.raw_data;
+      Follows.pending;
+      Follows.created;
+      nullable Follows.updated;
+      Follows.author_id;
+      Follows.target_id;
+    ] ~from:Follows.table
+    |> Query.where Expr.(Follows.url = s url)
+    |> Request.make_zero_or_one
+    |> Petrol.find_opt conn
+    |> Lwt_result.map (Option.map decode)
+
+  let resolve ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Follows.id;
+      nullable Follows.public_id;
+      Follows.url;
+      nullable Follows.raw_data;
+      Follows.pending;
+      Follows.created;
+      nullable Follows.updated;
+      Follows.author_id;
+      Follows.target_id;
+    ] ~from:Follows.table
+    |> Query.where Expr.(Follows.id = i id)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map decode
+
+  let create ?public_id ?raw_data ?updated ~url ~author ~target ~pending ~created conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let* () =
+      Query.insert ~table:Follows.table ~values:(
+        Expr.[
+          Follows.url := s url;
+          Follows.pending := bl pending;
+          Follows.created := s (Ptime.to_rfc3339 created);
+          Follows.author_id := i author;
+          Follows.target_id := i target;
+        ] 
+        @ (Option.map Expr.(fun public_id -> Follows.public_id := s public_id) public_id |> Option.to_list)
+        @ (Option.map Expr.(fun raw_data -> Follows.raw_data := s (Yojson.Safe.to_string raw_data)) raw_data |> Option.to_list)
+        @ (Option.map Expr.(fun updated -> Follows.updated := s (Ptime.to_rfc3339 updated)) updated |> Option.to_list)
+      )
+      |> Query.on_err `IGNORE
+      |> Request.make_zero
+      |> Petrol.exec conn in
+    let* result = lookup_by_url ~url conn in
+    Lwt_result.return (Option.get result)
+
+  let update_pending_status ~id ~pending conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let updated = Ptime_clock.now () in
+    Query.update ~table:Follows.table
+      ~set:Expr.[
+        Follows.pending := bl pending;
+        Follows.updated := s (Ptime.to_rfc3339 updated);
+      ]
+    |> Query.where Expr.(Follows.id = i id)
+    |> Request.make_zero
+    |> Petrol.exec conn
+
+  let delete ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.delete ~from:Follows.table
+    |> Query.where Expr.(Follows.id = i id)
+    |> Request.make_zero
+    |> Petrol.exec conn
+
+  let collect_follows_for_actor ?(offset=0) ?(limit=10) ?since ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let since = Option.value ~default:(Ptime_clock.now ()) since |> Ptime.to_rfc3339 in
+    Query.select Expr.[
+      Follows.id;
+      nullable Follows.public_id;
+      Follows.url;
+      nullable Follows.raw_data;
+      Follows.pending;
+      Follows.created;
+      nullable Follows.updated;
+      Follows.author_id;
+      Follows.target_id;
+    ] ~from:Follows.table
+    |> Query.where Expr.(
+      (Follows.target_id = i id || Follows.author_id = i id) &&
+      (coalesce [Follows.updated; Follows.created]) <= s since &&
+      Follows.pending = true_
+    )
+    |> Query.order_by Expr.(coalesce [Follows.updated; Follows.created]) ~direction:`DESC
+    |> Query.offset Expr.(i offset)
+    |> Query.limit Expr.(i limit)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map decode
+
+  let is_following ~author ~target conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[count_star] ~from:Follows.table
+    |> Query.where Expr.(Follows.author_id = i author && Follows.target_id = i target && Follows.pending = false_)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (c, ()) -> c > 0)
+
+  let find_follow_between ~author ~target conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Follows.id;
+      nullable Follows.public_id;
+      Follows.url;
+      nullable Follows.raw_data;
+      Follows.pending;
+      Follows.created;
+      nullable Follows.updated;
+      Follows.author_id;
+      Follows.target_id;
+    ] ~from:Follows.table
+    |> Query.where Expr.(Follows.author_id = i author && Follows.target_id = i target)
+    |> Request.make_zero_or_one
+    |> Petrol.find_opt conn
+    |> Lwt_result.map (Option.map decode)
+
+  let count_following ~author conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[count_star] ~from:Follows.table
+    |> Query.where Expr.(Follows.author_id = i author && Follows.pending = false_)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (c, ()) -> c)
+
+  let collect_following_for_actor ?(offset=0) ?(limit=10) ?since ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let since = Option.value ~default:(Ptime_clock.now ()) since |> Ptime.to_rfc3339 in
+    Query.select Expr.[
+      Follows.id;
+      nullable Follows.public_id;
+      Follows.url;
+      nullable Follows.raw_data;
+      Follows.pending;
+      Follows.created;
+      nullable Follows.updated;
+      Follows.author_id;
+      Follows.target_id;
+    ] ~from:Follows.table
+    |> Query.where Expr.(
+      (Follows.author_id = i id) &&
+      (coalesce [Follows.updated; Follows.created]) <= s since &&
+      Follows.pending = false_
+    )
+    |> Query.order_by Expr.(coalesce [Follows.updated; Follows.created]) ~direction:`DESC
+    |> Query.offset Expr.(i offset)
+    |> Query.limit Expr.(i limit)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map decode
+
+  let count_followers ~target conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[count_star] ~from:Follows.table
+    |> Query.where Expr.(Follows.target_id = i target && Follows.pending = false_)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (c, ()) -> c)
+
+  let collect_followers_for_actor ?(offset=0) ?(limit=10) ?since ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let since = Option.value ~default:(Ptime_clock.now ()) since |> Ptime.to_rfc3339 in
+    Query.select Expr.[
+      Follows.id;
+      nullable Follows.public_id;
+      Follows.url;
+      nullable Follows.raw_data;
+      Follows.pending;
+      Follows.created;
+      nullable Follows.updated;
+      Follows.author_id;
+      Follows.target_id;
+    ] ~from:Follows.table
+    |> Query.where Expr.(
+      (Follows.target_id = i id) &&
+      (coalesce [Follows.updated; Follows.created]) <= s since &&
+      Follows.pending = false_
+    )
+    |> Query.order_by Expr.(coalesce [Follows.updated; Follows.created]) ~direction:`DESC
+    |> Query.offset Expr.(i offset)
+    |> Query.limit Expr.(i limit)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map decode
+
 end
 
-module Follows = struct
+module Likes = struct
+
+  type t = {
+    id: int;
+    public_id: string option;
+    url: string;
+    raw_data: Yojson.Safe.t option;
+    published: Ptime.t;
+    post_id: int;
+    actor_id: int;
+  }
+
+  let decode (id, (public_id, (url, (raw_data, (published, (post_id, (actor_id, ()))))))) =
+    let raw_data = Option.map Yojson.Safe.from_string raw_data in
+    let from_string s = Ptime.of_rfc3339 s |> Result.get_ok |> (fun (time, _, _) -> time) in
+    let published = from_string published in
+    {
+      id;
+      public_id;
+      url;
+      raw_data;
+      published;
+      post_id;
+      actor_id;
+    }
+
+  let resolve ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Likes.id;
+      nullable Likes.public_id;
+      Likes.url;
+      nullable Likes.raw_data;
+      Likes.published;
+      Likes.post_id;
+      Likes.actor_id;
+    ] ~from:Likes.table
+    |> Query.where Expr.(Likes.id = i id)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map decode
+
+  let lookup_by_url ~url conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Likes.id;
+      nullable Likes.public_id;
+      Likes.url;
+      nullable Likes.raw_data;
+      Likes.published;
+      Likes.post_id;
+      Likes.actor_id;
+    ] ~from:Likes.table
+    |> Query.where Expr.(Likes.url = s url)
+    |> Request.make_zero_or_one
+    |> Petrol.find_opt conn
+    |> Lwt_result.map (Option.map decode)
+
+  let create ?public_id ?raw_data ~url ~post ~actor ~published conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let* () =
+      Query.insert ~table:Likes.table ~values:(
+        Expr.[
+          Likes.url := s url;
+          Likes.published := s (Ptime.to_rfc3339 published);
+          Likes.post_id := i post;
+          Likes.actor_id := i actor;
+        ] 
+        @ (Option.map Expr.(fun public_id -> Likes.public_id := s public_id) public_id |> Option.to_list)
+        @ (Option.map Expr.(fun raw_data -> Likes.raw_data := s (Yojson.Safe.to_string raw_data)) raw_data |> Option.to_list)
+      )
+      |> Query.on_err `IGNORE
+      |> Request.make_zero
+      |> Petrol.exec conn in
+    let* result = lookup_by_url ~url conn in
+    Lwt_result.return (Option.get result)
+
+  let collect_for_post ?(offset=0) ?(limit=10) ~post conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Likes.id;
+      nullable Likes.public_id;
+      Likes.url;
+      nullable Likes.raw_data;
+      Likes.published;
+      Likes.post_id;
+      Likes.actor_id;
+    ] ~from:Likes.table
+    |> Query.where Expr.(Likes.post_id = i post)
+    |> Query.order_by Likes.published ~direction:`DESC
+    |> Query.limit Expr.(i limit)
+    |> Query.offset Expr.(i offset)
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
+
+  let collect_by_actor ?(offset=0) ?(limit=10) ~actor conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Likes.id;
+      nullable Likes.public_id;
+      Likes.url;
+      nullable Likes.raw_data;
+      Likes.published;
+      Likes.post_id;
+      Likes.actor_id;
+    ] ~from:Likes.table
+    |> Query.where Expr.(Likes.actor_id = i actor)
+    |> Query.order_by Likes.published ~direction:`DESC
+    |> Query.limit Expr.(i limit)
+    |> Query.offset Expr.(i offset)
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
 
 end
