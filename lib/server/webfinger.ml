@@ -27,7 +27,7 @@ let handle_webfinger config req =
   | Some username ->
     let+ user = 
       Dream.sql req begin fun db -> 
-        let+ query_res = Database.LocalUser.lookup_user ~username db |> map_err (fun err -> `DatabaseError err) in
+        let+ query_res = Database.LocalUser.find_user ~username db |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
         return @@ lift_opt ~else_:(fun () -> `DatabaseError ("Inconsistent state: user's link failed to resolve")) query_res
       end in
     let result = 

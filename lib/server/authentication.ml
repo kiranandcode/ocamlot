@@ -50,10 +50,12 @@ let handle_register_post config req =
     handle_register_get ~errors config req
   | Ok (username, password, _) ->
     let+ user = Dream.sql req (Database.LocalUser.create_user ~username ~password)
-                |> map_err (fun err -> `DatabaseError err) in
+                |> map_err (function
+                  `ArgonError err -> `ArgonError err 
+                  | #Caqti_error.t as err -> `DatabaseError (Caqti_error.show err)) in
     let+ () = Lwt.map Result.return (Dream.invalidate_session req) in
     let+ () = Lwt.map Result.return @@
-      Dream.set_session_field req "user" (Database.LocalUser.username user) in
+      Dream.set_session_field req "user" (user.Database.LocalUser.username) in
     redirect req "/feed"
   
 let handle_login_get ?errors config req =
@@ -88,12 +90,14 @@ let handle_login_post config req =
     handle_login_get ~errors config req
   | Ok (username, password) ->
     let+ user = Dream.sql req (Database.LocalUser.login_user ~username ~password)
-                |> map_err (fun err -> `DatabaseError err) in
+                |> map_err (function
+                  `ArgonError err -> `ArgonError err
+                  | #Caqti_error.t as err -> `DatabaseError (Caqti_error.show err)) in
     match user with
     | Some user ->
       let+ () = Lwt.map Result.return (Dream.invalidate_session req) in
       let+ () = Lwt.map Result.return @@
-        Dream.set_session_field req "user" (Database.LocalUser.username user) in
+        Dream.set_session_field req "user" (user.Database.LocalUser.username) in
       redirect req "/feed"
     | None ->
       handle_login_get ~errors:["Invalid username or password"] config req

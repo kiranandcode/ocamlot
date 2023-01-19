@@ -1,16 +1,15 @@
 [@@@warning "-33"]
 open Common
 
+
 let handle_lookup_activity _config req =
-  let param = Dream.param req "uuid" in
-  let+ uuid = return @@ lift_opt ~else_:(fun _ -> `InvalidData "invalid uuid")
-                          (Database.Activity.id_from_string param) in
+  let uuid = Dream.param req "uuid" in
   let+ activity =
-    Dream.sql req (Database.Activity.find uuid)
-    |> map_err (fun err -> `DatabaseError err) in
-  let+ activity = return @@ lift_opt ~else_:(fun _ -> `ActivityNotFound param)
+    Dream.sql req (Database.Activity.find_by_id ~id:uuid)
+    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  let+ activity = return @@ lift_opt ~else_:(fun _ -> `ActivityNotFound uuid)
                               activity in
-  activity_json (Database.Activity.data activity)
+  activity_json (activity.Database.Activity.raw_data)
 
 let route config = 
   Dream.scope "/activity" [] [

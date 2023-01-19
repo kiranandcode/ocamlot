@@ -103,7 +103,7 @@ module LocalUser = struct
     |> Lwt_result.map (Option.map decode)
 
 
-  let resolve_user ~id conn =
+  let resolve ~id conn =
     let open Petrol in
     let open Tables in
     Query.select
@@ -146,7 +146,8 @@ module LocalUser = struct
                  @ (Option.map Expr.(fun display_name -> LocalUser.display_name := s display_name) display_name |> Option.to_list))
       |> Request.make_zero
       |> Petrol.exec conn in
-    find_user ~username conn
+    let* user = find_user ~username conn in
+    Lwt_result.return (Option.get user)
 
 
   let login_user ~username ~password conn =
@@ -359,7 +360,7 @@ module RemoteInstance = struct
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let resolve_instance ~id conn =
+  let resolve ~id conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -415,6 +416,7 @@ module RemoteInstance = struct
     |> Query.limit Expr.(i limit)
     |> Request.make_many
     |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
 
 end
 
@@ -512,7 +514,7 @@ module RemoteUser = struct
     |> Petrol.find_opt conn
     |> Lwt_result.map (Option.map decode)
 
-  let resolve_remote_user ~id conn =
+  let resolve ~id conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -881,18 +883,18 @@ module Posts = struct
     let open Petrol in
     let open Tables in
     Query.select Expr.[
-        Posts.id;
-        nullable Posts.public_id;
-        Posts.url;
-        Posts.author_id;
-        Posts.is_public;
-        Posts.is_follower_public;
-        nullable Posts.summary;
-        Posts.content_type;
-        Posts.post_source;
-        Posts.published;
-        nullable Posts.raw_data;
-      ] ~from:Posts.table
+      Posts.id;
+      nullable Posts.public_id;
+      Posts.url;
+      Posts.author_id;
+      Posts.is_public;
+      Posts.is_follower_public;
+      nullable Posts.summary;
+      Posts.content_type;
+      Posts.post_source;
+      Posts.published;
+      nullable Posts.raw_data;
+    ] ~from:Posts.table
     |> Query.where Expr.(Posts.public_id = s public_id)
     |> Request.make_zero_or_one
     |> Petrol.find_opt conn
@@ -903,18 +905,18 @@ module Posts = struct
     let open Petrol in
     let open Tables in
     Query.select Expr.[
-        Posts.id;
-        nullable Posts.public_id;
-        Posts.url;
-        Posts.author_id;
-        Posts.is_public;
-        Posts.is_follower_public;
-        nullable Posts.summary;
-        Posts.content_type;
-        Posts.post_source;
-        Posts.published;
-        nullable Posts.raw_data;
-      ] ~from:Posts.table
+      Posts.id;
+      nullable Posts.public_id;
+      Posts.url;
+      Posts.author_id;
+      Posts.is_public;
+      Posts.is_follower_public;
+      nullable Posts.summary;
+      Posts.content_type;
+      Posts.post_source;
+      Posts.published;
+      nullable Posts.raw_data;
+    ] ~from:Posts.table
     |> Query.where Expr.(Posts.url = s url)
     |> Request.make_zero_or_one
     |> Petrol.find_opt conn
@@ -925,27 +927,27 @@ module Posts = struct
     let open Petrol in
     let open Tables in
     Query.select Expr.[
-        Posts.id;
-        nullable Posts.public_id;
-        Posts.url;
-        Posts.author_id;
-        Posts.is_public;
-        Posts.is_follower_public;
-        nullable Posts.summary;
-        Posts.content_type;
-        Posts.post_source;
-        Posts.published;
-        nullable Posts.raw_data;
-      ] ~from:Posts.table
+      Posts.id;
+      nullable Posts.public_id;
+      Posts.url;
+      Posts.author_id;
+      Posts.is_public;
+      Posts.is_follower_public;
+      nullable Posts.summary;
+      Posts.content_type;
+      Posts.post_source;
+      Posts.published;
+      nullable Posts.raw_data;
+    ] ~from:Posts.table
     |> Query.where Expr.(Posts.id = i id)
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map decode
 
   let create ?public_id ?summary ?raw_data 
-      ?(is_public=true) ?(is_follower_public=true)
-      ~url ~author ~post_content
-      ~post_source ~published conn =
+        ?(is_public=true) ?(is_follower_public=true)
+        ~url ~author ~post_content
+        ~post_source ~published conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -970,7 +972,7 @@ module Posts = struct
           ] @
           (raw_data
            |> Option.map Expr.(fun t ->
-               Posts.raw_data := s (Yojson.Safe.to_string t))
+             Posts.raw_data := s (Yojson.Safe.to_string t))
            |> Option.to_list)
         ) 
       |> Query.on_err `IGNORE
@@ -991,27 +993,28 @@ module Posts = struct
     |> Lwt_result.map (fun (id, ()) -> id)
 
   let collect_posts_by_author
-      ?(offset=0) ?(limit=10) ~start_time ~author conn =
+        ?(offset=0) ?(limit=10) ~start_time ~author conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
+    let start_time = Ptime.to_rfc3339 start_time in
     Query.select Expr.[
-        Posts.id;
-        nullable Posts.public_id;
-        Posts.url;
-        Posts.author_id;
-        Posts.is_public;
-        Posts.is_follower_public;
-        nullable Posts.summary;
-        Posts.content_type;
-        Posts.post_source;
-        Posts.published;
-        nullable Posts.raw_data;
-      ] ~from:Posts.table
+      Posts.id;
+      nullable Posts.public_id;
+      Posts.url;
+      Posts.author_id;
+      Posts.is_public;
+      Posts.is_follower_public;
+      nullable Posts.summary;
+      Posts.content_type;
+      Posts.post_source;
+      Posts.published;
+      nullable Posts.raw_data;
+    ] ~from:Posts.table
     |> Query.where
-      Expr.(Posts.author_id = i author &&
-            Posts.published <= s start_time &&
-            Posts.is_public = true_)
+         Expr.(Posts.author_id = i author &&
+               Posts.published <= s start_time &&
+               Posts.is_public = true_)
     |> Query.offset Expr.(i offset)
     |> Query.limit Expr.(i limit)
     |> Query.order_by ~direction:`DESC Posts.published
@@ -1081,12 +1084,19 @@ module Posts = struct
     let open Tables in
     Query.insert ~table:Posts.PostTo.table
       ~values:Expr.[
-          Posts.PostTo.post_id := i id;
-          Posts.PostTo.actor_id := i actor_id;
-        ]
+        Posts.PostTo.post_id := i id;
+        Posts.PostTo.actor_id := i actor_id;
+      ]
     |> Query.on_err `IGNORE
     |> Request.make_zero
     |> Petrol.exec conn
+
+  let add_post_tos ~id ~tos conn =
+    Lwt_list.fold_left_s (fun acc actor_id -> match acc with
+      | Ok () ->
+        add_post_to ~id ~actor_id conn
+      | Error _ -> Lwt.return acc
+    ) (Ok ()) tos
 
   let add_post_cc ~id ~actor_id conn =
     let open Lwt_result.Syntax in
@@ -1094,12 +1104,19 @@ module Posts = struct
     let open Tables in
     Query.insert ~table:Posts.PostCc.table
       ~values:Expr.[
-          Posts.PostCc.post_id := i id;
-          Posts.PostCc.actor_id := i actor_id;
-        ]
+        Posts.PostCc.post_id := i id;
+        Posts.PostCc.actor_id := i actor_id;
+      ]
     |> Query.on_err `IGNORE
     |> Request.make_zero
     |> Petrol.exec conn
+
+  let add_post_ccs ~id ~ccs conn =
+    Lwt_list.fold_left_s (fun acc actor_id -> match acc with
+      | Ok () ->
+        add_post_cc ~id ~actor_id conn
+      | Error _ -> Lwt.return acc
+    ) (Ok ()) ccs
 
   let add_post_mention ~id ~actor_id conn =
     let open Lwt_result.Syntax in
@@ -1107,12 +1124,19 @@ module Posts = struct
     let open Tables in
     Query.insert ~table:Posts.PostMentions.table
       ~values:Expr.[
-          Posts.PostMentions.post_id := i id;
-          Posts.PostMentions.actor_id := i actor_id;
-        ]
+        Posts.PostMentions.post_id := i id;
+        Posts.PostMentions.actor_id := i actor_id;
+      ]
     |> Query.on_err `IGNORE
     |> Request.make_zero
     |> Petrol.exec conn
+
+  let add_post_mentions ~id ~mentions conn =
+    Lwt_list.fold_left_s (fun acc actor_id -> match acc with
+      | Ok () ->
+        add_post_mention ~id ~actor_id conn
+      | Error _ -> Lwt.return acc
+    ) (Ok ()) mentions
 
   let add_post_tag ~id ~tag conn =
     let open Lwt_result.Syntax in
@@ -1121,12 +1145,19 @@ module Posts = struct
     let open Tables in
     Query.insert ~table:Posts.PostTags.table
       ~values:Expr.[
-          Posts.PostTags.post_id := i id;
-          Posts.PostTags.tag_id := i tag.id;
-        ]
+        Posts.PostTags.post_id := i id;
+        Posts.PostTags.tag_id := i tag.id;
+      ]
     |> Query.on_err `IGNORE
     |> Request.make_zero
     |> Petrol.exec conn
+
+  let add_post_tags ~id ~tags conn =
+    Lwt_list.fold_left_s (fun acc tag -> match acc with
+      | Ok () ->
+        add_post_tag ~id ~tag conn
+      | Error _ -> Lwt.return acc
+    ) (Ok ()) tags
 
   (* a post is a direct message to actor(id) iff *)
   let is_direct_message ~id =
@@ -1138,11 +1169,11 @@ module Posts = struct
         Query.select [Posts.PostTo.post_id; Posts.PostTo.actor_id]
           ~from:Posts.PostTo.table
         |> Query.where
-          Expr.(
-            (* for the post *)
-            Posts.PostTo.post_id = Posts.id &&
-            (* where we are the actor *)
-            Posts.PostTo.actor_id = i id)
+             Expr.(
+               (* for the post *)
+               Posts.PostTo.post_id = Posts.id &&
+               (* where we are the actor *)
+               Posts.PostTo.actor_id = i id)
       end
       ||
       (* or, if there is an entry in the cc list *)
@@ -1150,11 +1181,11 @@ module Posts = struct
         Query.select [Posts.PostCc.post_id; Posts.PostCc.actor_id]
           ~from:Posts.PostCc.table
         |> Query.where
-          Expr.(
-            (* for the post *)
-            Posts.PostCc.post_id = Posts.id &&
-            (* where we are the actor *)
-            Posts.PostCc.actor_id = i id)
+             Expr.(
+               (* for the post *)
+               Posts.PostCc.post_id = Posts.id &&
+               (* where we are the actor *)
+               Posts.PostCc.actor_id = i id)
       end) 
 
   let is_within_time ?end_time ~start_time () =
@@ -1176,13 +1207,13 @@ module Posts = struct
         Posts.author_id = i id ||
         (* we are following the author of the post && it is public *)
         (Expr.exists begin
-            Query.select Expr.[Follows.author_id; Follows.target_id]
-              ~from:Follows.table
-            |> Query.where Expr.(
-                Follows.author_id = i id &&
-                Follows.target_id = Posts.author_id
-              )
-          end && (Posts.is_public || Posts.is_follower_public)
+           Query.select Expr.[Follows.author_id; Follows.target_id]
+             ~from:Follows.table
+           |> Query.where Expr.(
+             Follows.author_id = i id &&
+             Follows.target_id = Posts.author_id
+           )
+         end && (Posts.is_public || Posts.is_follower_public)
         ) ||
         (* it is a direct message to us *)
         is_direct_message ~id
@@ -1195,9 +1226,9 @@ module Posts = struct
     Expr.exists begin
       Query.select [Actor.id; Actor.local_id] ~from:Actor.table
       |> Query.where Expr.(
-          Actor.id = Posts.author_id &&
-          Expr.is_not_null Actor.local_id
-        )
+        Actor.id = Posts.author_id &&
+        Expr.is_not_null Actor.local_id
+      )
     end
 
   let collect_feed ?(offset=0) ?(limit=10) ?start_time ~id conn =
@@ -1270,8 +1301,8 @@ module Posts = struct
         nullable Posts.raw_data
       ] ~from:Posts.table
     |> Query.where
-      Expr.(is_within_time ~start_time () &&
-            is_direct_message ~id)
+         Expr.(is_within_time ~start_time () &&
+               is_direct_message ~id)
     |> Query.order_by Posts.published ~direction:`DESC
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
@@ -1314,8 +1345,8 @@ module Posts = struct
         nullable Posts.raw_data
       ] ~from:Posts.table
     |> Query.where
-      Expr.(is_within_time ~start_time () &&
-            Posts.is_public)
+         Expr.(is_within_time ~start_time () &&
+               Posts.is_public)
     |> Query.order_by Posts.published ~direction:`DESC
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
@@ -1330,7 +1361,7 @@ module Posts = struct
     (* collect posts where *)
     Query.select Expr.[count_star] ~from:Posts.table
     |> Query.where
-      Expr.(Posts.is_public)
+         Expr.(Posts.is_public)
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (count, ()) -> count)
@@ -1375,7 +1406,7 @@ module Posts = struct
     (* collect posts where *)
     Query.select Expr.[count_star] ~from:Posts.table
     |> Query.where
-      Expr.(Posts.is_public && is_local_post)
+         Expr.(Posts.is_public && is_local_post)
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (count, ()) -> count)
@@ -1611,9 +1642,9 @@ module Follows = struct
     |> Query.order_by Expr.(coalesce [Follows.updated; Follows.created]) ~direction:`DESC
     |> Query.offset Expr.(i offset)
     |> Query.limit Expr.(i limit)
-    |> Request.make_one
-    |> Petrol.find conn
-    |> Lwt_result.map decode
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
 
   let count_followers ~target conn =
     let open Lwt_result.Syntax in
@@ -1649,9 +1680,9 @@ module Follows = struct
     |> Query.order_by Expr.(coalesce [Follows.updated; Follows.created]) ~direction:`DESC
     |> Query.offset Expr.(i offset)
     |> Query.limit Expr.(i limit)
-    |> Request.make_one
-    |> Petrol.find conn
-    |> Lwt_result.map decode
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
 
 end
 

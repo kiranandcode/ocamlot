@@ -56,6 +56,7 @@ let rec markdown_block_to_html ?allowed_html : Omd.attributes Omd.block -> _ = f
   | Omd.Code_block (_, _, code) ->
     [H.code [H.txt code]]
   | Omd.Html_block (_, txt) -> [Tyxml.Html.Unsafe.data txt]
+  | Omd.Table _ -> []
   | Omd.Definition_list (_, _) -> []
 
 let markdown_to_html  ?allowed_html : Omd.doc -> _ = fun doc -> List.concat_map (markdown_block_to_html  ?allowed_html) doc

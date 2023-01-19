@@ -13,18 +13,18 @@ let with_fragment fragment uri = Uri.with_fragment uri (Some fragment)
 
 module LocalUser = struct
 
-  let convert_to config (actor: Local_user.t) : Activitypub.Types.person =
-    let username = Local_user.username actor in
+  let convert_to config (actor: Operations.LocalUser.t) : Activitypub.Types.person =
+    let username = actor.Operations.LocalUser.username in
     let convert_pubkey config actor : Activitypub.Types.public_key =
-      let username = Local_user.username actor in {
+      let username = actor.Operations.LocalUser.username in {
         id=uri (Configuration.Url.user config username |> with_fragment "main-key");
         owner=uri (Configuration.Url.user config username);
-        pem=Local_user.pubkey actor;
+        pem=Cstruct.to_string (X509.Public_key.encode_pem actor.Operations.LocalUser.pubkey);
       } in {
       id= uri (Configuration.Url.user config username);
-      name= Some Local_user.(username actor);
+      name= Some Operations.LocalUser.(actor.username);
       url = Some (uri (Configuration.Url.user_profile_page config username));
-      preferred_username= Some (Local_user.display_name actor);
+      preferred_username=(actor.Operations.LocalUser.display_name);
       inbox = uri (Configuration.Url.user_inbox config username);
       outbox = uri (Configuration.Url.user_outbox config username);
       summary = Some "SUMMARIES NOT CURRENTLY SUPPORTED BY OCAMLOT";
@@ -49,8 +49,8 @@ module Webfinger = struct
   let activitystreams_self config username =
     self_link `ActivityJsonLd (Configuration.Url.user config username)
 
-  let construct_query_result_for config (actor: Local_user.t) : Activitypub.Types.Webfinger.query_result =
-    let username = Local_user.username actor in
+  let construct_query_result_for config (actor: Operations.LocalUser.t) : Activitypub.Types.Webfinger.query_result =
+    let username = actor.Operations.LocalUser.username in
     {
       subject=Configuration.Format.user_specifier config username;
       aliases=[uri (Configuration.Url.user config username)];

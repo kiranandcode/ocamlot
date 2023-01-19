@@ -48,17 +48,16 @@ let current_user req =
   | None ->
     return_ok None
   | Some username ->
-    Dream.sql req @@ Database.LocalUser.lookup_user_exn ~username
-    |> map_err (fun err -> `Internal ("Lookup user failed", err))
-    |> Lwt_result.map Option.some
+    Dream.sql req @@ Database.LocalUser.find_user ~username
+    |> map_err (fun err -> `Internal ("Lookup user failed", Caqti_error.show err))
 
 let current_user_link req =
   let+ current_user = current_user req in
   match current_user with
   | None as opt -> return_ok opt
   | Some user ->
-    Dream.sql req (Database.Actor.of_local (Database.LocalUser.self user))
-    |> map_err (fun err -> `Internal ("Lookup user failed", err))
+    Dream.sql req (Database.Actor.lookup_local_user ~id:(user.Database.LocalUser.id))
+    |> map_err (fun err -> `Internal ("Lookup user failed", Caqti_error.show err))
     |> Lwt_result.map Option.some
 
 let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =

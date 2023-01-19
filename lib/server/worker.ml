@@ -68,7 +68,7 @@ open struct
 
 
   let handle_local_post pool config user scope post_to title content_type content =
-    log.debug (fun f -> f "working on local post by %s of %s" (Database.LocalUser.username user) content);
+    log.debug (fun f -> f "working on local post by %s of %s" (user.Database.LocalUser.username) content);
 
     let post_to = Option.get_or ~default:[] post_to
                 |> List.filter (Fun.negate String.is_empty) in
@@ -89,14 +89,13 @@ open struct
         with_pool pool @@ fun db ->
         Database.RemoteInstance.find_possible_remote_instances_to_query
           ("%" ^ username ^ "%") db
-        |> map_err (fun err -> `DatabaseError err) in
+        |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
       let+ query_res =
         Lwt_list.map_p (fun instance ->
-          let domain = Database.RemoteInstance.url instance in
+          let domain = instance.Database.RemoteInstance.url in
           let+ _ = with_pool pool @@ fun db ->
             Resolver.resolve_remote_user ~username ~domain db
-            |> map_err (fun err -> `DatabaseError err)
-          in
+            |> map_err (fun err -> `DatabaseError err) in
           return_ok ()
         ) instances
         |> lift_pure in
@@ -115,7 +114,7 @@ open struct
 
   let handle_follow_remote_user pool config user username domain =
     log.debug (fun f ->
-      f "handling follow remote user %s@%s by %s" username domain (Database.LocalUser.username user)
+      f "handling follow remote user %s@%s by %s" username domain (user.Database.LocalUser.username)
     );
     let+ _ =
       with_pool pool @@ fun db ->
@@ -127,13 +126,14 @@ open struct
     log.debug (fun f -> f "worker accepting follow %s" follow_id);
     let+ follow = 
       with_pool pool @@ fun db ->
-      Database.Follow.lookup_follow_by_url_exn follow_id db
-      |> map_err (fun err -> `DatabaseError err) in
+      Database.Follows.lookup_by_url ~url:follow_id db
+      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
     log.debug (fun f -> f "worker found follow with id %s" follow_id);
+    let+ follow = Lwt.return (match follow with None -> Error (`WorkerError "no follow found") | Some follow -> Ok follow) in
     let+ _ =
       with_pool pool @@ fun db ->
-      Database.Follow.update_follow_pending_status Database.Follow.(self follow) false db
-      |> map_err (fun err -> `DatabaseError err) in
+      Database.Follows.update_pending_status ~id:follow.Database.Follows.id ~pending:false db
+      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
     log.debug (fun f -> f "worker updated follow status");
     return_ok ()
 
@@ -145,23 +145,23 @@ open struct
   let handle_undo_follow pool config follow_id =
     let+ follow =
       with_pool pool @@ fun db ->
-      Database.Follow.lookup_follow_by_url_exn follow_id db
-      |> map_err (fun err -> `DatabaseError err) in
+      Database.Follows.lookup_by_url ~url:follow_id db
+      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+    let+ follow = Lwt.return (match follow with None -> Error (`WorkerError "no follow found") | Some follow -> Ok follow) in
     let+ () =
       with_pool pool @@ fun db ->    
-      Database.Follow.delete_follow (Database.Follow.self follow) db
-      |> map_err (fun err -> `DatabaseError err) in
+      Database.Follows.delete ~id:(follow.Database.Follows.id) db
+      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
     return_ok ()
 
   let handle_create_remote_note pool config author direct_message (note: Activitypub.Types.note) =
 
     log.debug (fun f -> f "creating remote note!");
     let url = note.id in
-    let raw_data = Yojson.Safe.to_string note.raw in
+    let raw_data = note.raw in
     let post_source = Option.get_or ~default:note.content note.source in
     let published =
-      Option.get_lazy (CalendarLib.Calendar.now)
-        (Option.map Fun.(CalendarLib.Calendar.from_unixfloat % Ptime.to_float_s) note.published) in
+      Option.get_lazy (Ptime_clock.now) (note.published) in
     let summary = Option.filter (Fun.negate String.is_empty) note.summary in
 
     let is_public, is_follower_public = ref false, ref false in
@@ -177,15 +177,15 @@ open struct
           let username = Re.Group.get group 1 in
           let+ local_user =
             with_pool pool @@ fun db ->
-            Database.LocalUser.lookup_user ~username db
-            |> map_err (fun err -> `DatabaseError err) in
+            Database.LocalUser.find_user ~username db
+            |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
           begin match local_user with
           | None -> return_ok None
           | Some local_user ->
             let+ user =
               with_pool pool @@ fun db ->
-              Database.Actor.of_local (Database.LocalUser.self local_user) db
-              |> map_err (fun err -> `DatabaseError err) in
+              Database.Actor.create_local_user ~local_id:(local_user.Database.LocalUser.id) db
+              |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
             return_ok (Some user)
           end
         | None ->
@@ -213,12 +213,12 @@ open struct
       ) |> lift_pure in
     let+ author =
       with_pool pool @@ fun db ->
-      Database.Actor.of_remote (Database.RemoteUser.self author) db
-      |> map_err (fun err -> `DatabaseError err) in
+      Database.Actor.create_remote_user ~remote_id:(author.Database.RemoteUser.id) db
+      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
 
     let+ post =
       with_pool pool @@ fun db -> 
-      Database.Post.create_post
+      Database.Posts.create
         ?summary
         ~raw_data
         ~url
@@ -228,18 +228,18 @@ open struct
         ~post_source
         ~post_content:`Text
         ~published db
-      |> map_err (fun err -> `DatabaseError err) in
+      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
     log.debug (fun f -> f "created post");
 
     let+ _ =
       with_pool pool @@ fun db ->
-      Database.Post.add_post_tos (Database.Post.self post) to_ db
-      |> map_err (fun err -> `DatabaseError err) in
+      Database.Posts.add_post_tos ~id:(post.Database.Posts.id) ~tos:to_ db
+      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
     log.debug (fun f -> f "to_s added");
     let+ _ =
       with_pool pool @@ fun db ->
-      Database.Post.add_post_ccs (Database.Post.self post) cc_ db
-      |> map_err (fun err -> `DatabaseError err) in
+      Database.Posts.add_post_ccs ~id:(post.Database.Posts.id) ~ccs:cc_ db
+      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
     log.debug (fun f -> f "ccs added");
 
     return_ok ()
