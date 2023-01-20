@@ -1,0 +1,6 @@
+(tests (names app_launcher)
+ (libraries containers
+            database))
+
+
+(cram (deps ./app_launcher.exe))
