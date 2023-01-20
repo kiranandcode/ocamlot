@@ -1,5 +1,6 @@
 [@@@warning "-33"]              (* like to open Lwt_result + Petrol + Tables *)
 
+
 module Activity = struct
 
   type t = {
@@ -263,6 +264,7 @@ module LocalUser = struct
     Query.select Expr.[count_star] ~from:LocalUser.table
     |> Request.make_one
     |> Petrol.find conn
+    |> Lwt_result.map (fun (count, ()) -> count)
 
   let find_local_users ?(offset=0) ?(limit=10) ~pattern conn =
     let open Lwt_result.Syntax in
@@ -301,6 +303,7 @@ module LocalUser = struct
     |> Query.order_by ~direction:`ASC LocalUser.username
     |> Request.make_one
     |> Petrol.find conn
+    |> Lwt_result.map (fun (count, ()) -> count)
 
 end
 
@@ -605,6 +608,9 @@ module RemoteUser = struct
     |> Query.limit Expr.(i limit)
     |> Request.make_many
     |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map (fun (username, (i_url, (url, ()))) ->
+        (username, i_url, url)
+      ))
 
 
   let collect_remote_users ?(offset=0) ?(limit=10) conn =
@@ -1426,7 +1432,7 @@ end
 
 module Follows = struct
 
-  type follow = {
+  type t = {
     id: int;
     public_id: string option;
     url: string;
@@ -1436,7 +1442,7 @@ module Follows = struct
     updated: Ptime.t option;
     author_id: int;
     target_id: int;
-  }
+  } [@@deriving show]
 
   let decode (id, (public_id, (url, (raw_data, (pending, (created, (updated, (author_id, (target_id, ()))))))))) =
     let raw_data = Option.map Yojson.Safe.from_string raw_data in
