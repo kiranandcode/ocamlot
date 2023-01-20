@@ -12,6 +12,5 @@
    ptime ptime.clock.os
    petrol
  )
- (preprocess (pps ppx_sql))
- (preprocessor_deps ../../resources/schema.sql)
+ (preprocess (pps ppx_deriving.show))
 )

@@ -5,7 +5,7 @@ module Activity = struct
   type t = {
     id: string;
     raw_data: Yojson.Safe.t
-  }
+  } [@@deriving show]
 
   let decode (id, (raw_data, ())) = {
     id;
@@ -55,6 +55,11 @@ end
 
 module LocalUser = struct
 
+  type private_key = X509.Private_key.t
+  type public_key = X509.Public_key.t
+  let pp_private_key fmt _ = Format.fprintf fmt "<opaque>"
+  let pp_public_key fmt _ = Format.fprintf fmt "<opaque>"
+
   type t = {
     id: int;
     username: string;
@@ -63,9 +68,9 @@ module LocalUser = struct
     about: string option;
     manually_accepts_follows: bool;
     is_admin: bool;
-    pubkey: X509.Public_key.t;
-    privkey: X509.Private_key.t;
-  }
+    pubkey: public_key;
+    privkey: private_key;
+  } [@@deriving show]
 
   let decode =
     fun (id, (username, (password, (display_name, (about, (manually_accepts_follows, (is_admin, (pubkey, (privkey, ()))))))))) ->
@@ -304,7 +309,7 @@ module RemoteInstance = struct
     id: int;
     url: string;
     last_unreachable: Ptime.t option;
-  }
+  } [@@deriving show]
 
   let decode (id, (url, (last_unreachable, ()))) =
     let last_unreachable =
@@ -434,7 +439,7 @@ module RemoteUser = struct
     following: string option;
     summary: string option;
     public_key_pem: string
-  }
+  } [@@deriving show]
 
   let decode
       (id,
@@ -720,7 +725,7 @@ module Actor = struct
   type t = {
     actor_id: int;
     link_id: [`Local of int | `Remote of int]
-  }
+  } [@@deriving show]
 
   let lookup_local_user ~id conn =
     let open Lwt_result.Syntax in
@@ -795,7 +800,7 @@ module Tag = struct
   type t = {
     id: int;
     name: string
-  }
+  } [@@deriving show]
 
   let decode (id, (name, ())) =
     { id; name }
@@ -852,7 +857,7 @@ module Posts = struct
 
     raw_data: Yojson.Safe.t option;
 
-  }
+  } [@@deriving show]
 
   let content_type_to_int = function `Markdown -> 0 | `Org -> 1 | `Text -> 2
   let int_to_content_type = function 0 -> `Markdown | 1 -> `Org | _ -> `Text
@@ -1696,7 +1701,7 @@ module Likes = struct
     published: Ptime.t;
     post_id: int;
     actor_id: int;
-  }
+  } [@@deriving show]
 
   let decode (id, (public_id, (url, (raw_data, (published, (post_id, (actor_id, ()))))))) =
     let raw_data = Option.map Yojson.Safe.from_string raw_data in
