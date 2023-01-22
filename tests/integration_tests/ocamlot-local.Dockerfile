@@ -8,6 +8,11 @@ USER root
 VOLUME ["/certs"]
 VOLUME ["/home/opam/code"]
 
+WORKDIR /home/opam
+
+# install petrol and pin dev release
+RUN git clone https://github.com/gopiandcode/petrol && (cd ./petrol && opam pin . )
+
 # set temp workdir
 WORKDIR /tmp/code
 
