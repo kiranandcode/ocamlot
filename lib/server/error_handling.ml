@@ -31,6 +31,8 @@ let extract_error_details err =
       | `DatabaseError msg -> "Error was:\n" ^ msg
       | `FormError (_, data) -> "Form data was:\n" ^ data
       | `Msg m -> m
+      | `InvalidSignature -> "Invalid signature"
+      | `Internal (msg, err) -> msg ^ ": " ^ err
       | _ -> "No Further Details" in
     (status, msg, details)
 

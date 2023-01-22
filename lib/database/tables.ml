@@ -4,6 +4,20 @@ let version_0_0_1 = VersionedSchema.version [0;0;1]
 
 let db = VersionedSchema.init version_0_0_1 ~name:"ocamlot"
 
+module DreamSession = struct
+
+  (* declare the dream table here to ensure that dream doesn't complain *)
+  let table, Expr.[id;label;expires_at;payload] =
+    VersionedSchema.declare_table db ~name:"dream_session"
+      Schema.[
+        field ~constraints:[primary_key ()] "id" ~ty:Type.text;
+        field ~constraints:[not_null ()] "label" ~ty:Type.text;
+        field ~constraints:[not_null ()] "expires_at" ~ty:Type.real;
+        field ~constraints:[not_null ()] "payload" ~ty:Type.text
+      ]
+
+end
+
 module Activity = struct
 
   let table, Expr.[id; raw_data] =

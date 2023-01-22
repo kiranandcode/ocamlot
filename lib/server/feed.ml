@@ -90,10 +90,12 @@ let build_feed_navigation_panel options =
   ) options
 
 let route config =
-  Dream.get "/feed" @@ Error_handling.handle_error_html config @@ (fun req ->
+  Dream.get "/feed" @@
+  Error_handling.handle_error_html config @@ (fun req ->
     let feed_ty = Dream.query req "feed-ty"
                   |> Option.flat_map parse_feed
                   |> Option.value ~default:`Local in
+
     let start_time =
       Dream.query req "offset-time"
       |> Option.flat_map parse_calendar
@@ -104,20 +106,24 @@ let route config =
       |> Option.flat_map Int.of_string
       |> Option.value ~default:0 in
 
-
-    let+ _current_user = current_user req in
     let+ current_user_link = current_user_link req in
 
     let+ feed_elements, feed_element_count =
       sql req @@ fun db ->
       begin match feed_ty, current_user_link with
       | `Direct, Some user ->
-        let+ posts = Database.Posts.collect_direct ~offset ~limit ~start_time ~id:user db in
-        let+ total_posts = Database.Posts.count_direct ~id:user db in
+        let+ posts =
+          Database.Posts.collect_direct
+            ~offset ~limit ~start_time ~id:user db in
+        let+ total_posts =
+          Database.Posts.count_direct ~id:user db in
         return_ok (posts, total_posts)
       | `Feed, Some user ->
-        let+ posts = Database.Posts.collect_feed ~offset ~limit ~start_time ~id:user db in
-        let+ total_posts = Database.Posts.count_feed ~id:user db in
+        let+ posts =
+          Database.Posts.collect_feed
+            ~offset ~limit ~start_time ~id:user db in
+        let+ total_posts =
+          Database.Posts.count_feed ~id:user db in
         return_ok (posts, total_posts)
       | `WholeKnownNetwork, _ ->
         let+ posts = Database.Posts.collect_twkn ~offset ~limit ~start_time db in
