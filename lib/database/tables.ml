@@ -114,21 +114,21 @@ end
 module Posts = struct
 
   let table, Expr.[
-    id;
-    public_id;
-    url;
-    author_id;
+      id;
+      public_id;
+      url;
+      author_id;
 
-    is_public;
-    is_follower_public;
+      is_public;
+      is_follower_public;
 
-    summary;
-    content_type;
-    post_source;
+      summary;
+      content_type;
+      post_source;
 
-    published;
-    raw_data
-  ] =
+      published;
+      raw_data
+    ] =
     VersionedSchema.declare_table db ~name:"posts"
       Schema.[
         field ~constraints:[primary_key ()] "id" ~ty:Type.int;                 (* internal post id, not exposed *)
@@ -166,7 +166,9 @@ module Posts = struct
             foreign_key ~table:Actor.table ~columns:Expr.[Actor.id]
               ~on_update:`RESTRICT ~on_delete:`RESTRICT ()
           ] "actor_id" ~ty:Type.int
-        ]
+        ] ~constraints:Schema.[
+            table_unique ["post_id"; "actor_id"]
+          ]
   end
 
   module PostCc = struct
@@ -183,12 +185,14 @@ module Posts = struct
             foreign_key ~table:Actor.table ~columns:Expr.[Actor.id]
               ~on_update:`RESTRICT ~on_delete:`RESTRICT ()
           ] "actor_id" ~ty:Type.int
-        ]    
+        ] ~constraints:Schema.[
+            table_unique ["post_id"; "actor_id"]
+          ]
   end
 
   module PostMentions = struct
     let table, Expr.[post_id; actor_id] =
-      VersionedSchema.declare_table db ~name:"post_cc"
+      VersionedSchema.declare_table db ~name:"post_mention"
         Schema.[
           field ~constraints:[
             not_null ();
@@ -201,6 +205,9 @@ module Posts = struct
               ~on_update:`RESTRICT ~on_delete:`RESTRICT ()
           ] "actor_id" ~ty:Type.int
         ]    
+        ~constraints:Schema.[
+            table_unique ["post_id"; "actor_id"]
+          ]
   end
 
   module PostTags = struct

@@ -7,6 +7,7 @@ let run f =
     let args = List.init (Array.length Sys.argv - 2) (fun i -> Sys.argv.(i + 2))  in
     let match_failed = ref false in
     let res = try Lwt_main.run begin
+      let _ =  Mirage_crypto_rng_lwt.initialize () in
       Caqti_lwt.with_connection (Uri.of_string ("sqlite3://:" ^ db_name)) (fun db ->
         f db args
       )

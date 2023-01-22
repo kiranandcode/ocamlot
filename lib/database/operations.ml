@@ -476,6 +476,8 @@ module RemoteUser = struct
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
+    let ri_url, ri_url_ref = Expr.(as_ RemoteInstance.url ~name:"ri_url") in
+    let ri_id, ri_id_ref = Expr.(as_ RemoteInstance.id ~name:"ri_id") in
     Query.select
       Expr.[
         RemoteUser.id;
@@ -492,10 +494,10 @@ module RemoteUser = struct
       ]
       ~from:RemoteUser.table
     |> Query.join ~op:Query.INNER
-      ~on:Expr.(RemoteInstance.id = RemoteUser.instance_id)
-      (Query.select Expr.[RemoteInstance.id; RemoteInstance.url]
+      ~on:Expr.(ri_id_ref = RemoteUser.instance_id)
+      (Query.select Expr.[ri_id; ri_url]
          ~from:RemoteInstance.table)
-    |> Query.where Expr.(RemoteInstance.url = s url &&
+    |> Query.where Expr.(ri_url_ref = s url &&
                          RemoteUser.username = s username)
     |> Request.make_zero_or_one
     |> Petrol.find_opt conn
@@ -593,16 +595,18 @@ module RemoteUser = struct
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
+    let ri_url, ri_url_ref = Expr.as_ RemoteInstance.url ~name:"ri_url" in
+    let ri_id, ri_id_ref = Expr.as_ RemoteInstance.id ~name:"ri_id" in
     Query.select
       Expr.[
         RemoteUser.username;
-        RemoteInstance.url;
+        ri_url_ref;
         RemoteUser.url
       ]
       ~from:RemoteUser.table
     |> Query.join
-      ~op:INNER ~on:Expr.(RemoteUser.instance_id = RemoteInstance.id)
-      (Query.select [RemoteInstance.url; RemoteInstance.id]
+      ~op:INNER ~on:Expr.(RemoteUser.instance_id = ri_id_ref)
+      (Query.select [ri_url; ri_id]
          ~from:RemoteInstance.table)
     |> Query.offset Expr.(i offset)
     |> Query.limit Expr.(i limit)
@@ -617,13 +621,16 @@ module RemoteUser = struct
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
+    let ri_url, ri_url_ref = Expr.as_ RemoteInstance.url ~name:"ri_url" in
+    let ri_id, ri_id_ref = Expr.as_ RemoteInstance.id ~name:"ri_id" in
+    let ru_dn, ru_dn_ref = Expr.as_ RemoteUser.display_name ~name:"ru_dn" in
     Query.select
       Expr.[
-        RemoteInstance.url;
+        ri_url_ref;
         RemoteUser.id;
         RemoteUser.username;
         RemoteUser.instance_id;
-        nullable RemoteUser.display_name;
+        nullable ru_dn;
         RemoteUser.url;
         nullable RemoteUser.inbox;
         nullable RemoteUser.outbox;
@@ -634,13 +641,13 @@ module RemoteUser = struct
       ]
       ~from:RemoteUser.table
     |> Query.join ~op:INNER
-      ~on:Expr.(RemoteInstance.id = RemoteUser.instance_id)
+      ~on:Expr.(ri_id_ref = RemoteUser.instance_id)
       (Query.select Expr.[
-           RemoteInstance.id;
-           RemoteInstance.url
+           ri_id;
+           ri_url
          ] ~from:RemoteInstance.table)
     |> Query.order_by_ ~direction:`DESC
-      Expr.[RemoteUser.display_name; RemoteInstance.url]
+      Expr.[ru_dn_ref; ri_url_ref]
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
     |> Request.make_many
@@ -654,6 +661,8 @@ module RemoteUser = struct
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
+    let a_id, a_id_ref = Expr.as_ Actor.id ~name:"a_id" in
+    let a_rid, a_rid_ref = Expr.as_ Actor.remote_id ~name:"a_rid" in
     Query.select
       Expr.[
         RemoteUser.id;
@@ -668,14 +677,14 @@ module RemoteUser = struct
         nullable RemoteUser.summary;
         RemoteUser.public_key_pem
       ] ~from:RemoteUser.table
-    |> Query.join ~op:INNER ~on:Expr.(Actor.remote_id = RemoteUser.id)
-      (Query.select [Actor.id; Actor.remote_id] ~from:Actor.table)
+    |> Query.join ~op:INNER ~on:Expr.(a_rid_ref = RemoteUser.id)
+      (Query.select [a_id; a_rid] ~from:Actor.table)
     |> Query.where
       (Expr.exists begin
           Query.select [Follows.id;Follows.author_id;Follows.target_id]
             ~from:Follows.table
           |> Query.where Expr.(
-              Follows.author_id = Actor.id &&
+              Follows.author_id = a_id_ref &&
               Follows.target_id = i target_id &&
               Follows.pending = false_
             )
@@ -691,9 +700,11 @@ module RemoteUser = struct
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
+    let ri_url, ri_url_ref = Expr.as_ RemoteInstance.url ~name:"ri_url" in
+    let ri_id, ri_id_ref = Expr.as_ RemoteInstance.id ~name:"ri_id" in
     Query.select
       Expr.[
-        RemoteInstance.url;
+        ri_url_ref;
         RemoteUser.id;
         RemoteUser.username;
         RemoteUser.instance_id;
@@ -708,10 +719,10 @@ module RemoteUser = struct
       ]
       ~from:RemoteUser.table
     |> Query.join ~op:INNER
-      ~on:Expr.(RemoteInstance.id = RemoteUser.instance_id)
+      ~on:Expr.(ri_id_ref = RemoteUser.instance_id)
       (Query.select Expr.[
-           RemoteInstance.id;
-           RemoteInstance.url
+           ri_id;
+           ri_url
          ] ~from:RemoteInstance.table)
     |> Query.where Expr.(
         like RemoteUser.username ~pat:(s pattern) ||
@@ -797,7 +808,7 @@ module Actor = struct
     let open Tables in
     let* () =
       Query.insert ~table:Actor.table
-        ~values:Expr.[Actor.local_id := i remote_id]
+        ~values:Expr.[Actor.remote_id := i remote_id]
       |> Query.on_err `IGNORE
       |> Request.make_zero
       |> Petrol.exec conn in
@@ -1082,12 +1093,13 @@ module Posts = struct
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
-    let tag_name, tag_name_ref = Expr.as_ Tag.name ~name:"tag_name" in
+    let tag_name, tag_name_ref = Expr.as_ Tag.name ~name:"t_name" in
+    let tag_id, tag_id_ref = Expr.as_ Tag.id ~name:"t_id" in
     Query.select [tag_name_ref]
       ~from:Posts.PostTags.table
     |> Query.join ~op:INNER (
-      Query.select Expr.[Tag.id; tag_name] ~from:Tag.table
-    ) ~on:Expr.(Tag.id = Posts.PostTags.tag_id)
+      Query.select Expr.[tag_id; tag_name] ~from:Tag.table
+    ) ~on:Expr.(tag_id_ref = Posts.PostTags.tag_id)
     |> Query.where Expr.(Posts.PostTags.post_id = i id)
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
