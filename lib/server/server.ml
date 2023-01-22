@@ -132,10 +132,6 @@ let run config =
   if Configuration.Params.is_tls_enabled config then
     Dream.info (fun f -> f "Enabled HTTPS/TLS for OCamlot server");
 
-  List.iter (fun p ->
-    Dream.info (fun f -> f "found file %s" (Fpath.to_string p))
-  ) (Bos.OS.Dir.contents (Fpath.of_string "/certs/" |> Result.get_exn) |> Result.get_exn);
-
   Option.iter (fun fl ->
     Dream.info (fun f -> f "cert file is %s\ncontents: %s" fl (IO.with_in fl IO.read_all));
   ) (Configuration.Params.certificate_file config);

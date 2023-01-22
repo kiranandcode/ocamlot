@@ -6,20 +6,36 @@ let ( let* ) x f = Result.( let* ) x f
 let map_e f = Result.map_err (fun (`Msg e) -> `Msg (f e))
 let sql_err = function Sqlite3.Rc.OK -> Ok () | err -> Error (`Msg (Sqlite3.Rc.to_string err))
 
-let default_schema = [%blob "../resources/schema.sql"]
 
-let init_database path =
-  let db = Sqlite3.db_open path in
-  let* () = Sqlite3.exec db default_schema |> sql_err in
-  let close_count = ref 0 in
-  let close_status = ref (Sqlite3.db_close db) in
-  while not !close_status && !close_count < 10 do
-    incr close_count;
-    close_status := Sqlite3.db_close db; 
-  done;
-  if not !close_status
-  then Error (`Msg ("failed to close database"))
-  else Ok (())
+let init_database ?(force_migrations=false) path =
+  let initialise =
+    let open Lwt_result.Syntax in
+    Caqti_lwt.with_connection (Uri.of_string ("sqlite3://:" ^ path)) (fun conn ->
+        let* needs_migration =
+          Petrol.VersionedSchema.migrations_needed Database.Tables.db conn in
+        let* () =
+          if needs_migration && not force_migrations
+          then
+            Lwt_result.fail
+              (`Msg "migrations needed for local database - please re-run \
+                     with suitable flags (-m).")
+          else Lwt_result.return () in
+        Petrol.VersionedSchema.initialise Database.Tables.db conn
+      ) in
+  let version_to_string (ver: Petrol.VersionedSchema.version) =
+    String.concat "." (List.map string_of_int (ver :> int list)) in
+  match Lwt_main.run initialise with
+  | Ok () -> Ok ()
+  | Error (`Newer_version_than_supported version) ->
+    Error (`Msg
+             (
+               "database uses newer version (" ^
+               (version_to_string version) ^
+               ") than supported"))
+  | Error (#Caqti_error.t as err) ->
+    Error (`Msg ("internal error: " ^ Caqti_error.show err))
+  | Error (`Msg m) -> Error (`Msg m)
+
 
 (** [enforce_database path] when given a path [path] ensures that
     database exists at [path], creating it if not. *)
@@ -126,13 +142,13 @@ let _ =
       ~doc:"An OCaml Activitypub Server *with soul*!"
       "OCamlot" in
   let cmd = Term.(term_result @@ (
-    const run $
-    Arg.value key_file_path $
-    Arg.value certificate_file_path $
-    Arg.value about_this_instance_path $
-    Arg.value database_path $
-    Arg.value domain $
-    Arg.value port $
-    Arg.value debug)) in
+      const run $
+      Arg.value key_file_path $
+      Arg.value certificate_file_path $
+      Arg.value about_this_instance_path $
+      Arg.value database_path $
+      Arg.value domain $
+      Arg.value port $
+      Arg.value debug)) in
 
   Cmd.eval (Cmd.v info cmd)
