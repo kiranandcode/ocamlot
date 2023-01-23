@@ -6,9 +6,10 @@ let log = Logging.add_logger "web.error"
 (* * Extract error details *)
 
 let extract_error_details err =
-    let status = match err with
+    let status : Dream.status = match err with
     | `UserNotFound _ -> `Not_Found
     | `ActivityNotFound _ -> `Not_Found
+    | `Unauthorised _ ->  `Forbidden
     | `InvalidActivitypubObject _
     | `InvalidSignature
     | `InvalidData _ -> `Bad_Request
@@ -16,6 +17,7 @@ let extract_error_details err =
     let msg = match err with
       | `InvalidActivitypubObject _ -> "Invalid activitypub object"
       | `InvalidSignature -> "Invalid Signature"
+      | `Unauthorised s -> s
       | `InvalidData _ -> "Invalid Data"
       | `UserNotFound (_) -> "User not found"
       | `ActivityNotFound (_) -> "Activity not found"

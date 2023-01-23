@@ -2,6 +2,9 @@ type 'task t = {
   domain: string;
   (** domain on which the server is running - used to sign messages, so should not be localhost. *)
 
+  user_image_path: string;
+  (** path at which the user images are stored (created if it does not exist). *)
+
   database_path: string;
   (** path at which the server database is located (created if it does not exist).  *)
 
@@ -34,9 +37,10 @@ The site administrator for this OCamlot instance has not configured the about th
 Donate to the FSF if you wish to support FREEDOM: [Free Software Foundation](www.fsf.org)
 |}
 
-let create ?key_file ?certificate_file ?(about_this_instance=default_about_this_instance)
+let create ?key_file ?certificate_file ?(about_this_instance=default_about_this_instance) ?(user_image_path="./user-images/")
       ?(debug=false) ?(port=7331) ~database_path  domain = {
   domain;
+  user_image_path;
   database_path;
   about_this_instance=Omd.of_string about_this_instance;
   port;
@@ -64,3 +68,4 @@ let domain v = Uri.of_string ("https://" ^ v.domain)
 let database_path v = v.database_path
 let port v = v.port
 let debug v = v.debug
+let user_image_path v = v.user_image_path

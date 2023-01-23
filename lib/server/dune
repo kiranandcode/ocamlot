@@ -3,7 +3,7 @@
  (libraries
    common configuration error_handling activitypub database worker html http_sig pure ap_resolver markdown logging static dream_runner
 
-   containers re lwt yojson omd tyxml tyxml.functor uri uuidm magic-mime
+   containers re lwt lwt.unix yojson omd tyxml tyxml.functor uri uuidm magic-mime
 
    decoders decoders-yojson
 

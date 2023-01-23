@@ -339,6 +339,7 @@ div.post-replies-list {
   color: var(--element-text-color);
   background-color: var(--element-color);
   margin-bottom: .5rem;
+  position: relative;
 }
 
 @media screen and (max-width:48.0em) {
@@ -351,6 +352,28 @@ div.post-replies-list {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  flex-grow: 1;
+}
+
+.profile-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: flex;
+}
+
+.profile-panel-button {
+  border-radius: .25rem;
+  background: var(--element-color);
+  margin-left: .25rem;
+  margin-right: .25rem;
+  padding: 0.125em;
+  font-size: larger;
+}
+
+.profile-panel-button > a {
+  color: white;
+  text-decoration: none;
 }
 
 .profile-name b {

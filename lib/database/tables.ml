@@ -1,8 +1,9 @@
 open Petrol
 
 let version_0_0_1 = VersionedSchema.version [0;0;1]
+let version_0_0_2 = VersionedSchema.version [0;0;2]
 
-let db = VersionedSchema.init version_0_0_1 ~name:"ocamlot"
+let db = VersionedSchema.init version_0_0_2 ~name:"Camelot"
 
 module DreamSession = struct
 
@@ -15,6 +16,17 @@ module DreamSession = struct
         field ~constraints:[not_null ()] "expires_at" ~ty:Type.real;
         field ~constraints:[not_null ()] "payload" ~ty:Type.text
       ]
+
+end
+
+module UserImage = struct
+
+  let table, Expr.[path; hash] =
+    VersionedSchema.declare_table db ~name:"user_images"
+      Schema.[
+        field ~constraints:[primary_key (); not_null (); unique ()] "path" ~ty:Type.text;
+        field ~constraints:[not_null (); unique ()] "hash" ~ty:Type.blob;
+      ] ~since:version_0_0_2
 
 end
 

@@ -510,6 +510,69 @@ module RemoteInstance = struct
 
 end
 
+module UserImage = struct
+
+  type t = {
+    path: string;
+    hash: string
+  }
+
+  let decode (path, (hash, ())) =  {path;hash}
+
+  let find_by_hash ~hash conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select
+      Expr.[UserImage.path; UserImage.hash]
+      ~from:UserImage.table
+    |> Query.where Expr.(UserImage.hash = s hash)
+    |> Request.make_zero_or_one
+    |> Petrol.find_opt conn
+    |> Lwt_result.map (Option.map decode)
+
+  let find_by_path ~path conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select
+      Expr.[UserImage.path; UserImage.hash]
+      ~from:UserImage.table
+    |> Query.where Expr.(UserImage.path = s path)
+    |> Request.make_zero_or_one
+    |> Petrol.find_opt conn
+    |> Lwt_result.map (Option.map decode)
+
+  let resolve ~path conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select
+      Expr.[UserImage.path; UserImage.hash]
+      ~from:UserImage.table
+    |> Query.where Expr.(UserImage.path = s path)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map decode
+
+  let create ~hash ~path conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let* () =
+      Query.insert ~table:UserImage.table
+        ~values:Expr.[
+          UserImage.path := s path;
+          UserImage.hash := s hash;
+        ]
+      |> Query.on_err `IGNORE
+      |> Request.make_zero
+      |> Petrol.exec conn in
+    resolve ~path conn
+
+end
+
+
 module RemoteUser = struct
 
   type t = {

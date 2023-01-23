@@ -4,7 +4,7 @@
    ;; Internal libraries 
    activitypub database
    ;; General utility libraries
-   containers lwt yojson tyxml
+   containers lwt lwt.unix magic-mime yojson tyxml
    ;; Web server
    dream
    ;; Database

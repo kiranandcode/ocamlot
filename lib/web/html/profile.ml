@@ -12,15 +12,56 @@ let profile_stats stats =
     H.a ~a:[H.a_href "./profile.html"] [Format.ksprintf H.txt "%d posts" stats#posts];
   ]
 
-let profile profile =
-  H.div ~a:[H.a_class ["profile"]] [
+let profile ?edit profile =
+  H.div ~a:[H.a_class ["profile"]] ([
     profile_image profile;
     H.div ~a:[H.a_class ["profile-details"]] [
       H.div ~a:[H.a_class ["profile-name"]] [H.b [H.txt profile#name]];
       H.div ~a:[H.a_class ["profile-summary"]] profile#details;
       profile_stats profile#stats;
+    ];
+  ] @ match edit with
+  | Some edit_ref -> [
+      H.div ~a:[H.a_class ["profile-panel"]] [
+        H.div ~a:[H.a_class ["profile-panel-button"]] [
+          H.a ~a:[H.a_href edit_ref] [H.txt "🖉"]
+        ]
+      ]
     ]
+  | _ -> [])
+
+let edit_profile ?about ?display_name ~username () =
+  let display_name = match display_name with None -> [] | Some display_name -> [H.a_value display_name] in
+  let about_value,about_text =
+    match about with None -> [H.a_placeholder "About me..."],H.txt "" | Some about -> [], H.txt about in
+  H.div ~a:[H.a_class ["profile"]] [
+    H.div ~a:[H.a_class ["profile-details"]] [
+      H.div ~a:[H.a_class ["profile-name"]] [H.b [H.txt ("Editing " ^ username ^ "'s profile")]];
+      H.div ~a:[H.a_class ["profile-summary"]] [
+        H.form ~a:[H.a_class ["pure-form"; "pure-form-aligned"]] [
+          H.fieldset [
+            H.div ~a:[H.a_class ["pure-control-group"]] [
+              H.label ~a:[H.a_label_for "user-name"] [H.txt "Username"];
+              H.input ~a:[H.a_readonly (); H.a_input_type `Text; H.a_id "user-name"; H.a_value username] ();
+            ];
+            H.div ~a:[H.a_class ["pure-control-group"]] [
+              H.label ~a:[H.a_label_for "display-name"] [H.txt "Display Name"];
+              H.input ~a:([H.a_input_type `Text; H.a_id "display-name"; H.a_placeholder "Display Name"] @ display_name) ();
+            ];
+          ];
+          H.div ~a:[H.a_class ["pure-control-group"]] [
+              H.label ~a:[H.a_label_for "about"] [H.txt "About"];
+              H.textarea ~a:([H.a_class ["pure-input-1-2"]; H.a_id "about"] @ about_value) about_text;
+            ];
+          H.div ~a:[H.a_class ["pure-control-group"]] [
+              H.label ~a:[H.a_label_for "avatar"] [H.txt "Avatar"];
+              H.input ~a:([H.a_input_type `Image; H.a_id "avatar"]) ();
+            ]          
+        ]
+      ];
+    ];
   ]
+
 
 let follower follower =
   H.div ~a:[H.a_class ["follower"]] [

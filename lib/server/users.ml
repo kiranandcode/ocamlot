@@ -5,11 +5,36 @@ open Common
 module StringSet = Set.Make(String)
 
 let log = Logging.add_logger "web.user"
+module H = Tyxml.Html
 
-(* let with_user req then_ =
- *   let load_user req username = Dream.sql req (Database.LocalUser.lookup_user ~username) in
- *   with_param "username" load_user req ~then_ ~else_:(not_found ~msg:"User not found") *)
+(* * Actor *)
+(* ** Edit (html) *)
+let handle_actor_edit_get _config req =
+  let username = Dream.param req "username" in
+  let+ current_user = current_user req in
+  match current_user with
+  | None ->
+    redirect req "/feed"
+  | Some current_user when not (String.equal username current_user.Database.LocalUser.username) ->
+    return (Error (`Unauthorised ("Don't have permission to edit " ^ username ^ "'s profile")))
+  | Some current_user ->
+    let+ headers = Navigation.build_navigation_bar req in
+    tyxml @@ Html.build_page ~headers ~title:(username ^ "'s Profile")  [
+      Html.Profile.edit_profile
+        ?about:current_user.Database.LocalUser.about
+        ?display_name:current_user.Database.LocalUser.display_name
+        ~username ()
+    ]
 
+(* ** Edit (html) post  *)
+let handle_actor_edit_post _config req =
+  let username = Dream.param req "username" in
+  let+ headers = Navigation.build_navigation_bar req in
+  tyxml @@ Html.build_page ~headers ~title:(username ^ "'s Profile")  [
+  ]
+
+
+(* ** Get (html) *)
 let handle_actor_get_html _config req =
   let username = Dream.param req "username" in
   let+ user =
@@ -44,7 +69,7 @@ let handle_actor_get_html _config req =
           Database.Follows.collect_followers_for_actor
             ~since:timestamp ~offset:(offset * 10) ~limit:10 ~id:user db in
         let+ follows =
-           Lwt_list.map_s (fun follow ->
+          Lwt_list.map_s (fun follow ->
             let target = follow.Database.Follows.target_id in
             let+ target = Database.Actor.resolve ~id:target db in
             Lwt.return_ok (follow, target)) follows
@@ -81,12 +106,23 @@ let handle_actor_get_html _config req =
         Lwt.return_ok (`Posts (timestamp, offset, posts))
     end
     |> map_err (fun err -> `DatabaseError (Caqti_error.show err))  in
+  let+ edit =
+    let+ current_user = current_user req in
+    Lwt_result.return @@
+    Option.bind current_user (fun user ->
+      if String.equal user.Database.LocalUser.username username
+      then Some ("/users/" ^ username ^ "/edit")
+      else None) in
   let+ headers = Navigation.build_navigation_bar req in
   tyxml @@
   Html.build_page ~headers ~title:(username ^ "'s Profile")  [
-    Html.Profile.profile object
+    Html.Profile.profile ?edit object
       method name = Option.value ~default:user.Database.LocalUser.username user.Database.LocalUser.display_name
-      method details = []
+      method details = [
+        Tyxml.(Html.p [Html.txt "Hi - this is the default profile details for my profile!"]);
+        Tyxml.(Html.p [Html.txt "I love OCaml, I'm using an activitypub server based purely on OCaml!"]);
+        Tyxml.(Html.p [Html.txt "Wow this is crazy!"]);
+      ]
       method image = "/static/images/unknown.png"
       method stats = object
         method followers = no_followers
@@ -97,6 +133,7 @@ let handle_actor_get_html _config req =
   ]
 
 
+(* ** Get (json) *)
 let handle_actor_get_json config req =
   let username = Dream.param req "username" in
   let+ user =
@@ -109,6 +146,7 @@ let handle_actor_get_json config req =
      |> Database.Interface.LocalUser.convert_to config
      |> Activitypub.Encode.person)
 
+(* ** Get *)
 let handle_actor_get config req =
   let content_type = Dream.header req "Accept"
                      |> Option.value ~default:(Activitypub.Constants.ContentType.html) in
@@ -123,124 +161,21 @@ let handle_actor_get config req =
     Error_handling.handle_error_json config
       (handle_actor_get_json config) req
 
-(* let handle_inbox_get req =
- *   Dream.log "GET to %s/inbox" (Dream.param req "username");
- *   Dream.respond ~status:`OK ""
- * 
- * let enforce_is_true vl kont =
- *   if vl
- *   then kont ()
- *   else Dream.respond ~status:`Not_Acceptable {|{"error": "invalid request"}|}
- * 
- * let extract_local_username config url =
- *   let (let+) x f = Option.bind x f in
- *   let user_re = Configuration.Regex.local_user_id_format config in
- *   let+ matches = Re.exec_opt (Re.compile user_re) url in
- *   Re.Group.get_opt matches 1 *)
-
-
-(* let handle_inbox_post config req =
- *   Dream.log "POST to %s/inbox" (Dream.param req "username");
- *   let> request_is_verified =
- *     Http_sig.verify_request ~resolve_public_key:Resolver.lookup_request req
- *     |> or_errorP ~req in
- *   let> () = request_is_verified |> holds_or ~else_:not_acceptable in
- *   let+ body = Dream.body req in
- *   Dream.log "DATA: %s" body;
- *   print_endline @@  Yojson.Safe.pretty_to_string (Yojson.Safe.from_string body);
- *   let follow =
- *     Decoders_yojson.Safe.Decode.decode_string
- *       Activitypub.Decode.(obj) body in
- *   match follow with
- *   | Error e ->
- *     Dream.error (fun log ->
- *       log ~request:req "error while decoding request: %a"
- *         Decoders_yojson.Safe.Decode.pp_error e);
- *     Dream.respond ~status:`Not_Acceptable ""
- *   | Ok obj ->
- *     Dream.log "recieved an obj:\n%a"
- *       Activitypub.Types.pp_obj obj;
- *     match obj with
- *     | `Accept { id=_; actor=_; published=_;
- *                 obj=`Follow { id; actor; cc=_; to_=_; object_; state=_; raw=_ }; raw=_ } ->
- * 
- *       let> follow = Dream.sql req (Database.Follows.lookup_follow_by_url id)
- *                     |> or_errorP ~req ~err:not_acceptable in
- *       let> follow = follow |> or_not_found in
- *       let> remote = Dream.sql req (Database.RemoteUser.lookup_remote_user_by_url object_)
- *                    |> or_errorP ~req ~err:not_acceptable in
- *       let> remote = remote |> or_not_found in
- *       let> local = extract_local_username config actor |> or_not_acceptable in
- *       let> local = Dream.sql req (Database.LocalUser.lookup_user ~username:local)
- *                   |> or_errorP ~req in
- *       let> local = local |> or_not_found in
- *       Worker.(send req (RecordAcceptLocalFollow {follow; author=local; target=remote;}));
- *       Dream.respond ~status:`OK "Ok"
- *     | `Follow ({ id; actor; cc=_; to_=_; object_; state=(Some `Pending | None); raw }:
- *                  Activitypub.Types.follow) ->
- *       let user_re = Configuration.Regex.local_user_id_format config in
- *       let> user = Re.exec_opt (Re.compile user_re) object_
- *                   |> or_not_acceptable ~msg:"Malformed user id" in
- *       let username = Re.Group.get user 1 in
- *       let> local = Dream.sql req (Database.LocalUser.lookup_user ~username) |> or_errorP ~req in
- *       let> target = local |> or_not_found ~msg:"User not found" in
- *       Worker.(send req (RemoteFollow {id; remote=actor; target; data=raw}));
- *       Dream.respond ~status:`OK "ok"
- *     | `Create {
- *       id=_; actor=_; published=_; to_=_; cc=_;
- *       direct_message; obj=`Note {
- *         id; actor;
- *         to_; cc; in_reply_to=_;
- *         content; sensitive; source; summary;
- *         published; tags; raw
- *       }; raw=_
- *     } ->
- *       Worker.(send req (CreateNote {
- *         id; author=actor; to_; cc; sensitive; direct_message;
- *         content; source; summary; published; tags; data=raw
- *       }));
- *       Dream.respond ~status:`OK "ok"
- *     | `Follow _ ->
- *       Dream.respond ~status:`Not_Acceptable "??"
- *     | `Create _ ->
- *       Dream.log "received a create object!";
- *       Dream.respond ~status:`OK "ok"
- *     | `Announce _ ->
- *       Dream.log "received an announce object!";
- *       Dream.respond ~status:`Not_Implemented "lol"
- *     | `Block _ ->
- *       Dream.log "received a block object!";
- *       Dream.respond ~status:`Not_Implemented "lol"
- *     | `Note _ ->
- *       Dream.log "received a note object!";
- *       Dream.respond ~status:`Not_Implemented "lol"
- *     | `Person _ ->
- *       Dream.log "received a person object!";
- *       Dream.respond ~status:`Not_Implemented "lol"
- *     | `Undo _ ->
- *       Dream.log "received an undo object!";
- *       Dream.respond ~status:`Not_Implemented "lol"
- *     | `Delete _ ->
- *       Dream.log "received a delete object!";
- *       Dream.respond ~status:`Not_Implemented "lol"
- *     | `Accept _ ->
- *        Dream.log "received an accept object!";
- *       Dream.respond ~status:`Not_Implemented "lol"
- *     | `Like _ ->
- *       Dream.log "received a like object!";
- *       Dream.respond ~status:`Not_Implemented "lol" *)
-
-
+(* * Outbox *)
+(* ** Get  *)
 let handle_outbox_get req =
   Dream.log "GET %s/outbox" (Dream.param req "username");
   Dream.respond ~status:`OK ""
 
+(* ** Post *)
 (* let handle_outbox_post req =
  *   Dream.log "POST %s/outbox" (Dream.param req "username");
  *   let+ body = Dream.body req in
  *   Dream.log "DATA: %s" body;
  *   Dream.respond ~status:`OK "" *)
 
+(* * Followers *)
+(* ** Get *)
 let handle_followers_get config req =
   let username = Dream.param req "username" in
   let+ user = Dream.sql req (Database.LocalUser.find_user ~username)
@@ -257,7 +192,7 @@ let handle_followers_get config req =
     return (page, start_time) in
   let is_page = Option.is_some offset in
   let offset, start_time = Option.value ~default:(0, Ptime_clock.now ())
-                       offset in
+                             offset in
   let+ followers_collection_page =
     Dream.sql req
       (Ap_resolver.build_followers_collection_page
@@ -278,6 +213,8 @@ let handle_followers_get config req =
            } : string Activitypub.Types.ordered_collection) in
   activity_json data
 
+(* * Following *)
+(* ** Get *)
 let handle_following_get config req =
   let username = Dream.param req "username" in
   let+ user = Dream.sql req (Database.LocalUser.find_user ~username)
@@ -294,7 +231,7 @@ let handle_following_get config req =
     return (page, start_time) in
   let is_page = Option.is_some offset in
   let offset, start_time = Option.value ~default:(0, Ptime_clock.now ())
-                       offset in
+                             offset in
   let+ following_collection_page =
     Dream.sql req
       (Ap_resolver.build_following_collection_page
@@ -315,6 +252,8 @@ let handle_following_get config req =
            } : string Activitypub.Types.ordered_collection) in
   activity_json data
 
+(* * Users *)
+(* ** Utils *)
 let parse_user_types = function
   | "local" -> Some `Local
   | "remote" -> Some `Remote
@@ -358,6 +297,7 @@ let render_users_page ?search_query req user_type users =
       users
   ])
 
+(* ** Local users (get) *)
 let handle_local_users_get _config req =
   let+ current_user_link = current_user_link req in
   let offset_start =
@@ -428,6 +368,7 @@ let handle_local_users_get _config req =
     ) users_w_stats in
   render_users_page ?search_query req `Local users
 
+(* ** Remote users (get) *)
 let handle_remote_users_get config req =
   let+ current_user_link = current_user_link req in
   let offset =
@@ -517,6 +458,7 @@ let handle_remote_users_get config req =
     ) users_w_stats in
   render_users_page ?search_query req `Remote users
 
+(* ** Users (get) *)
 let handle_users_get _config req =
   let user_list_ty =
     Dream.query req "type"
@@ -528,6 +470,7 @@ let handle_users_get _config req =
   | `Remote ->
     handle_remote_users_get _config req
 
+(* * Follow local *)
 let handle_follow_local_user _config current_user username req =
   let+ current_user =
     Dream.sql req (Database.Actor.create_local_user ~local_id:(current_user.Database.LocalUser.id))
@@ -572,6 +515,7 @@ let handle_follow_local_user _config current_user username req =
       |> map_err (fun e -> `DatabaseError (Caqti_error.show e)) in
     redirect req "/users"
 
+(* * Follow remote *)
 let handle_follow_remote_user config current_user username domain req =
   Configuration.Params.send_task config Worker.(
     FollowRemoteUser {
@@ -596,6 +540,7 @@ let handle_users_follow_post _config req =
   | _ ->
     handle_follow_local_user _config current_user username req
 
+(* * Inbox (post) *)
 let handle_inbox_post config req =
   log.debug (fun f -> f "validating request");
   let+ valid_request =
@@ -689,11 +634,15 @@ let handle_inbox_post config req =
     "ok", `List []
   ])
 
-
+(* * Route *)
 let route config = 
   Dream.scope "/users" [] [
     Dream.get "" @@ Error_handling.handle_error_html config (handle_users_get config);
     Dream.get "/:username" @@ (handle_actor_get config);
+
+    Dream.get "/:username/edit" @@ Error_handling.handle_error_html config (handle_actor_edit_get config);
+    Dream.post "/:username/edit" @@ Error_handling.handle_error_html config (handle_actor_edit_post config);
+
     Dream.post "/:username/follow" @@ Error_handling.handle_error_html config (handle_users_follow_post config);
     (* Dream.get "/:username/inbox" handle_inbox_get; *)
     Dream.post ":username/inbox" @@ Error_handling.handle_error_json config (handle_inbox_post config);

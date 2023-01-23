@@ -37,6 +37,18 @@ let init_database ?(force_migrations=false) path =
   | Error (`Msg m) -> Error (`Msg m)
 
 
+(** [enforce_directory path] when given a path [path] ensures that
+    a directory exists at [path], creating it if not. *)
+let enforce_directory path =
+  let* path = Fpath.of_string path in
+  let* exists = OS.Dir.exists path in
+  if exists
+  then Ok (Fpath.to_string path)
+  else begin
+    let* _ = OS.Dir.create path in
+    Ok (Fpath.to_string path)
+  end
+
 (** [enforce_database path] when given a path [path] ensures that
     database exists at [path], creating it if not. *)
 let enforce_database path =
@@ -60,7 +72,7 @@ let enforce_markdown path =
   let* contents = OS.File.read path in
   Ok (Omd.of_string contents)
 
-let run key_file certificate_file about_this_instance_path database_path domain port debug =
+let run key_file certificate_file user_image_path about_this_instance_path database_path domain port debug =
   let* database_path = enforce_database database_path in
   let* about_this_instance =
     match about_this_instance_path with
@@ -70,7 +82,13 @@ let run key_file certificate_file about_this_instance_path database_path domain 
       let* about_this_instance = OS.File.read path in
       Ok (Some about_this_instance) in
   let database_path =  "sqlite3://:" ^ database_path in
-  let config = Configuration.Params.create ?key_file ?certificate_file ?about_this_instance ~debug ?port ~database_path domain in
+  let* user_image_path = match user_image_path with
+    | None -> Ok None
+    | Some path ->
+      let* path = enforce_directory path in
+      Ok (Some path) in
+  let config = Configuration.Params.create
+                 ?key_file ?certificate_file ?user_image_path ?about_this_instance ~debug ?port ~database_path domain in
   Ok (Server.run config)
 
 let debug =
@@ -87,6 +105,15 @@ let about_this_instance_path =
       ~docv:"ABOUT-THIS-INSTANCE"
       ~absent:{|A default message is used if not provided.|}
       ["a"; "about-this-instance"] in
+  Arg.(opt (some file) None) info
+
+let user_image_path =
+  let info =
+    Arg.info
+      ~doc:{| $(docv) is the path to the directory used by OCamlot to store user images. The directory is created if not present.  |}
+      ~docv:"DB"
+      ~absent:{| A directory `user-images` in current working directory is used.|}
+      ["u"; "user-image-path"] in
   Arg.(opt (some file) None) info
 
 let key_file_path =
@@ -145,6 +172,7 @@ let _ =
       const run $
       Arg.value key_file_path $
       Arg.value certificate_file_path $
+      Arg.value user_image_path $
       Arg.value about_this_instance_path $
       Arg.value database_path $
       Arg.value domain $

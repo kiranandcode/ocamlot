@@ -35,6 +35,12 @@ module Middleware = struct
         Dream.redirect request to_
       | None -> handler request
 
+  let enforce_present_resource var : Dream.middleware =
+    fun handler request -> 
+    match Dream.session_field request var with
+    | None -> Dream.respond ~status:`Unauthorized "unauthorized"
+    | Some _ -> handler request
+
   let enforce_present var ~else_  : Dream.middleware =
     fun handler request -> 
     match Dream.session_field request var with
@@ -71,6 +77,28 @@ let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =
     | `Wrong_content_type -> Error (`FormError ("Wrong Content Type", "No further information"))
     | `Ok v -> Ok v
   ) res
+
+
+
+let mime_lookup filename =
+  let content_type = Magic_mime.lookup filename in
+  ["Content-Type", content_type]
+
+let file ~local_root path =
+  let file = Filename.concat local_root path in
+  Lwt.catch
+    (fun () ->
+       Lwt_io.(with_file ~mode:Input file) (fun channel ->
+         Lwt.bind (Lwt_io.read channel) @@ fun content ->
+         Dream.response
+           ~headers:(mime_lookup path) content
+         |> Lwt.return_ok))
+    (fun _exn ->
+       Dream.response ~status:`Not_Found "Not found"
+       |> Lwt.return_ok)
+
+let respond ?status ?code ?headers text =
+  Lwt.map Result.return @@ Dream.respond ?status ?code ?headers text
 
 let redirect ?status ?code ?headers req path =
   Lwt.map Result.return @@ Dream.redirect ?status ?code ?headers req path

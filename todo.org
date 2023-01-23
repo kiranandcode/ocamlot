@@ -131,3 +131,14 @@ raw = {
 *** TODO Conditional registrations
 *** TODO Invite codes
 ** TODO Add support for database migration
+* Todos
+** DONE Update html with edit page
+CLOSED: [2023-01-23 Mon 09:32]
+** TODO Support for user uploaded images
+*** DONE Add table to track user images + hashes
+CLOSED: [2023-01-23 Mon 10:39]
+*** DONE Add parameter to configuration for user uploaded images 
+CLOSED: [2023-01-23 Mon 11:23]
+*** TODO Add endpoint for viewing uploaded images
+** TODO Lookup table description for local user
+** TODO Add table for user uploaded images
