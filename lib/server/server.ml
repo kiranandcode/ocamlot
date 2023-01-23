@@ -2,7 +2,7 @@
 open Containers
 open Common
 
-module Runner = Runner
+module Runner = Dream_runner
 
 let with_current_time req f =
   let time = Dream.query req "time"
@@ -141,7 +141,7 @@ let run config =
   ) (Configuration.Params.key_file config);
 
 
-  Runner.run
+  Dream_runner.run
     ~workers:[worker]
     ~tls:(Configuration.Params.is_tls_enabled config)
     ?certificate_file:(Configuration.Params.certificate_file config)

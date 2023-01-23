@@ -1,0 +1,4 @@
+(library (name dream_runner)
+ (preprocess (pps ppx_deriving.show))
+ (libraries
+   dream dream.http dream.server lwt lwt.unix))

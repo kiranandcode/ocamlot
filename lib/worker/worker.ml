@@ -74,7 +74,7 @@ open struct
                 |> List.filter (Fun.negate String.is_empty) in
     let+ _ =
       with_pool pool @@ fun db ->
-      Resolver.create_new_note config scope user post_to [] title content content_type db in
+      Ap_resolver.create_new_note config scope user post_to [] title content content_type db in
 
     Lwt.return_ok ()
 
@@ -94,7 +94,7 @@ open struct
         Lwt_list.map_p (fun instance ->
           let domain = instance.Database.RemoteInstance.url in
           let+ _ = with_pool pool @@ fun db ->
-            Resolver.resolve_remote_user ~username ~domain db
+            Ap_resolver.resolve_remote_user ~username ~domain db
             |> map_err (fun err -> `DatabaseError err) in
           return_ok ()
         ) instances
@@ -107,7 +107,7 @@ open struct
     | Some domain ->
       log.debug (fun f ->  f "resolving user %s@%s?" username domain);
       let+ _ = with_pool pool @@ fun db ->
-        Resolver.resolve_remote_user ~username ~domain db
+        Ap_resolver.resolve_remote_user ~username ~domain db
         |> map_err (fun err -> `DatabaseError err) in
       log.debug (fun f ->  f "successfully resolved user %s@%s" username domain);
       return_ok ()
@@ -118,7 +118,7 @@ open struct
     );
     let+ _ =
       with_pool pool @@ fun db ->
-      Resolver.follow_remote_user config user ~username ~domain db
+      Ap_resolver.follow_remote_user config user ~username ~domain db
       |> map_err (fun err -> `ResolverError err) in
     return_ok ()
 
@@ -139,7 +139,7 @@ open struct
 
   let handle_remote_follow pool config id actor target raw =
     with_pool pool @@ fun db ->
-    Resolver.follow_local_user config id actor target raw db
+    Ap_resolver.follow_local_user config id actor target raw db
     |> map_err (fun err -> `DatabaseError err)
 
   let handle_undo_follow pool config follow_id =

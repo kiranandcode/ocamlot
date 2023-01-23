@@ -6,6 +6,7 @@ let log = Logging.add_logger "web.auth"
 
 let check_unauthenticated = Common.Middleware.redirect_if_present "user" ~to_:"/feed"
 
+(* * Utilities *)
 
 let recover f comp =
   let recover_error = function
@@ -16,6 +17,8 @@ let recover f comp =
       | Some vl -> Ok (Error vl) in
   Lwt.map recover_error comp
 
+(* * Register *)
+(* ** Get *)
 let handle_register_get ?errors config req =
   let token = Dream.csrf_token req in 
   let+ headers = Navigation.build_navigation_bar req in
@@ -30,7 +33,7 @@ let handle_register_get ?errors config req =
       ];
     ];
   ]
-
+(* ** Post *)
 let handle_register_post config req =
   log.info (fun f -> f "register page POST");
   let+ data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
@@ -57,7 +60,9 @@ let handle_register_post config req =
     let+ () = Lwt.map Result.return @@
       Dream.set_session_field req "user" (user.Database.LocalUser.username) in
     redirect req "/feed"
-  
+
+(* * Login *)  
+(* ** Get *)
 let handle_login_get ?errors config req =
   let token = Dream.csrf_token req in
   let+ headers = Navigation.build_navigation_bar req in
@@ -73,7 +78,7 @@ let handle_login_get ?errors config req =
     ];
   ]
     
-
+(* ** Post *)
 let handle_login_post config req =
   log.info (fun f -> f "login page POST");
   let+ data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
@@ -102,12 +107,14 @@ let handle_login_post config req =
     | None ->
       handle_login_get ~errors:["Invalid username or password"] config req
 
+(* * Logout *)
 let handle_logout_post req =
   let+ _ = Dream.form ~csrf:false req
            |> sanitize_form_error ([%show: (string * string) list]) in
   let+ () = Dream.invalidate_session req |> Lwt.map Result.return in
   redirect req "/feed"
 
+(* * Router *)
 let route config = 
   Dream.scope "/" [] [
     Dream.scope "/" [check_unauthenticated] [

@@ -54,6 +54,82 @@ module Activity = struct
 
 end
 
+module Actor = struct
+
+  type t = {
+    actor_id: int;
+    link_id: [`Local of int | `Remote of int]
+  }
+  [@@deriving show]
+
+  let lookup_local_user ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select [Actor.id]
+      ~from:Actor.table
+    |> Query.where Expr.(Actor.local_id = i id)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (id, ()) -> id)
+
+  let lookup_remote_user ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select [Actor.id]
+      ~from:Actor.table
+    |> Query.where Expr.(Actor.remote_id = i id)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (id, ()) -> id)
+
+  let resolve ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+        nullable Actor.local_id;
+        nullable Actor.remote_id
+      ] ~from:Actor.table
+    |> Query.where Expr.(Actor.id = i id)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (function
+        | (Some local_id, (None, ())) -> `Local local_id
+        | (None, (Some remote_id, ())) -> `Remote remote_id
+        | (Some _, (Some _, ())) ->
+          invalid_arg "found actor id resolving to both local and remote"
+        | (None, (None, ())) ->
+          invalid_arg "found actor id resolving to neither local or remote"
+      )
+
+  let create_local_user ~local_id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let* () =
+      Query.insert ~table:Actor.table
+        ~values:Expr.[Actor.local_id := i local_id]
+      |> Query.on_err `IGNORE
+      |> Request.make_zero
+      |> Petrol.exec conn in
+    lookup_local_user ~id:local_id conn
+
+  let create_remote_user ~remote_id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let* () =
+      Query.insert ~table:Actor.table
+        ~values:Expr.[Actor.remote_id := i remote_id]
+      |> Query.on_err `IGNORE
+      |> Request.make_zero
+      |> Petrol.exec conn in
+    lookup_remote_user ~id:remote_id conn
+
+end
+
 module LocalUser = struct
 
   type private_key = X509.Private_key.t
@@ -132,6 +208,7 @@ module LocalUser = struct
     |> Lwt_result.map decode
 
   let create_user ?display_name ?about ?(manually_accept_follows=false) ?(is_admin=false) ~username ~password conn =
+    let create_actor local_id conn = Actor.create_local_user ~local_id conn in
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -143,18 +220,21 @@ module LocalUser = struct
     let* () =
       Query.insert ~table:LocalUser.table
         ~values:(Expr.[
-            LocalUser.username := s username;
-            LocalUser.password := s password_hash;
-            LocalUser.manually_accept_follows := bl manually_accept_follows;
-            LocalUser.is_admin := bl is_admin;
-            LocalUser.pubkey := s (X509.Public_key.encode_pem pubkey |> Cstruct.to_string);
-            LocalUser.privkey := s (X509.Private_key.encode_pem privkey |> Cstruct.to_string);
-          ] @ (Option.map Expr.(fun about -> LocalUser.about := s about) about |> Option.to_list) 
+          LocalUser.username := s username;
+          LocalUser.password := s password_hash;
+          LocalUser.manually_accept_follows := bl manually_accept_follows;
+          LocalUser.is_admin := bl is_admin;
+          LocalUser.pubkey := s (X509.Public_key.encode_pem pubkey |> Cstruct.to_string);
+          LocalUser.privkey := s (X509.Private_key.encode_pem privkey |> Cstruct.to_string);
+        ] @ (Option.map Expr.(fun about -> LocalUser.about := s about) about |> Option.to_list) 
                  @ (Option.map Expr.(fun display_name -> LocalUser.display_name := s display_name) display_name |> Option.to_list))
       |> Request.make_zero
       |> Petrol.exec conn in
     let* user = find_user ~username conn in
-    Lwt_result.return (Option.get user)
+    let user = Option.get user in
+    (* create an actor entry for the user *)
+    let* _ = create_actor user.id conn in
+    Lwt_result.return user
 
 
   let login_user ~username ~password conn =
@@ -180,8 +260,8 @@ module LocalUser = struct
                      |> Result.map_error (fun err -> `ArgonError err)) in
     Query.update ~table:LocalUser.table
       ~set:Expr.[
-          LocalUser.password := s password_hash
-        ]
+        LocalUser.password := s password_hash
+      ]
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn
@@ -192,8 +272,8 @@ module LocalUser = struct
     let open Tables in
     Query.update ~table:LocalUser.table
       ~set:Expr.[
-          LocalUser.display_name := s display_name
-        ]
+        LocalUser.display_name := s display_name
+      ]
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn
@@ -204,8 +284,8 @@ module LocalUser = struct
     let open Tables in
     Query.update ~table:LocalUser.table
       ~set:Expr.[
-          LocalUser.about := s about
-        ]
+        LocalUser.about := s about
+      ]
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn
@@ -216,8 +296,8 @@ module LocalUser = struct
     let open Tables in
     Query.update ~table:LocalUser.table
       ~set:Expr.[
-          LocalUser.manually_accept_follows := bl manually_accept_follows 
-        ]
+        LocalUser.manually_accept_follows := bl manually_accept_follows 
+      ]
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn  
@@ -228,8 +308,8 @@ module LocalUser = struct
     let open Tables in
     Query.update ~table:LocalUser.table
       ~set:Expr.[
-          LocalUser.is_admin := bl is_admin
-        ]
+        LocalUser.is_admin := bl is_admin
+      ]
     |> Query.where Expr.(LocalUser.id = i id)
     |> Request.make_zero
     |> Petrol.exec conn
@@ -554,6 +634,7 @@ module RemoteUser = struct
   let create_remote_user
       ?display_name ?inbox ?outbox ?followers ?following ?summary
       ~username ~instance ~url ~public_key_pem conn =
+    let create_remote remote_id conn = Actor.create_remote_user ~remote_id conn in
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -588,7 +669,10 @@ module RemoteUser = struct
       |> Request.make_zero
       |> Petrol.exec conn in
     let* user = lookup_remote_user_by_url ~url conn in
-    Lwt_result.return (Option.get user) 
+    let user = Option.get user in
+    (* create actor entry for remote user *)
+    let* _ = create_remote user.id conn in
+    Lwt_result.return user 
 
   let get_known_remote_actors
       ?(limit=10) ?(offset=0) conn = 
@@ -737,82 +821,6 @@ module RemoteUser = struct
     |> Lwt_result.map (List.map (fun (url, user) ->
         (url, decode user)
       ))
-
-end
-
-module Actor = struct
-
-  type t = {
-    actor_id: int;
-    link_id: [`Local of int | `Remote of int]
-  }
-  [@@deriving show]
-
-  let lookup_local_user ~id conn =
-    let open Lwt_result.Syntax in
-    let open Petrol in
-    let open Tables in
-    Query.select [Actor.id]
-      ~from:Actor.table
-    |> Query.where Expr.(Actor.local_id = i id)
-    |> Request.make_one
-    |> Petrol.find conn
-    |> Lwt_result.map (fun (id, ()) -> id)
-
-  let lookup_remote_user ~id conn =
-    let open Lwt_result.Syntax in
-    let open Petrol in
-    let open Tables in
-    Query.select [Actor.id]
-      ~from:Actor.table
-    |> Query.where Expr.(Actor.remote_id = i id)
-    |> Request.make_one
-    |> Petrol.find conn
-    |> Lwt_result.map (fun (id, ()) -> id)
-
-  let resolve ~id conn =
-    let open Lwt_result.Syntax in
-    let open Petrol in
-    let open Tables in
-    Query.select Expr.[
-        nullable Actor.local_id;
-        nullable Actor.remote_id
-      ] ~from:Actor.table
-    |> Query.where Expr.(Actor.id = i id)
-    |> Request.make_one
-    |> Petrol.find conn
-    |> Lwt_result.map (function
-        | (Some local_id, (None, ())) -> `Local local_id
-        | (None, (Some remote_id, ())) -> `Remote remote_id
-        | (Some _, (Some _, ())) ->
-          invalid_arg "found actor id resolving to both local and remote"
-        | (None, (None, ())) ->
-          invalid_arg "found actor id resolving to neither local or remote"
-      )
-
-  let create_local_user ~local_id conn =
-    let open Lwt_result.Syntax in
-    let open Petrol in
-    let open Tables in
-    let* () =
-      Query.insert ~table:Actor.table
-        ~values:Expr.[Actor.local_id := i local_id]
-      |> Query.on_err `IGNORE
-      |> Request.make_zero
-      |> Petrol.exec conn in
-    lookup_local_user ~id:local_id conn
-
-  let create_remote_user ~remote_id conn =
-    let open Lwt_result.Syntax in
-    let open Petrol in
-    let open Tables in
-    let* () =
-      Query.insert ~table:Actor.table
-        ~values:Expr.[Actor.remote_id := i remote_id]
-      |> Query.on_err `IGNORE
-      |> Request.make_zero
-      |> Petrol.exec conn in
-    lookup_remote_user ~id:remote_id conn
 
 end
 

@@ -3,6 +3,8 @@ open Common
 
 let log = Logging.add_logger "web.error"
 
+(* * Extract error details *)
+
 let extract_error_details err =
     let status = match err with
     | `UserNotFound _ -> `Not_Found
@@ -36,6 +38,8 @@ let extract_error_details err =
       | _ -> "No Further Details" in
     (status, msg, details)
 
+(* * Error Display  *)
+(* ** Html *)
 let handle_error_html config handler req =
   Lwt.bind (handler req) @@ fun result ->
   match result with
@@ -51,6 +55,7 @@ let handle_error_html config handler req =
          Html.Error.error ?details msg
        ])
 
+(* ** Json *)
 let handle_error_json config handler req =
   Lwt.bind (handler req) @@ fun result ->
   match result with

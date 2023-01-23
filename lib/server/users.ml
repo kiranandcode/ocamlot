@@ -95,7 +95,7 @@ let handle_actor_get_html _config req =
       end
     end
   ]
-(* tyxml (invalid_arg "TODO") (\* (Html.Profile.build config current_user ~state ~posts ~following ~followers user req) *\) *)
+
 
 let handle_actor_get_json config req =
   let username = Dream.param req "username" in
@@ -260,7 +260,7 @@ let handle_followers_get config req =
                        offset in
   let+ followers_collection_page =
     Dream.sql req
-      (Resolver.build_followers_collection_page
+      (Ap_resolver.build_followers_collection_page
          config start_time offset user) in
   let data =
     if is_page
@@ -297,7 +297,7 @@ let handle_following_get config req =
                        offset in
   let+ following_collection_page =
     Dream.sql req
-      (Resolver.build_following_collection_page
+      (Ap_resolver.build_following_collection_page
          config start_time offset user) in
   let data =
     if is_page
@@ -529,8 +529,9 @@ let handle_users_get _config req =
     handle_remote_users_get _config req
 
 let handle_follow_local_user _config current_user username req =
-  let+ current_user = Dream.sql req (Database.Actor.create_local_user ~local_id:(current_user.Database.LocalUser.id))
-                      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  let+ current_user =
+    Dream.sql req (Database.Actor.create_local_user ~local_id:(current_user.Database.LocalUser.id))
+    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   let+ target_user =
     Dream.sql req
       (Database.LocalUser.find_user ~username)
@@ -599,7 +600,7 @@ let handle_inbox_post config req =
   log.debug (fun f -> f "validating request");
   let+ valid_request =
     Http_sig.verify_request
-      ~resolve_public_key:Resolver.resolve_public_key req
+      ~resolve_public_key:Ap_resolver.resolve_public_key req
     |> map_err (fun err -> `ResolverError err) in
   log.debug (fun f -> f "request validation completed with result %b" valid_request);
   let+ () =
@@ -623,7 +624,6 @@ let handle_inbox_post config req =
     |> return
     |> map_err (fun err -> `InvalidActivitypubObject err) in
 
-(* map_err (fun err -> `ActivitypubFormat err) *)
   log.debug (fun f ->
     f "received activitypub object %a"
       Activitypub.Types.pp_obj data
@@ -660,12 +660,16 @@ let handle_inbox_post config req =
       );
       return_ok ()
     | `Create { obj=`Note note; actor; published; direct_message; _ } ->
+      log.debug (fun f -> f "creating post");
       let+ remote_user =
         Dream.sql req
           (Database.RemoteUser.lookup_remote_user_by_url ~url:actor)
         |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
         (* if the remote user isn't registered in our database, then ignore it *)
-        >> Result.flat_map (lift_opt ~else_:(fun _ -> `UnknownRemoteUser actor)) in
+        >> Result.flat_map (lift_opt ~else_:(fun _ ->
+          log.debug (fun f -> f "got request from unknown actor %s" actor);
+          `UnknownRemoteUser actor)) in
+      log.debug (fun f -> f "found remote user");
       Configuration.Params.send_task config Worker.(
         CreateRemoteNote { author=remote_user; direct_message; note }
       );

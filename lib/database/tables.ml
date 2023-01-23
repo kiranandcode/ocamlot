@@ -101,11 +101,13 @@ module Actor = struct
       Schema.[
         field ~constraints:[primary_key ()]  "id" ~ty:Type.int;            (* internal id for referring to actors *)
         field ~constraints:[
+          unique ();
           foreign_key ~table:LocalUser.table ~columns:Expr.[LocalUser.id]
             ~on_update:`RESTRICT
             ~on_delete:`RESTRICT ()                                        (* local id if a local user *)
         ] "local_id" ~ty:Type.int;
         field ~constraints:[
+          unique ();
           foreign_key ~table:RemoteUser.table ~columns:Expr.[RemoteUser.id]
             ~on_update:`RESTRICT
             ~on_delete:`RESTRICT ()
@@ -146,7 +148,7 @@ module Posts = struct
     VersionedSchema.declare_table db ~name:"posts"
       Schema.[
         field ~constraints:[primary_key ()] "id" ~ty:Type.int;                 (* internal post id, not exposed *)
-        field "public_id" ~ty:Type.text;                                       (* if post by local user, assign public id *)
+        field ~constraints:[unique ()] "public_id" ~ty:Type.text;                                       (* if post by local user, assign public id *)
         field ~constraints:[not_null (); unique ()] "url" ~ty:Type.text;       (* url/id of post, if local then /api/posts/<public_id> *)
         field ~constraints:[
           not_null ();

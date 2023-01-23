@@ -75,7 +75,6 @@ let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =
 let redirect ?status ?code ?headers req path =
   Lwt.map Result.return @@ Dream.redirect ?status ?code ?headers req path
 
-
 let activity_json  ?(status:Dream.status option) ?code ?(headers=[])  json =
   lift_pure @@
   Dream.respond ?status ?code

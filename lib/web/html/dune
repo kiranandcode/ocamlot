@@ -1,2 +1,2 @@
 (library (name html)
- (libraries containers tyxml pure))
+ (libraries containers tyxml tyxml.functor pure))
