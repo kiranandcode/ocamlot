@@ -139,6 +139,10 @@ CLOSED: [2023-01-23 Mon 09:32]
 CLOSED: [2023-01-23 Mon 10:39]
 *** DONE Add parameter to configuration for user uploaded images 
 CLOSED: [2023-01-23 Mon 11:23]
-*** TODO Add endpoint for viewing uploaded images
+*** DONE Add endpoint for viewing uploaded images
+CLOSED: [2023-01-23 Mon 11:28]
+*** DONE Update local user to have profile image option
+CLOSED: [2023-01-23 Mon 11:42]
+*** TODO Update login form to display current avatar and option to upload avatar
 ** TODO Lookup table description for local user
 ** TODO Add table for user uploaded images

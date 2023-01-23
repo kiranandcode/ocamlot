@@ -30,7 +30,7 @@ let profile ?edit profile =
     ]
   | _ -> [])
 
-let edit_profile ?about ?display_name ~username () =
+let edit_profile ?about ?display_name ?image ~username () =
   let display_name = match display_name with None -> [] | Some display_name -> [H.a_value display_name] in
   let about_value,about_text =
     match about with None -> [H.a_placeholder "About me..."],H.txt "" | Some about -> [], H.txt about in
@@ -53,10 +53,20 @@ let edit_profile ?about ?display_name ~username () =
               H.label ~a:[H.a_label_for "about"] [H.txt "About"];
               H.textarea ~a:([H.a_class ["pure-input-1-2"]; H.a_id "about"] @ about_value) about_text;
             ];
-          H.div ~a:[H.a_class ["pure-control-group"]] [
+
+          H.input ~a:[H.a_input_type `Submit; H.a_value "Update"] ();
+        ];
+        H.form ~a:[H.a_class ["pure-form"; "pure-form-aligned"]] [
+          H.div ~a:[H.a_class ["avatar-update-form"]] [
+            H.div ~a:[H.a_class ["avatar-update-image"]] [
+              H.img ~src:(Option.value ~default:"/static/images/unknown.png" image) ~alt:(username ^ "'s profile image") ();
+            ];
+            H.div ~a:[H.a_class ["pure-control-group"]] [
               H.label ~a:[H.a_label_for "avatar"] [H.txt "Avatar"];
-              H.input ~a:([H.a_input_type `Image; H.a_id "avatar"]) ();
-            ]          
+              H.input ~a:([H.a_input_type `File; H.a_accept ["png"; "jpg"; "jpeg"; "bmp"]; H.a_id "avatar"]) ();
+            ];
+          ];
+          H.input ~a:[H.a_input_type `Submit; H.a_value "Save"] ();
         ]
       ];
     ];

@@ -11,17 +11,19 @@ let init_database ?(force_migrations=false) path =
   let initialise =
     let open Lwt_result.Syntax in
     Caqti_lwt.with_connection (Uri.of_string ("sqlite3://:" ^ path)) (fun conn ->
-        let* needs_migration =
-          Petrol.VersionedSchema.migrations_needed Database.Tables.db conn in
-        let* () =
-          if needs_migration && not force_migrations
-          then
-            Lwt_result.fail
-              (`Msg "migrations needed for local database - please re-run \
-                     with suitable flags (-m).")
-          else Lwt_result.return () in
-        Petrol.VersionedSchema.initialise Database.Tables.db conn
-      ) in
+      let* needs_migration =
+        Petrol.VersionedSchema.migrations_needed Database.Tables.db conn in
+      Format.printf "needs migration: %b\n@." needs_migration;
+      let* () =
+        if needs_migration && not force_migrations
+        then
+          Lwt_result.fail
+            (`Msg "migrations needed for local database - please \
+                   re-run with suitable flags (-m). (You probably also \
+                   want to backup your database file as well)")
+        else Lwt_result.return () in
+      Petrol.VersionedSchema.initialise Database.Tables.db conn
+    ) in
   let version_to_string (ver: Petrol.VersionedSchema.version) =
     String.concat "." (List.map string_of_int (ver :> int list)) in
   match Lwt_main.run initialise with
@@ -51,18 +53,16 @@ let enforce_directory path =
 
 (** [enforce_database path] when given a path [path] ensures that
     database exists at [path], creating it if not. *)
-let enforce_database path =
+let enforce_database ?force_migrations path =
   let* path = Fpath.of_string path in
-  let* exists = OS.File.exists path in
-  if exists
-  then Ok (Fpath.to_string path)
-  else begin
-    let* () =
-      try
-        init_database (Fpath.to_string path)
-      with Sqlite3.SqliteError err -> Error (`Msg ("failed to initialise a fresh database: " ^ err)) in
-    Ok (Fpath.to_string path)
-  end
+  (* we call exists here just to make sure that it is a file if it exists and not a directory *)
+  let* _ = OS.File.exists path in
+  let* () =
+    try
+      init_database ?force_migrations (Fpath.to_string path)
+    with Sqlite3.SqliteError err -> Error (`Msg ("failed to initialise a fresh database: " ^ err)) in
+  Ok (Fpath.to_string path)
+
 
 (** [enforce_markdown path] when given a path [path] ensures that
     a markdown file exists at [path]. *)
@@ -72,8 +72,8 @@ let enforce_markdown path =
   let* contents = OS.File.read path in
   Ok (Omd.of_string contents)
 
-let run key_file certificate_file user_image_path about_this_instance_path database_path domain port debug =
-  let* database_path = enforce_database database_path in
+let run key_file certificate_file user_image_path about_this_instance_path database_path domain port debug force_migrations =
+  let* database_path = enforce_database ~force_migrations database_path in
   let* about_this_instance =
     match about_this_instance_path with
     | None -> Ok None
@@ -96,6 +96,13 @@ let debug =
     Arg.info
       ~doc:{| Determines whether the OCamlot server should be run in debug mode. |}
       ["D"; "debug"] in
+  Arg.flag info
+
+let force_migrations =
+  let info =
+    Arg.info
+      ~doc:{| Determines whether the OCamlot server should perform (potentially destructive) migrations. |}
+      ["m"; "migrate"] in
   Arg.flag info
 
 let about_this_instance_path =
@@ -134,7 +141,6 @@ let certificate_file_path =
       ["c"; "certificate-file"] in
   Arg.(opt (some file) None) info
 
-
 let database_path =
   let info =
     Arg.info
@@ -169,14 +175,15 @@ let _ =
       ~doc:"An OCaml Activitypub Server *with soul*!"
       "OCamlot" in
   let cmd = Term.(term_result @@ (
-      const run $
-      Arg.value key_file_path $
-      Arg.value certificate_file_path $
-      Arg.value user_image_path $
-      Arg.value about_this_instance_path $
-      Arg.value database_path $
-      Arg.value domain $
-      Arg.value port $
-      Arg.value debug)) in
+    const run $
+    Arg.value key_file_path $
+    Arg.value certificate_file_path $
+    Arg.value user_image_path $
+    Arg.value about_this_instance_path $
+    Arg.value database_path $
+    Arg.value domain $
+    Arg.value port $
+    Arg.value debug $
+    Arg.value force_migrations)) in
 
   Cmd.eval (Cmd.v info cmd)

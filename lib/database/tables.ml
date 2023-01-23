@@ -3,7 +3,7 @@ open Petrol
 let version_0_0_1 = VersionedSchema.version [0;0;1]
 let version_0_0_2 = VersionedSchema.version [0;0;2]
 
-let db = VersionedSchema.init version_0_0_2 ~name:"Camelot"
+let db = VersionedSchema.init version_0_0_2 ~name:"ocamlot"
 
 module DreamSession = struct
 
@@ -43,7 +43,7 @@ end
 
 module LocalUser = struct
 
-  let table, (Expr.[id; username; password; display_name; about; manually_accept_follows; is_admin; pubkey; privkey] as all_fields) =
+  let table, (Expr.[id; username; password; display_name; about; profile_picture; manually_accept_follows; is_admin; pubkey; privkey] as all_fields) =
     VersionedSchema.declare_table db ~name:"local_user"
       Schema.[
         field ~constraints:[primary_key ()] "id" ~ty:Type.int;                      (* internal id, not exposed *)
@@ -51,11 +51,18 @@ module LocalUser = struct
         field ~constraints:[not_null ()] "password" ~ty:Type.text;                  (* password hash + salt *)
         field "display_name" ~ty:Type.text;                                         (* display name - if null then username *)
         field "about" ~ty:Type.text;                                                (* about text for the user *)
+        field ~constraints:[
+          foreign_key ~table:UserImage.table ~columns:Expr.[UserImage.path]
+             ~on_update:`RESTRICT ~on_delete:`RESTRICT ()
+        ] "profile_picture" ~ty:Type.text;                                          (* profile picture of the user *)
         field ~constraints:[not_null ()] "manually_accept_follows" ~ty:Type.bool;   (* whether the user manually accepts follows *)
         field ~constraints:[not_null ()] "is_admin" ~ty:Type.bool;                  (* whether the user is an admin *)
         field ~constraints:[not_null ()] "pubkey" ~ty:Type.blob;                    (* public key for the user (X509.Public_key.t) *)
         field ~constraints:[not_null ()] "privkey" ~ty:Type.blob;                   (* private key for the user (X509.Private_key.t) *)
       ]
+      ~migrations:[version_0_0_2, [
+        Caqti_request.Infix.(Caqti_type.unit ->. Caqti_type.unit) {sql| ALTER TABLE local_user ADD COLUMN profile_picture TEXT REFERENCES user_images (path) ON DELETE RESTRICT ON UPDATE RESTRICT |sql}
+      ]]
 
 end
 

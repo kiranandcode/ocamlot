@@ -14,7 +14,6 @@ let handle_image_get config req =
     file ~local_root image.path
 
 
-
 let route config =
   Dream.scope "/images" [Common.Middleware.enforce_present_resource "user"] [
     Dream.get "/:image" @@ Error_handling.handle_error_html config @@ handle_image_get config;

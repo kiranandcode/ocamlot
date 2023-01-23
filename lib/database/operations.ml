@@ -143,6 +143,7 @@ module LocalUser = struct
     password: string;
     display_name: string option;
     about: string option;
+    profile_picture: string option;
     manually_accepts_follows: bool;
     is_admin: bool;
     pubkey: public_key;
@@ -151,13 +152,14 @@ module LocalUser = struct
   [@@deriving show]
 
   let decode =
-    fun (id, (username, (password, (display_name, (about, (manually_accepts_follows, (is_admin, (pubkey, (privkey, ()))))))))) ->
+    fun (id, (username, (password, (display_name, (about, (profile_picture, (manually_accepts_follows, (is_admin, (pubkey, (privkey, ())))))))))) ->
     {
       id;
       username;
       password;
       display_name;
       about;
+      profile_picture;
       manually_accepts_follows;
       is_admin;
       pubkey=Result.get_ok (X509.Public_key.decode_pem (Cstruct.of_string pubkey));
@@ -174,6 +176,7 @@ module LocalUser = struct
         LocalUser.password;
         nullable LocalUser.display_name;
         nullable LocalUser.about;
+        nullable LocalUser.profile_picture;
         LocalUser.manually_accept_follows;
         LocalUser.is_admin;
         LocalUser.pubkey;
@@ -196,6 +199,7 @@ module LocalUser = struct
         LocalUser.password;
         nullable LocalUser.display_name;
         nullable LocalUser.about;
+        nullable LocalUser.profile_picture;
         LocalUser.manually_accept_follows;
         LocalUser.is_admin;
         LocalUser.pubkey;
@@ -325,6 +329,7 @@ module LocalUser = struct
         LocalUser.password;
         nullable LocalUser.display_name;
         nullable LocalUser.about;
+        nullable LocalUser.profile_picture;
         LocalUser.manually_accept_follows;
         LocalUser.is_admin;
         LocalUser.pubkey;
@@ -357,6 +362,7 @@ module LocalUser = struct
         LocalUser.password;
         nullable LocalUser.display_name;
         nullable LocalUser.about;
+        nullable LocalUser.profile_picture;
         LocalUser.manually_accept_follows;
         LocalUser.is_admin;
         LocalUser.pubkey;
