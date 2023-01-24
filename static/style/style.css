@@ -18,6 +18,10 @@ body {
   --element-text-alt-color: #aaa;
 }
 
+.float-right {
+    float: right;
+}
+
 .header .pure-menu-heading {
   padding: .125em 1em !important;
 }
@@ -393,14 +397,49 @@ div.post-replies-list {
   /*! width: 100%; */
   background-color: #00132f;
 }
+
 .profile-details > span, .profile-details > div {
   padding-left: .5rem;
   padding-bottom: .25rem;
   padding-right: .5rem;
 }
+
 .profile img {
   max-width: 10rem;
   border-radius: 0px;
+}
+
+.profile-details-update {
+    position: relative;
+}
+
+.avatar-update-form {
+  display: flex;
+  position: relative;
+}
+
+.avatar-input-box {
+    flex-grow: 1;
+}
+
+.profile-details-update > input[type=submit],
+.avatar-update-form > input[type=submit] {
+  float: right;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  margin-right: .25em;
+  margin-bottom: .25em;
+  padding: .25em;
+}
+
+.avatar-input-textbox {
+  flex-grow: 1;
+}
+
+.profile-edit-title {
+  margin-top: .25em;
+  margin-bottom: .25em;
 }
 
 .followers-list {

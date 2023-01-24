@@ -30,44 +30,82 @@ let profile ?edit profile =
     ]
   | _ -> [])
 
-let edit_profile ?about ?display_name ?image ~username () =
-  let display_name = match display_name with None -> [] | Some display_name -> [H.a_value display_name] in
+let edit_profile ?(fields=[]) ?about ?display_name ?image ~username () =
+  let display_name =
+    match display_name with
+      None -> []
+    | Some display_name -> [H.a_value display_name] in
   let about_value,about_text =
     match about with None -> [H.a_placeholder "About me..."],H.txt "" | Some about -> [], H.txt about in
   H.div ~a:[H.a_class ["profile"]] [
     H.div ~a:[H.a_class ["profile-details"]] [
       H.div ~a:[H.a_class ["profile-name"]] [H.b [H.txt ("Editing " ^ username ^ "'s profile")]];
       H.div ~a:[H.a_class ["profile-summary"]] [
-        H.form ~a:[H.a_class ["pure-form"; "pure-form-aligned"]] [
+        H.form ~a:[
+          H.a_class ["profile-details-update"; "pure-form"; "pure-form-aligned"];
+          H.a_enctype "multipart/form-data";
+          H.a_method `Post;] [
+          H.h3 ~a:[H.a_class ["profile-edit-title"]] [H.txt "Details"];
+          H.fieldset ([
+              H.div ~a:[H.a_class ["pure-control-group"]] [
+                H.label ~a:[H.a_label_for "user-name"] [H.txt "Username"];
+                H.input ~a:[
+                  H.a_readonly ();
+                  H.a_input_type `Text;
+                  H.a_id "user-name";
+                  H.a_value username
+                ] ();
+              ];
+              H.div ~a:[H.a_class ["pure-control-group"]] [
+                H.label ~a:[H.a_label_for "display-name"] [H.txt "Display Name"];
+                H.input ~a:([
+                    H.a_input_type `Text;
+                    H.a_id "display-name";
+                    H.a_name "display-name";
+                    H.a_placeholder "Display Name"
+                  ] @ display_name) ();
+              ];
+            ] @ List.map (fun (key, value) ->
+              H.input ~a:[
+                H.a_name key;
+                H.a_input_type `Hidden;
+                H.a_value value
+              ] ()
+            ) fields);
           H.fieldset [
             H.div ~a:[H.a_class ["pure-control-group"]] [
-              H.label ~a:[H.a_label_for "user-name"] [H.txt "Username"];
-              H.input ~a:[H.a_readonly (); H.a_input_type `Text; H.a_id "user-name"; H.a_value username] ();
-            ];
-            H.div ~a:[H.a_class ["pure-control-group"]] [
-              H.label ~a:[H.a_label_for "display-name"] [H.txt "Display Name"];
-              H.input ~a:([H.a_input_type `Text; H.a_id "display-name"; H.a_placeholder "Display Name"] @ display_name) ();
+              H.label ~a:[H.a_label_for "about"] [H.txt "About"];
+              H.textarea ~a:([
+                  H.a_class ["pure-input-1-2"];
+                  H.a_id "about";
+                  H.a_name "about";
+                ] @ about_value) about_text;
             ];
           ];
-          H.div ~a:[H.a_class ["pure-control-group"]] [
-              H.label ~a:[H.a_label_for "about"] [H.txt "About"];
-              H.textarea ~a:([H.a_class ["pure-input-1-2"]; H.a_id "about"] @ about_value) about_text;
-            ];
-
           H.input ~a:[H.a_input_type `Submit; H.a_value "Update"] ();
         ];
-        H.form ~a:[H.a_class ["pure-form"; "pure-form-aligned"]] [
+        H.form ~a:[
+          H.a_class ["pure-form"; "pure-form-aligned"];
+          H.a_enctype "multipart/form-data";
+          H.a_method `Post] ([
+          H.h3 ~a:[H.a_class ["profile-edit-title"]] [H.txt "Avatar"];
           H.div ~a:[H.a_class ["avatar-update-form"]] [
             H.div ~a:[H.a_class ["avatar-update-image"]] [
               H.img ~src:(Option.value ~default:"/static/images/unknown.png" image) ~alt:(username ^ "'s profile image") ();
             ];
-            H.div ~a:[H.a_class ["pure-control-group"]] [
-              H.label ~a:[H.a_label_for "avatar"] [H.txt "Avatar"];
-              H.input ~a:([H.a_input_type `File; H.a_accept ["png"; "jpg"; "jpeg"; "bmp"]; H.a_id "avatar"]) ();
+            H.div ~a:[H.a_class ["avatar-input-box"; "pure-control-group"]] [
+              H.input ~a:([
+                  H.a_input_type `File;
+                  H.a_accept ["png"; "jpg"; "jpeg"; "bmp"];
+                  H.a_name "about";
+                  H.a_id "avatar"
+                ]) ();
             ];
+            H.input ~a:[H.a_input_type `Submit; H.a_value "Save"] ();
           ];
-          H.input ~a:[H.a_input_type `Submit; H.a_value "Save"] ();
-        ]
+        ] @ List.map (fun (key, value) ->
+              H.input ~a:[H.a_name key; H.a_input_type `Hidden; H.a_value value] ()
+            ) fields)
       ];
     ];
   ]

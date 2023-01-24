@@ -6,21 +6,49 @@ module StringSet = Set.Make(String)
 
 let log = Logging.add_logger "web.user"
 module H = Tyxml.Html
+(* * Utils  *)
+let sql req op =
+  Dream.sql req op
+  |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
 
-(* * Actor *)
-(* ** Edit (html) *)
-let handle_actor_edit_get _config req =
-  let username = Dream.param req "username" in
+let check_input_size field max_size data =
+  if String.length data > max_size
+  then Error (`InputTooLarge (field, max_size, String.take 100 data))
+  else Ok data
+
+let lift_result_check f = function
+    None -> Ok None
+  | Some data -> f data |> Result.map Option.some
+
+let get_user_checked req username =
   let+ current_user = current_user req in
   match current_user with
   | None ->
-    redirect req "/feed"
+    return_ok None
   | Some current_user when not (String.equal username current_user.Database.LocalUser.username) ->
     return (Error (`Unauthorised ("Don't have permission to edit " ^ username ^ "'s profile")))
   | Some current_user ->
+    return_ok (Some current_user)
+
+let extract_single_multipart_data = function
+  | [(None, data)] -> Ok data
+  | _ -> Error (`InvalidData "expected a single text input")
+
+(* * Actor *)
+(* ** Edit (html) *)
+
+
+let handle_actor_edit_get _config req =
+  let username = Dream.param req "username" in
+  let+ current_user = get_user_checked req username in
+  match current_user with
+  | None ->
+    redirect req "/feed"
+  | Some current_user ->
+    let token = Dream.csrf_token req in 
     let+ headers = Navigation.build_navigation_bar req in
     tyxml @@ Html.build_page ~headers ~title:(username ^ "'s Profile")  [
-      Html.Profile.edit_profile
+      Html.Profile.edit_profile ~fields:["dream.csrf", token]
         ?about:current_user.Database.LocalUser.about
         ?display_name:current_user.Database.LocalUser.display_name
         ~username ()
@@ -28,10 +56,51 @@ let handle_actor_edit_get _config req =
 
 (* ** Edit (html) post  *)
 let handle_actor_edit_post _config req =
+  log.debug (fun f -> f "POST to actor edit");
   let username = Dream.param req "username" in
-  let+ headers = Navigation.build_navigation_bar req in
-  tyxml @@ Html.build_page ~headers ~title:(username ^ "'s Profile")  [
-  ]
+  let+ current_user = get_user_checked req username in
+  match current_user with
+  | None ->
+    redirect req "/feed"
+  | Some current_user ->
+    let username = Dream.param req "username" in
+    let+ data = (Dream.multipart req) |> sanitize_form_error ([%show: (string * (string option * string) list) list]) in
+    match data with
+    | _ when List.Assoc.mem ~eq:String.equal "display-name" data ||
+             List.Assoc.mem ~eq:String.equal "about" data ->
+      let+ display_name =
+        List.Assoc.get ~eq:String.equal "display-name" data
+        |> lift_result_check extract_single_multipart_data
+        |> Result.flat_map
+          (lift_result_check (check_input_size "display-name" 80))
+        |> Result.map (Option.filter (Fun.negate String.is_empty))
+        |> Lwt_result.lift in
+      let+ about =
+        List.Assoc.get ~eq:String.equal "about" data
+        |> lift_result_check extract_single_multipart_data
+        |> Result.flat_map
+          (lift_result_check (check_input_size "about" 2048))
+        |> Result.map (Option.filter (Fun.negate String.is_empty))
+        |> Lwt_result.lift in
+      let+ () =
+        match display_name with
+        | None -> return_ok ()
+        | Some display_name ->
+          sql req
+            (Database.LocalUser.update_display_name
+               ~id:current_user.Database.LocalUser.id
+               ~display_name) in
+      let+ () =
+        match about with
+        | None -> return_ok ()
+        | Some about ->
+          sql req
+            (Database.LocalUser.update_about
+               ~id:current_user.Database.LocalUser.id
+               ~about) in
+    redirect req (Configuration.Url.user_path username)
+    | _ ->
+      redirect req (Configuration.Url.user_path username)
 
 
 (* ** Get (html) *)
@@ -45,12 +114,12 @@ let handle_actor_get_html _config req =
   (* let> _current_user = Common.with_current_user req in *)
   let+ no_following, no_followers, no_posts =
     Dream.sql req (fun db ->
-      let+ user = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db in
-      let+ following = Database.Follows.count_following ~author:user db in
-      let+ followers = Database.Follows.count_followers ~target:user db in
-      let+ posts = Database.Posts.count_posts_by_author ~author:user db in
-      Lwt.return_ok (following, followers,posts)
-    ) |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+        let+ user = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db in
+        let+ following = Database.Follows.count_following ~author:user db in
+        let+ followers = Database.Follows.count_followers ~target:user db in
+        let+ posts = Database.Posts.count_posts_by_author ~author:user db in
+        Lwt.return_ok (following, followers,posts)
+      ) |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
 
   let timestamp = Dream.query req "start"
                   |> Fun.flip Option.bind (fun v -> Ptime.of_rfc3339 v |> Result.to_opt)
@@ -70,14 +139,14 @@ let handle_actor_get_html _config req =
             ~since:timestamp ~offset:(offset * 10) ~limit:10 ~id:user db in
         let+ follows =
           Lwt_list.map_s (fun follow ->
-            let target = follow.Database.Follows.target_id in
-            let+ target = Database.Actor.resolve ~id:target db in
-            Lwt.return_ok (follow, target)) follows
+              let target = follow.Database.Follows.target_id in
+              let+ target = Database.Actor.resolve ~id:target db in
+              Lwt.return_ok (follow, target)) follows
           >> Result.flatten_l in
         let+ follows = Lwt_list.map_s (function
-            follow, `Remote r -> let+ remote = Database.RemoteUser.resolve ~id:r db in Lwt.return_ok (follow, `Remote remote)
-          | follow, `Local l -> let+ local = Database.LocalUser.resolve ~id:l db in Lwt.return_ok (follow, `Local local)
-        ) follows >> Result.flatten_l in
+              follow, `Remote r -> let+ remote = Database.RemoteUser.resolve ~id:r db in Lwt.return_ok (follow, `Remote remote)
+            | follow, `Local l -> let+ local = Database.LocalUser.resolve ~id:l db in Lwt.return_ok (follow, `Local local)
+          ) follows >> Result.flatten_l in
         Lwt.return_ok (`Followers (timestamp, offset, follows))
       | Some "following" ->
         let+ follows = 
@@ -85,9 +154,9 @@ let handle_actor_get_html _config req =
             ~offset:(offset * 10) ~limit:10 ~since:timestamp ~id:user db in
         let+ follows =
           Lwt_list.map_s (fun follow ->
-            let target = follow.Database.Follows.target_id in
-            let+ target = Database.Actor.resolve ~id:target db in
-            Lwt.return_ok (follow, target)) follows
+              let target = follow.Database.Follows.target_id in
+              let+ target = Database.Actor.resolve ~id:target db in
+              Lwt.return_ok (follow, target)) follows
           |> lift_pure in
         let+ follows = Lwt.return @@ Result.flatten_l follows in
         Lwt.return_ok (`Following (timestamp, offset, follows))
@@ -97,10 +166,10 @@ let handle_actor_get_html _config req =
             ~offset:(offset * 10) ~start_time:timestamp ~limit:10 ~author:user db in
         let+ posts =
           Lwt_list.map_s (fun post ->
-            let author = post.Database.Posts.author_id in
-            let+ author = Database.Actor.resolve ~id:author db in
-            Lwt_result.return (author, post)
-          ) posts
+              let author = post.Database.Posts.author_id in
+              let+ author = Database.Actor.resolve ~id:author db in
+              Lwt_result.return (author, post)
+            ) posts
           |> lift_pure in
         let+ posts = Lwt.return @@ Result.flatten_l posts in
         Lwt.return_ok (`Posts (timestamp, offset, posts))
@@ -110,19 +179,24 @@ let handle_actor_get_html _config req =
     let+ current_user = current_user req in
     Lwt_result.return @@
     Option.bind current_user (fun user ->
-      if String.equal user.Database.LocalUser.username username
-      then Some ("/users/" ^ username ^ "/edit")
-      else None) in
+        if String.equal user.Database.LocalUser.username username
+        then Some ("/users/" ^ username ^ "/edit")
+        else None) in
   let+ headers = Navigation.build_navigation_bar req in
   tyxml @@
   Html.build_page ~headers ~title:(username ^ "'s Profile")  [
     Html.Profile.profile ?edit object
       method name = Option.value ~default:user.Database.LocalUser.username user.Database.LocalUser.display_name
-      method details = [
-        Tyxml.(Html.p [Html.txt "Hi - this is the default profile details for my profile!"]);
-        Tyxml.(Html.p [Html.txt "I love OCaml, I'm using an activitypub server based purely on OCaml!"]);
-        Tyxml.(Html.p [Html.txt "Wow this is crazy!"]);
-      ]
+      method details = 
+        (user.Database.LocalUser.about)
+        |> Option.map Fun.(
+            List.map (fun t -> Tyxml.(Html.p [Html.txt t]))
+            % String.lines)
+        |> Option.value ~default:[
+          Tyxml.(Html.p [Html.txt "Hi - this is the default profile details for my profile!"]);
+          Tyxml.(Html.p [Html.txt "I love OCaml, I'm using an activitypub server based purely on OCaml!"]);
+          Tyxml.(Html.p [Html.txt "Wow this is crazy!"]);
+        ]
       method image = "/static/images/unknown.png"
       method stats = object
         method followers = no_followers
@@ -181,7 +255,7 @@ let handle_followers_get config req =
   let+ user = Dream.sql req (Database.LocalUser.find_user ~username)
               |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   let+ user = return @@ lift_opt ~else_:(fun _ -> `UserNotFound username)
-                          user in
+      user in
   let offset =
     let open Option in
     let* page = Dream.query req "page"
@@ -192,7 +266,7 @@ let handle_followers_get config req =
     return (page, start_time) in
   let is_page = Option.is_some offset in
   let offset, start_time = Option.value ~default:(0, Ptime_clock.now ())
-                             offset in
+      offset in
   let+ followers_collection_page =
     Dream.sql req
       (Ap_resolver.build_followers_collection_page
@@ -200,17 +274,17 @@ let handle_followers_get config req =
   let data =
     if is_page
     then Activitypub.Encode.ordered_collection_page (Decoders_yojson.Safe.Encode.string)
-           followers_collection_page
+        followers_collection_page
     else Activitypub.Encode.ordered_collection (Decoders_yojson.Safe.Encode.string)
-           ({
-             id = Some (
-               Configuration.Url.user_followers config (user.Database.LocalUser.username)
-               |> Uri.to_string
-             );
-             total_items=followers_collection_page.total_items
-                         |> Option.get_exn_or "invalid assumption";
-             contents=`First followers_collection_page; 
-           } : string Activitypub.Types.ordered_collection) in
+        ({
+          id = Some (
+              Configuration.Url.user_followers config (user.Database.LocalUser.username)
+              |> Uri.to_string
+            );
+          total_items=followers_collection_page.total_items
+                      |> Option.get_exn_or "invalid assumption";
+          contents=`First followers_collection_page; 
+        } : string Activitypub.Types.ordered_collection) in
   activity_json data
 
 (* * Following *)
@@ -220,7 +294,7 @@ let handle_following_get config req =
   let+ user = Dream.sql req (Database.LocalUser.find_user ~username)
               |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   let+ user = return @@ lift_opt ~else_:(fun _ -> `UserNotFound username)
-                          user in
+      user in
   let offset =
     let open Option in
     let* page = Dream.query req "page"
@@ -231,7 +305,7 @@ let handle_following_get config req =
     return (page, start_time) in
   let is_page = Option.is_some offset in
   let offset, start_time = Option.value ~default:(0, Ptime_clock.now ())
-                             offset in
+      offset in
   let+ following_collection_page =
     Dream.sql req
       (Ap_resolver.build_following_collection_page
@@ -239,17 +313,17 @@ let handle_following_get config req =
   let data =
     if is_page
     then Activitypub.Encode.ordered_collection_page (Decoders_yojson.Safe.Encode.string)
-           following_collection_page
+        following_collection_page
     else Activitypub.Encode.ordered_collection (Decoders_yojson.Safe.Encode.string)
-           ({
-             id = Some (
-               Configuration.Url.user_following config (user.Database.LocalUser.username)
-               |> Uri.to_string
-             );
-             total_items=following_collection_page.total_items
-                         |> Option.get_exn_or "invalid assumption";
-             contents=`First following_collection_page; 
-           } : string Activitypub.Types.ordered_collection) in
+        ({
+          id = Some (
+              Configuration.Url.user_following config (user.Database.LocalUser.username)
+              |> Uri.to_string
+            );
+          total_items=following_collection_page.total_items
+                      |> Option.get_exn_or "invalid assumption";
+          contents=`First following_collection_page; 
+        } : string Activitypub.Types.ordered_collection) in
   activity_json data
 
 (* * Users *)
@@ -285,17 +359,17 @@ let classify_query s =
 let render_users_page ?search_query req user_type users =
   let+ headers = Navigation.build_navigation_bar req in
   tyxml (Html.build_page ~headers ~title:(show_user_types user_type) Tyxml.Html.[
-    Html.Components.page_title (show_user_types user_type);
-    Html.Components.subnavigation_menu [
-      "Local", "/users?type=local";
-      "Remote", "/users?type=remote";
-    ];
-    Html.Components.search_box
-      ~fields:["type", encode_user_types user_type]
-      ?value:search_query ();
-    div ~a:[a_class ["users-list"]]
-      users
-  ])
+      Html.Components.page_title (show_user_types user_type);
+      Html.Components.subnavigation_menu [
+        "Local", "/users?type=local";
+        "Remote", "/users?type=remote";
+      ];
+      Html.Components.search_box
+        ~fields:["type", encode_user_types user_type]
+        ?value:search_query ();
+      div ~a:[a_class ["users-list"]]
+        users
+    ])
 
 (* ** Local users (get) *)
 let handle_local_users_get _config req =
@@ -311,30 +385,30 @@ let handle_local_users_get _config req =
     | Some query when not (String.is_empty query) ->
       let query = "%" ^ (String.replace ~sub:" " ~by:"%" query) ^ "%" in
       Dream.sql req (fun db ->
-        Database.LocalUser.find_local_users
-          ~offset:(offset_start * limit) ~limit
-          ~pattern:query db)
+          Database.LocalUser.find_local_users
+            ~offset:(offset_start * limit) ~limit
+            ~pattern:query db)
       |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
     | _ ->
       Dream.sql req (fun db ->
-        Database.LocalUser.collect_local_users
-          ~offset:(offset_start * limit)
-          ~limit:limit db)
+          Database.LocalUser.collect_local_users
+            ~offset:(offset_start * limit)
+            ~limit:limit db)
       |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   let+ users_w_stats =
     Lwt_list.map_p (fun user ->
-      Dream.sql req @@ fun db ->
-      let+ user_link = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db in
-      let+ no_followers = Database.Follows.count_followers ~target:user_link db in
-      let+ no_posts = Database.Posts.count_posts_by_author ~author:user_link db in
-      let+ is_following =
-        match current_user_link with
-        | None -> return_ok None
-        | Some current_user_link ->
-          Database.Follows.is_following ~author:current_user_link ~target:user_link db
-          |> Lwt_result.map Option.some in
-      return_ok (user, no_followers, no_posts, is_following)
-    ) users
+        Dream.sql req @@ fun db ->
+        let+ user_link = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db in
+        let+ no_followers = Database.Follows.count_followers ~target:user_link db in
+        let+ no_posts = Database.Posts.count_posts_by_author ~author:user_link db in
+        let+ is_following =
+          match current_user_link with
+          | None -> return_ok None
+          | Some current_user_link ->
+            Database.Follows.is_following ~author:current_user_link ~target:user_link db
+            |> Lwt_result.map Option.some in
+        return_ok (user, no_followers, no_posts, is_following)
+      ) users
     |> lift_pure
     >>= (fun r -> return (Result.flatten_l r))
     |> map_err (fun e -> `DatabaseError (Caqti_error.show e)) in
@@ -344,28 +418,28 @@ let handle_local_users_get _config req =
     | None -> fun _ -> false
     | Some current_user -> fun other_user ->
       not @@ String.equal
-               (current_user.Database.LocalUser.username)
-               (other_user.Database.LocalUser.username) in
+        (current_user.Database.LocalUser.username)
+        (other_user.Database.LocalUser.username) in
   let users =
     List.map (fun (user, no_followers, no_posts, is_following) ->
-      Html.Users.user ~can_follow:(can_follow user)
-        (object
-          method about = []
-          method display_name = Option.value ~default:user.Database.LocalUser.username user.Database.LocalUser.display_name
-          method username = user.Database.LocalUser.username
-          method follow_link = ("/users/" ^ (user.Database.LocalUser.username) ^ "/follow")
-          method profile_page = ("/users/" ^ (user.Database.LocalUser.username))
-          method following = is_following
-          method profile = object
-            method image = "/static/images/unknown.png"
-            method name = ""
-          end
-          method stats = object
-            method followers = no_followers
-            method posts = no_posts
-          end
-        end)
-    ) users_w_stats in
+        Html.Users.user ~can_follow:(can_follow user)
+          (object
+            method about = []
+            method display_name = Option.value ~default:user.Database.LocalUser.username user.Database.LocalUser.display_name
+            method username = user.Database.LocalUser.username
+            method follow_link = ("/users/" ^ (user.Database.LocalUser.username) ^ "/follow")
+            method profile_page = ("/users/" ^ (user.Database.LocalUser.username))
+            method following = is_following
+            method profile = object
+              method image = "/static/images/unknown.png"
+              method name = ""
+            end
+            method stats = object
+              method followers = no_followers
+              method posts = no_posts
+            end
+          end)
+      ) users_w_stats in
   render_users_page ?search_query req `Local users
 
 (* ** Remote users (get) *)
@@ -381,81 +455,81 @@ let handle_remote_users_get config req =
     match search_query, current_user_link with
     | None, _ | Some _, None ->
       Dream.sql req (fun db ->
-        Database.RemoteUser.collect_remote_users
-          ~limit ~offset:(offset * limit) db)
+          Database.RemoteUser.collect_remote_users
+            ~limit ~offset:(offset * limit) db)
       |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
     | Some query, Some _ ->
       match classify_query query with
       | `Resolve (user, domain) ->
         log.debug (fun f -> f "received explicit search - sending task to worker");
         Configuration.Params.send_task config Worker.(SearchRemoteUser {
-          username=user; domain=Some domain
-        });
+            username=user; domain=Some domain
+          });
         let query = "%" ^ user ^ "%" in
         Dream.sql req (fun db ->
-          Database.RemoteUser.find_remote_users ~limit
-            ~offset:(offset * limit) ~pattern:query db
-        )
+            Database.RemoteUser.find_remote_users ~limit
+              ~offset:(offset * limit) ~pattern:query db
+          )
         |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
       | `SearchLike query ->
         log.debug (fun f -> f "received implicit search");
         begin match query with
-        | [username] -> 
-          log.debug (fun f -> f "implicit search over single parameter - sending task to worker");
-          Configuration.Params.send_task config Worker.(SearchRemoteUser {
-            username; domain=None
-          });
-        | _ -> ()
+          | [username] -> 
+            log.debug (fun f -> f "implicit search over single parameter - sending task to worker");
+            Configuration.Params.send_task config Worker.(SearchRemoteUser {
+                username; domain=None
+              });
+          | _ -> ()
         end;
         let query = "%" ^ (String.concat "%" query) ^ "%" in
         Dream.sql req (fun db ->
-          Database.RemoteUser.find_remote_users ~limit
-            ~offset:(offset * limit) ~pattern:query db
-        )
+            Database.RemoteUser.find_remote_users ~limit
+              ~offset:(offset * limit) ~pattern:query db
+          )
         |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   let+ users_w_stats =
     Lwt_list.map_p (fun (url, user) ->
-      Dream.sql req @@ fun db ->
-      let+ user_link = Database.Actor.create_remote_user ~remote_id:(user.Database.RemoteUser.id) db in
-      let+ no_followers = Database.Follows.count_followers ~target:user_link db in
-      let+ no_posts = Database.Posts.count_posts_by_author ~author:user_link db in
-      let+ is_following =
-        match current_user_link with
-        | None -> return_ok None
-        | Some current_user_link ->
-          let+ follow =
-            Database.Follows.find_follow_between
-              ~author:current_user_link ~target:user_link db in
-          return_ok @@ match follow with
-          | Some follow when follow.Database.Follows.pending -> None
-          | Some _ -> Some true
-          | None -> Some false in
-      return_ok (user, url, no_followers, no_posts, is_following)
-    ) users
+        Dream.sql req @@ fun db ->
+        let+ user_link = Database.Actor.create_remote_user ~remote_id:(user.Database.RemoteUser.id) db in
+        let+ no_followers = Database.Follows.count_followers ~target:user_link db in
+        let+ no_posts = Database.Posts.count_posts_by_author ~author:user_link db in
+        let+ is_following =
+          match current_user_link with
+          | None -> return_ok None
+          | Some current_user_link ->
+            let+ follow =
+              Database.Follows.find_follow_between
+                ~author:current_user_link ~target:user_link db in
+            return_ok @@ match follow with
+            | Some follow when follow.Database.Follows.pending -> None
+            | Some _ -> Some true
+            | None -> Some false in
+        return_ok (user, url, no_followers, no_posts, is_following)
+      ) users
     |> lift_pure
     >>= (fun r -> return (Result.flatten_l r))
     |> map_err (fun e -> `DatabaseError (Caqti_error.show e)) in
   let users =
     List.map (fun (user, url, no_followers, no_posts, is_following) ->
-      Html.Users.user ~can_follow:true
-        (let fqn = (user.Database.RemoteUser.username) ^ "@" ^ url in
-         object
-           method about = []
-           method display_name = Option.value ~default:user.Database.RemoteUser.username user.Database.RemoteUser.display_name
-           method username = user.Database.RemoteUser.username ^ "@" ^ url
-           method follow_link = ("/users/" ^ fqn ^ "/follow")
-           method profile_page = ("/users/" ^ fqn)
-           method following = is_following
-           method profile = object
-             method image = "/static/images/unknown.png"
-             method name = ""
-           end
-           method stats = object
-             method followers = no_followers
-             method posts = no_posts
-           end
-         end)
-    ) users_w_stats in
+        Html.Users.user ~can_follow:true
+          (let fqn = (user.Database.RemoteUser.username) ^ "@" ^ url in
+           object
+             method about = []
+             method display_name = Option.value ~default:user.Database.RemoteUser.username user.Database.RemoteUser.display_name
+             method username = user.Database.RemoteUser.username ^ "@" ^ url
+             method follow_link = ("/users/" ^ fqn ^ "/follow")
+             method profile_page = ("/users/" ^ fqn)
+             method following = is_following
+             method profile = object
+               method image = "/static/images/unknown.png"
+               method name = ""
+             end
+             method stats = object
+               method followers = no_followers
+               method posts = no_posts
+             end
+           end)
+      ) users_w_stats in
   render_users_page ?search_query req `Remote users
 
 (* ** Users (get) *)
@@ -518,12 +592,12 @@ let handle_follow_local_user _config current_user username req =
 (* * Follow remote *)
 let handle_follow_remote_user config current_user username domain req =
   Configuration.Params.send_task config Worker.(
-    FollowRemoteUser {
-      user=current_user;
-      username;
-      domain
-    }
-  );
+      FollowRemoteUser {
+        user=current_user;
+        username;
+        domain
+      }
+    );
   redirect req "/users"
 
 let handle_users_follow_post _config req =
@@ -561,29 +635,29 @@ let handle_inbox_post config req =
   let+ data =
     (Activitypub.Decode.(decode_string obj) body_text)
     |> (function
-      | Ok _ as data -> data
-      | Error err ->
-        if Configuration.Params.debug config then
-          IO.with_out ~flags:[Open_append; Open_creat] "ocamlot-failed-events.json" (Fun.flip IO.write_line (body_text ^ "\n"));
-        Error err)
+        | Ok _ as data -> data
+        | Error err ->
+          if Configuration.Params.debug config then
+            IO.with_out ~flags:[Open_append; Open_creat] "ocamlot-failed-events.json" (Fun.flip IO.write_line (body_text ^ "\n"));
+          Error err)
     |> return
     |> map_err (fun err -> `InvalidActivitypubObject err) in
 
   log.debug (fun f ->
-    f "received activitypub object %a"
-      Activitypub.Types.pp_obj data
-  );
+      f "received activitypub object %a"
+        Activitypub.Types.pp_obj data
+    );
   log.debug (fun f ->
-    f "headers were %s"
-      ([%show: (string * string) list] (Dream.all_headers req))
-  );
+      f "headers were %s"
+        ([%show: (string * string) list] (Dream.all_headers req))
+    );
 
   let+ _ =
     match[@warning "-27"] data with
     | `Accept { obj=`Follow { id=follow_id; _ }; id=accept_activity_id; raw=accept_obj; actor; _ } ->
       Configuration.Params.send_task config Worker.(
-        HandleAcceptFollow { follow_id }
-      );
+          HandleAcceptFollow { follow_id }
+        );
       return_ok ()
     | `Follow { id; actor; cc; to_; object_; state; raw } ->
       let user_re = Configuration.Regex.local_user_id_format config in
@@ -596,13 +670,13 @@ let handle_inbox_post config req =
       let+ target = lift_opt ~else_:(fun _ -> `UserNotFound object_) target
                     |> return in
       Configuration.Params.send_task config Worker.(
-        HandleRemoteFollow { id; actor; target; raw }
-      );
+          HandleRemoteFollow { id; actor; target; raw }
+        );
       return_ok ()
     | `Undo { obj=`Follow { id=follow_id; _ }; _ } ->
       Configuration.Params.send_task config Worker.(
-        HandleUndoFollow { follow_id }
-      );
+          HandleUndoFollow { follow_id }
+        );
       return_ok ()
     | `Create { obj=`Note note; actor; published; direct_message; _ } ->
       log.debug (fun f -> f "creating post");
@@ -612,12 +686,12 @@ let handle_inbox_post config req =
         |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
         (* if the remote user isn't registered in our database, then ignore it *)
         >> Result.flat_map (lift_opt ~else_:(fun _ ->
-          log.debug (fun f -> f "got request from unknown actor %s" actor);
-          `UnknownRemoteUser actor)) in
+            log.debug (fun f -> f "got request from unknown actor %s" actor);
+            `UnknownRemoteUser actor)) in
       log.debug (fun f -> f "found remote user");
       Configuration.Params.send_task config Worker.(
-        CreateRemoteNote { author=remote_user; direct_message; note }
-      );
+          CreateRemoteNote { author=remote_user; direct_message; note }
+        );
       return_ok ()
     | `Accept _
     | `Announce _
@@ -631,8 +705,8 @@ let handle_inbox_post config req =
   in
 
   json (`Assoc [
-    "ok", `List []
-  ])
+      "ok", `List []
+    ])
 
 (* * Route *)
 let route config = 
