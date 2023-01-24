@@ -27,9 +27,10 @@ module LocalUser = struct
       preferred_username=(actor.Operations.LocalUser.display_name);
       inbox = uri (Configuration.Url.user_inbox config username);
       outbox = uri (Configuration.Url.user_outbox config username);
-      summary = Some "SUMMARIES NOT CURRENTLY SUPPORTED BY OCAMLOT";
+      summary = (actor.Operations.LocalUser.about);
       public_key = convert_pubkey config actor;
-      manually_approves_followers = false;
+      manually_approves_followers =
+        actor.Operations.LocalUser.manually_accepts_follows;
       discoverable = true;
       followers = Some (uri (Configuration.Url.user_followers config username));
       following = Some (uri (Configuration.Url.user_following config username));

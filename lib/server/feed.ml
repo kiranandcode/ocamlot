@@ -53,16 +53,27 @@ let extract_post req (post: Database.Posts.t) =
       Markdown.markdown_to_html (Omd.of_string source)
     | _ -> [ Tyxml.Html.txt source ] in
 
-  let+ name = match author with
+  let+ name, image = match author with
       `Local l ->
       let+ l = sql req (Database.LocalUser.resolve ~id:l) in
-      return_ok l.Database.LocalUser.username
+      let name =
+        Option.value ~default:l.Database.LocalUser.username
+          l.Database.LocalUser.display_name in
+      let image = Option.map Configuration.Url.image_path
+          l.Database.LocalUser.profile_picture in
+      return_ok (name,
+                 image)
     | `Remote l ->
       let+ l = sql req (Database.RemoteUser.resolve ~id:l) in
-      return_ok l.Database.RemoteUser.username in
+      let name =
+        Option.value ~default:l.Database.RemoteUser.username
+          l.Database.RemoteUser.display_name in
+      return_ok (name, None) in
   let author_obj = object
     method name = name
-    method image = "/static/images/unknown.png"
+    method image =
+      Option.value ~default:"/static/images/unknown.png"
+        image
     method instance_url = author_instance
   end in
 

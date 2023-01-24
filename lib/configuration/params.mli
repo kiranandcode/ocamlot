@@ -2,7 +2,8 @@ type 'a t
 
 val create :
   ?key_file:string -> ?certificate_file:string ->
-  ?about_this_instance:string -> ?user_image_path:string -> ?debug:bool -> ?port:int -> database_path:string -> string -> 'a t
+  ?about_this_instance:string -> ?debug:bool -> ?port:int -> user_image_path:string -> database_path:string -> string -> 'a t
+
 
 val send_task: 'a t -> 'a -> unit
 val set_task_fn: 'a t -> ('a option -> unit) -> unit

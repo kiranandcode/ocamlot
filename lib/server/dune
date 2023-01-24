@@ -11,7 +11,9 @@
 
    dream dream-pure dream.http
 
-   mirage-crypto-rng.lwt
+   mirage-crypto-rng.lwt mirage-crypto cstruct
+
+   conan conan.string conan-database fpath
 
    calendar
    ptime ptime.clock.os

@@ -27,6 +27,8 @@
    caqti-driver-sqlite3
    caqti-type-calendar
 
+   conan conan-database
+
    uuidm
 
    dream

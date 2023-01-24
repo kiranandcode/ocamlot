@@ -45,10 +45,10 @@ let enforce_directory path =
   let* path = Fpath.of_string path in
   let* exists = OS.Dir.exists path in
   if exists
-  then Ok (Fpath.to_string path)
+  then Ok (Fpath.to_string @@Fpath.to_dir_path path)
   else begin
     let* _ = OS.Dir.create path in
-    Ok (Fpath.to_string path)
+    Ok (Fpath.to_string @@ Fpath.to_dir_path path)
   end
 
 (** [enforce_database path] when given a path [path] ensures that
@@ -82,13 +82,11 @@ let run key_file certificate_file user_image_path about_this_instance_path datab
       let* about_this_instance = OS.File.read path in
       Ok (Some about_this_instance) in
   let database_path =  "sqlite3://:" ^ database_path in
-  let* user_image_path = match user_image_path with
-    | None -> Ok None
-    | Some path ->
-      let* path = enforce_directory path in
-      Ok (Some path) in
+  let* user_image_path =
+    let* path = enforce_directory user_image_path in
+    Ok path in
   let config = Configuration.Params.create
-                 ?key_file ?certificate_file ?user_image_path ?about_this_instance ~debug ?port ~database_path domain in
+                 ?key_file ?certificate_file ~user_image_path ?about_this_instance ~debug ?port ~database_path domain in
   Ok (Server.run config)
 
 let debug =
@@ -121,7 +119,7 @@ let user_image_path =
       ~docv:"DB"
       ~absent:{| A directory `user-images` in current working directory is used.|}
       ["u"; "user-image-path"] in
-  Arg.(opt (some file) None) info
+  Arg.(opt file ("./user-images/")) info
 
 let key_file_path =
   let info =

@@ -37,8 +37,7 @@ The site administrator for this OCamlot instance has not configured the about th
 Donate to the FSF if you wish to support FREEDOM: [Free Software Foundation](www.fsf.org)
 |}
 
-let create ?key_file ?certificate_file ?(about_this_instance=default_about_this_instance) ?(user_image_path="./user-images/")
-      ?(debug=false) ?(port=7331) ~database_path  domain = {
+let create ?key_file ?certificate_file ?(about_this_instance=default_about_this_instance) ?(debug=false) ?(port=7331) ~user_image_path ~database_path  domain = {
   domain;
   user_image_path;
   database_path;

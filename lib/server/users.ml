@@ -13,8 +13,27 @@ let sql req op =
 
 let check_input_size field max_size data =
   if String.length data > max_size
-  then Error (`InputTooLarge (field, max_size, String.take 100 data))
+  then Error (
+      `InputTooLarge (
+        field,
+        max_size,
+        "[" ^
+        string_of_int (String.length data) ^
+        "]" ^
+        String.take 100 data ^
+        "..."
+      ))
   else Ok data
+
+let lift_pair_fst f (l,r) =
+  match f l with
+  | Ok l -> Ok (l,r)
+  | Error _ as err -> err
+let lift_pair_snd f (l,r) =
+  match f r with
+  | Ok r -> Ok (l,r)
+  | Error _ as err -> err
+
 
 let lift_result_check f = function
     None -> Ok None
@@ -34,6 +53,11 @@ let extract_single_multipart_data = function
   | [(None, data)] -> Ok data
   | _ -> Error (`InvalidData "expected a single text input")
 
+let extract_file_multipart_data = function
+  | [(Some fname, data)] -> Ok (fname, data)
+  | _ -> Error (`InvalidData "expected a file input")
+
+
 (* * Actor *)
 (* ** Edit (html) *)
 
@@ -51,6 +75,7 @@ let handle_actor_edit_get _config req =
       Html.Profile.edit_profile ~fields:["dream.csrf", token]
         ?about:current_user.Database.LocalUser.about
         ?display_name:current_user.Database.LocalUser.display_name
+        ?image:current_user.Database.LocalUser.profile_picture
         ~username ()
     ]
 
@@ -64,8 +89,33 @@ let handle_actor_edit_post _config req =
     redirect req "/feed"
   | Some current_user ->
     let username = Dream.param req "username" in
-    let+ data = (Dream.multipart req) |> sanitize_form_error ([%show: (string * (string option * string) list) list]) in
+    let+ data = (Dream.multipart req)
+                |> sanitize_form_error ([%show: (string * (string option * string) list) list]) in
     match data with
+    | _ when List.Assoc.mem ~eq:String.equal "avatar" data ->
+      let+ avatar =
+        List.Assoc.get ~eq:String.equal "avatar" data
+        |> lift_result_check extract_file_multipart_data
+        |> Result.flat_map
+          (lift_result_check
+             (lift_pair_snd
+                (check_input_size "avatar" 3_000_000)))
+        |> Lwt_result.lift in
+      begin
+        match avatar with
+        | None -> redirect req "/feed"
+        | Some (fname, avatar) ->
+          log.debug (fun f -> f "got file %s, [%d]{%s..}" fname
+                        (String.length avatar) (String.take 100 avatar));
+          let+ image = Images.upload_file _config req ~fname ~data:avatar in
+          let+ () =
+            sql req
+            (Database.LocalUser.update_profile_picture
+              ~id:current_user.Database.LocalUser.id
+              ~image) in
+          redirect req (Configuration.Url.user_path username)
+      end
+
     | _ when List.Assoc.mem ~eq:String.equal "display-name" data ||
              List.Assoc.mem ~eq:String.equal "about" data ->
       let+ display_name =
@@ -98,7 +148,7 @@ let handle_actor_edit_post _config req =
             (Database.LocalUser.update_about
                ~id:current_user.Database.LocalUser.id
                ~about) in
-    redirect req (Configuration.Url.user_path username)
+      redirect req (Configuration.Url.user_path username)
     | _ ->
       redirect req (Configuration.Url.user_path username)
 
@@ -197,7 +247,10 @@ let handle_actor_get_html _config req =
           Tyxml.(Html.p [Html.txt "I love OCaml, I'm using an activitypub server based purely on OCaml!"]);
           Tyxml.(Html.p [Html.txt "Wow this is crazy!"]);
         ]
-      method image = "/static/images/unknown.png"
+      method image = (match user.Database.LocalUser.profile_picture with
+          | None -> "/static/images/unknown.png"
+          | Some image -> (Configuration.Url.image_path image)
+        )
       method stats = object
         method followers = no_followers
         method following = no_following
@@ -215,23 +268,28 @@ let handle_actor_get_json config req =
       (Database.LocalUser.find_user ~username)
     |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
     >>= (fun v -> return (lift_opt ~else_:(fun () -> `UserNotFound username) v)) in
-  activity_json
-    (user
+  let user_json = (user
      |> Database.Interface.LocalUser.convert_to config
-     |> Activitypub.Encode.person)
+     |> Activitypub.Encode.person) in
+  log.debug (fun f -> f "query for %s --> %a" username Yojson.Safe.pp user_json);
+  activity_json user_json
 
 (* ** Get *)
 let handle_actor_get config req =
   let content_type = Dream.header req "Accept"
                      |> Option.value ~default:(Activitypub.Constants.ContentType.html) in
+  log.debug (fun f -> f "got user request for %s" content_type);
   match Activitypub.Constants.ContentType.of_string content_type with
   | None ->
+  log.debug (fun f -> f "no idea for %s, returning html" content_type);
     Error_handling.handle_error_html config
       (fun _ -> return @@ Error (`UnsupportedContentType content_type)) req
   | Some `HTML ->
+    log.debug (fun f -> f "%s -> html; returning html" content_type);
     Error_handling.handle_error_html config
       (handle_actor_get_html config) req
   | Some `JSON ->
+    log.debug (fun f -> f "%s -> json; returning json" content_type);
     Error_handling.handle_error_json config
       (handle_actor_get_json config) req
 
@@ -431,7 +489,9 @@ let handle_local_users_get _config req =
             method profile_page = ("/users/" ^ (user.Database.LocalUser.username))
             method following = is_following
             method profile = object
-              method image = "/static/images/unknown.png"
+              method image =(Option.value ~default:"/static/images/unknown.png"
+                               (Option.map Configuration.Url.image_path
+                                  user.Database.LocalUser.profile_picture))
               method name = ""
             end
             method stats = object
@@ -616,6 +676,7 @@ let handle_users_follow_post _config req =
 
 (* * Inbox (post) *)
 let handle_inbox_post config req =
+  log.debug (fun f -> f ~request:req "got POST to inbox");
   log.debug (fun f -> f "validating request");
   let+ valid_request =
     Http_sig.verify_request

@@ -13,6 +13,7 @@ let extract_error_details err =
     | `InvalidActivitypubObject _
     | `InvalidSignature
     | `InvalidData _ -> `Bad_Request
+    | `UnsupportedFormat _ -> `Bad_Request
     | `InputTooLarge (_, _, _) -> `Bad_Request
     | _ -> `Internal_Server_Error in
     let msg = match err with
@@ -20,6 +21,7 @@ let extract_error_details err =
       | `InvalidSignature -> "Invalid Signature"
       | `Unauthorised s -> s
       | `InvalidData _ -> "Invalid Data"
+      | `UnsupportedFormat msg -> "Unsupported format " ^ msg
       | `UserNotFound (_) -> "User not found"
       | `ActivityNotFound (_) -> "Activity not found"
       | `InvalidWebfinger (title, _) -> "Web finger error - " ^ title
@@ -37,6 +39,7 @@ let extract_error_details err =
       | `ActivityNotFound name -> "Activity " ^ name ^ " not found"
       | `InvalidWebfinger (_, msg) -> "Query data was:\n  " ^ msg
       | `InputTooLarge (_, _, details) -> "Input details: " ^ details
+      | `UnsupportedFormat _ -> "No further details "
       | `DatabaseError msg -> "Error was:\n" ^ msg
       | `FormError (_, data) -> "Form data was:\n" ^ data
       | `Msg m -> m

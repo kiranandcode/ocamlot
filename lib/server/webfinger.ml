@@ -14,10 +14,18 @@ let resource_to_username config queried_resource =
     Re.exec_opt local_user_id_format queried_resource
     |> Fun.flip Option.bind (Fun.flip Re.Group.get_opt 1)
   end
+
+let is_webfinger_supported_content_type s =
+  String.split_on_char ',' s
+  |> List.exists (function
+      "application/json"
+      | "application/jrd+json" -> true
+      | _ -> false
+    )
   
 let handle_webfinger config req =
   let content_type = Dream.header req "Accept" in
-  if not (Option.for_all String.(prefix ~pre:"application/json") content_type) then
+  if not (Option.for_all is_webfinger_supported_content_type content_type) then
     log.warning (fun f -> f "webfinger for unsupported content type \"%s\", ignoring silently"
                             (Option.value ~default:"" content_type));
   let+ queried_resource = Dream.query req "resource"
@@ -33,7 +41,7 @@ let handle_webfinger config req =
     let result = 
       Database.Interface.Webfinger.construct_query_result_for config user
       |> Activitypub.Encode.Webfinger.query_result in
-    log.debug (fun f -> f "result for webfinger query: %s" (Yojson.Safe.to_string result));
+    log.debug (fun f -> f "result for webfinger query: %a" Yojson.Safe.pp result);
     json result
   | None ->
     log.debug (fun f -> f "user %s was not found" queried_resource);

@@ -446,7 +446,7 @@ let create_note_request config scope author to_ cc summary content content_type 
       ~post_source:content ~post_content:content_type
       ~published db
     |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-  log.debug (fun f -> f "added post to database!");
+
   let+ () = Database.Posts.add_post_tos ~id:post.Database.Posts.id ~tos:to_ db
             |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   let+ () = Database.Posts.add_post_ccs ~id:post.Database.Posts.id ~ccs:cc db
@@ -458,6 +458,10 @@ let create_note_request config scope author to_ cc summary content content_type 
 
   let post_obj : Activitypub.Types.note =
     create_note_obj config post_id author published scope to_ cc content summary in
+  let data = Activitypub.Encode.note post_obj in
+  let+ _ = Database.Activity.create ~id:post_id ~data db
+           |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  log.debug (fun f -> f "added post to database!");
 
   let create_post_id = fresh_id () in
   let create_note_obj : Activitypub.Types.note Activitypub.Types.create =

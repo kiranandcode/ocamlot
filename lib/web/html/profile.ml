@@ -39,7 +39,8 @@ let edit_profile ?(fields=[]) ?about ?display_name ?image ~username () =
     match about with None -> [H.a_placeholder "About me..."],H.txt "" | Some about -> [], H.txt about in
   H.div ~a:[H.a_class ["profile"]] [
     H.div ~a:[H.a_class ["profile-details"]] [
-      H.div ~a:[H.a_class ["profile-name"]] [H.b [H.txt ("Editing " ^ username ^ "'s profile")]];
+      H.div ~a:[H.a_class ["profile-name"]]
+        [H.b [H.txt ("Editing " ^ username ^ "'s profile")]];
       H.div ~a:[H.a_class ["profile-summary"]] [
         H.form ~a:[
           H.a_class ["profile-details-update"; "pure-form"; "pure-form-aligned"];
@@ -97,7 +98,7 @@ let edit_profile ?(fields=[]) ?about ?display_name ?image ~username () =
               H.input ~a:([
                   H.a_input_type `File;
                   H.a_accept ["png"; "jpg"; "jpeg"; "bmp"];
-                  H.a_name "about";
+                  H.a_name "avatar";
                   H.a_id "avatar"
                 ]) ();
             ];

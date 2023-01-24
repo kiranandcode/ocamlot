@@ -318,6 +318,18 @@ module LocalUser = struct
     |> Request.make_zero
     |> Petrol.exec conn
 
+  let update_profile_picture ~id ~image conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.update ~table:LocalUser.table
+      ~set:Expr.[
+        LocalUser.profile_picture := s image
+      ]
+    |> Query.where Expr.(LocalUser.id = i id)
+    |> Request.make_zero
+    |> Petrol.exec conn
+
   let collect_local_users ?(offset=0) ?(limit=10) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
