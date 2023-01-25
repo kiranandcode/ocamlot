@@ -18,7 +18,7 @@ interaction between the two containers to work).
 1. Clone a copy of pleroma to the `tests/integration_test/` directory:
 
 ```bash
-git clone -b  v2.4.5 --single-branch https://git.pleroma.social/pleroma/pleroma ./tests/integration_tests/pleroma
+git clone -b  v2.5.0 --single-branch https://git.pleroma.social/pleroma/pleroma ./tests/integration_tests/pleroma
 ```
 
 2. Apply patch to pleroma to disable TLS validation (required for local testing)
