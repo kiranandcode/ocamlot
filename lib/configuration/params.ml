@@ -1,31 +1,179 @@
-type 'task t = {
-  domain: string;
-  (** domain on which the server is running - used to sign messages, so should not be localhost. *)
+[@@@warning "-34-32"]
 
-  user_image_path: string;
-  (** path at which the user images are stored (created if it does not exist). *)
+open (struct
+  type 'a param = {
+    name: string;
+    docv: string option;
+    documentation: string;
+    absent: string option;
+    flags: string list option;
+    mutable value: 'a;
+  }
 
-  database_path: string;
-  (** path at which the server database is located (created if it does not exist).  *)
+  type pref =
+    | Param: 'a option param * bool * 'a Cmdliner.Arg.conv -> pref
+    | Flag: bool param -> pref
 
-  about_this_instance: Omd.doc;
-  (** Markdown text show to users when logging in or registering an account. *)
+  type 'a value = unit -> 'a
 
-  port: int;
-  (** port on which the server should run. *)
+  let operations = ref []
 
-  certificate_file: string option;
-  (** certificate file to use for tls encryption. Both [certificate_file] and [key_file] must be provided for tls to be enabled. *)
+  let wrap term =
+    let open Cmdliner in
+    let term = ref term in
+    List.iter (function
+        | Flag pref ->
+          let param_info =
+            Arg.info
+              ~doc:pref.documentation
+              ~docv:(Option.value pref.docv ~default:pref.name)
+              ?absent:pref.absent
+              (Option.value pref.flags ~default:[pref.name]) in
+          term := Term.((const (fun x term ->
+              pref.value <- x;
+              term
+            )) $ (Arg.value (Arg.flag param_info)) $ !term)
+        | Param (pref, required, param_conv) ->
+          let param_info =
+            Arg.info
+              ~doc:pref.documentation
+              ~docv:(Option.value pref.docv ~default:pref.name)
+              ?absent:pref.absent
+              (Option.value pref.flags ~default:[pref.name]) in
+          term := if required
+            then Term.((const (fun x term ->
+                pref.value <- Some x;
+                term
+              )) $ (Arg.required (Arg.opt Arg.(some param_conv) None param_info)) $ !term)
+            else Term.((const (fun x term ->
+                pref.value <- x;
+                term
+              )) $ (Arg.value (Arg.opt Arg.(some param_conv) None param_info)) $ !term)
+      ) !operations;
+    !term
 
-  key_file: string option;
-  (** key file to use for tls encryption. Both [certificate_file] and [key_file] must be provided for tls to be enabled. *)
 
-  debug: bool;
-  (** whether to run in debug mode.  *)
+  let flag ~name ~documentation ?docv ?absent ?flags () : bool value =
+    let value = {name; documentation; docv; absent; flags; value=false} in
+    operations := Flag value :: !operations;
+    fun () -> value.value
+
+  let required ~name ~documentation ~ty ?docv ?absent ?flags () : 'a value =
+    let value = {name; documentation; docv; absent; flags; value=None} in
+    operations := Param (value, true, ty) :: !operations;
+    fun () -> match value.value with
+      | None -> failwith ("parameter " ^ name ^ " was not provided")
+      | Some value -> value
+
+  let optional ~name ~documentation ~ty ?docv ?absent ?flags () : 'a value =
+    let value = {name; documentation; docv; absent; flags; value=None} in
+    operations := Param (value, true, ty) :: !operations;
+    fun () -> value.value 
+
+  let optional_with_default ~name ~documentation ~ty ~default ?docv ?absent ?flags () : 'a value =
+    let value = {name; documentation; docv; absent; flags; value=Some default} in
+    operations := Param (value, true, ty) :: !operations;
+    fun () -> Option.get value.value 
+end : sig
+
+        type 'a value = unit -> 'a
+
+        val wrap : 'a Cmdliner.Term.t -> 'a Cmdliner.Term.t
+
+        val flag :
+          name:string ->
+          documentation:string ->
+          ?docv:string ->
+          ?absent:string -> ?flags:string list -> unit -> bool value
+
+        val required :
+          name:string ->
+          documentation:string ->
+          ty:'a Cmdliner.Arg.conv ->
+          ?docv:string -> ?absent:string -> ?flags:string list -> unit -> 'a value
+
+        val optional :
+          name:string ->
+          documentation:string ->
+          ty:'a Cmdliner.Arg.conv ->
+          ?docv:string ->
+          ?absent:string -> ?flags:string list -> unit -> 'a option value
+
+        val optional_with_default :
+          name:string ->
+          documentation:string ->
+          ty:'a Cmdliner.Arg.conv ->
+          default:'a ->
+          ?docv:string -> ?absent:string -> ?flags:string list -> unit -> 'a value
+
+      end)
+
+let wrap = wrap
+
+let domain =
+  optional_with_default ~name:"domain" ~docv:"DOMAIN"
+    ~documentation:" $(docv) is the domain on which the server is running. This is important for verifying the signatures of incoming messages, as they will expect an appropriate domain in the header."
+    ~ty:Cmdliner.Arg.string
+    ~absent:{|The domain defaults to localhost.|}
+    ~default:"localhost"
+    ~flags:["d"; "domain"] ()
+
+let user_image_path =
+  optional_with_default ~name:"user_image_path" ~docv:"USER-IMAGE-PATH"
+    ~documentation:"$(docv) is the path to the directory used by OCamlot to store user images. The directory is created if not present."
+    ~ty:Cmdliner.Arg.(dir)
+    ~absent:{| A directory `user-images` in current working directory is used.|}
+    ~default:"./user-images/"
+    ~flags:["u"; "user-image-path"] ()
+
+let database_path =
+  optional_with_default ~name:"database_path" ~docv:"DB"
+    ~documentation:"$(docv) is the path to the database used by OCamlot. The database is generated if not present."
+    ~ty:Cmdliner.Arg.(file)
+    ~absent:{|A fresh database is generated in the current working directory with name ocamlot.db.|}
+    ~default:"./ocamlot.db"
+    ~flags:["f"; "database-path"] ()
+
+let about_this_instance =
+  optional ~name:"about_this_instance" ~docv:"ABOUT-THIS-INSTANCE"
+    ~documentation:"$(docv) is the path to a markdown file describing the instance. A default message is used if not provided."
+    ~ty:Cmdliner.Arg.(file)
+    ~absent:{|A default message is used if not provided.|}
+    ~flags:["a"; "about-this-instance"] ()
+
+let port =
+  optional_with_default ~name:"port" ~docv:"PORT"
+    ~documentation:"port on which the server should run."
+    ~ty:Cmdliner.Arg.(int)
+    ~default:7331
+    ~absent:{|The port defaults to 7331.|}
+    ~flags:["p"; "port"] ()
+
+let certificate_file =
+  optional ~name:"certificate_file" ~docv:"CERTIFICATE-FILE"
+    ~documentation:"$(docv) is the path to the certificate file for the domain on which this server will be running."
+    ~ty:Cmdliner.Arg.(file)
+    ~absent:{|The server will not use TLS encryption (use a proxy like Nginx to enable ssl in that case).|}
+    ~flags:["c"; "certificate-file"] ()
 
 
-  mutable send_task: 'task option -> unit;
-}
+let key_file =
+  optional ~name:"key_file" ~docv:"KEY-FILE"
+    ~documentation:"key file to use for tls encryption. Both [certificate_file] and [key_file] must be provided for tls to be enabled."
+    ~ty:Cmdliner.Arg.(file)
+    ~absent:{|The server will not use TLS encryption (use a proxy like Nginx to enable ssl in that case).|}
+    ~flags:["k"; "key-file"] ()
+
+let debug =
+  flag ~name:"debug"
+    ~documentation:"Determines whether the OCamlot server should be run in debug mode."
+    ~flags:["D"; "debug"] ()
+
+let force_migrations =
+  flag ~name:"force_migrations"
+    ~documentation:"Determines whether the OCamlot server should perform (potentially destructive) migrations."
+    ~flags:["m"; "migrate"] ()
+
 
 let default_about_this_instance = {|
 # About this instance
@@ -37,34 +185,21 @@ The site administrator for this OCamlot instance has not configured the about th
 Donate to the FSF if you wish to support FREEDOM: [Free Software Foundation](www.fsf.org)
 |}
 
-let create ?key_file ?certificate_file ?(about_this_instance=default_about_this_instance) ?(debug=false) ?(port=7331) ~user_image_path ~database_path  domain = {
-  domain;
-  user_image_path;
-  database_path;
-  about_this_instance=Omd.of_string about_this_instance;
-  port;
-  certificate_file; key_file;
-  debug;
-  send_task=fun _ -> ()
-}
 
-let send_task config task = config.send_task (Some task)
-let set_task_fn config task_fn = config.send_task <- task_fn
+let is_tls_enabled () = Option.is_some (certificate_file ()) && Option.is_some (key_file ())
+let certificate_file () =
+  if not (is_tls_enabled ())
+  then None
+  else (certificate_file ())
+let key_file () =
+  if not (is_tls_enabled ())
+  then None
+  else (key_file ())
 
-let is_tls_enabled v = Option.is_some v.certificate_file && Option.is_some v.key_file
-let certificate_file v =
-  if not (is_tls_enabled v)
-  then None
-  else v.certificate_file
-let key_file v =
-  if not (is_tls_enabled v)
-  then None
-  else v.key_file
-  
-let about_this_instance v = v.about_this_instance
-let host v = v.domain
-let domain v = Uri.of_string ("https://" ^ v.domain)
-let database_path v = v.database_path
-let port v = v.port
-let debug v = v.debug
-let user_image_path v = v.user_image_path
+let about_this_instance () = about_this_instance ()
+let host () = domain ()
+let domain () = Uri.of_string ("https://" ^ domain ())
+let database_path () = database_path ()
+let port () = port ()
+let debug () = debug ()
+let user_image_path () = user_image_path ()
