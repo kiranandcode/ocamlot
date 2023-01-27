@@ -28,10 +28,12 @@ type task =
     username: string;
     domain: string;
   }
+
   | SearchRemoteUser of {
     username: string;
     domain: string option;
   }
+
   (* post by local user *)
   | LocalPost of {
     user: Database.LocalUser.t;
@@ -73,8 +75,8 @@ open struct
     let post_to = Option.get_or ~default:[] post_to
                 |> List.filter (Fun.negate String.is_empty) in
     let+ _ =
-      with_pool pool @@ fun db ->
-      Ap_resolver.create_new_note scope user post_to [] title content content_type db in
+      with_pool pool @@ 
+      Ap_resolver.create_new_note scope user post_to [] title content content_type in
 
     Lwt.return_ok ()
 
@@ -297,7 +299,7 @@ let init () =
   (* hackity hack hacks to get access to Dream's internal Sql pool *)
   let pool =
     let vl = ref None in
-    ignore @@ Dream.sql_pool  Configuration.(Lazy.force database_path) (fun req ->
+    ignore @@ Dream.sql_pool (Configuration.(Lazy.force database_uri)) (fun req ->
       vl :=(Dream__sql.Sql.Message.field req Dream__sql.Sql.pool_field);
       Dream.html ""
     ) (Dream.request "");

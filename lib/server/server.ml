@@ -66,7 +66,6 @@ let run () =
     Dream.info (fun f -> f "key file is %s\ncontents: %s" fl (IO.with_in fl IO.read_all))
   ) (Lazy.force Configuration.key_file);
 
-
   Dream_runner.run
     ~workers:[worker]
     ~tls:(Lazy.force Configuration.is_tls_enabled)
@@ -74,7 +73,7 @@ let run () =
     ?key_file:(Lazy.force Configuration.key_file)
     ~port:(Lazy.force Configuration.port)
   @@ Dream.logger
-  @@ Dream.sql_pool (Lazy.force Configuration.(database_path))
+  @@ Dream.sql_pool (Lazy.force Configuration.(database_uri))
   @@ Dream.sql_sessions
   @@ enforce_domain
   @@ Dream.router [

@@ -693,6 +693,7 @@ let handle_inbox_post req =
     |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
     >>= (fun v -> return (lift_opt ~else_:(fun () -> `UserNotFound username) v)) in
   let+ body_text = lift_pure (Dream.body req) in
+  Configuration.dump_string ~ty:"inbox-post" body_text;
   let+ data =
     (Activitypub.Decode.(decode_string obj) body_text)
     |> (function

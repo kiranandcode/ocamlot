@@ -84,6 +84,7 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
     let+ remote_user_url =
       let+ (_, body) = json_rd_req webfinger_uri in
       let+ body = Cohttp_lwt.Body.to_string body >> Result.return in
+      Configuration.dump_string ~ty:"webfinger" body;
       let+ query_res = body
                        |> Activitypub.Decode.(decode_string Webfinger.query_result)
                        |> Lwt.return in
@@ -91,6 +92,7 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
     (* retrieve json *)
     let+ (_, body) = activity_req remote_user_url in
     let+ body = Cohttp_lwt.Body.to_string body >> Result.return in
+    Configuration.dump_string ~ty:"remote-user" body;
     let+ person_res = body
                       |> Activitypub.Decode.(decode_string person)
                       |> Lwt.return in

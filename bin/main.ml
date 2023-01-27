@@ -72,17 +72,19 @@ let enforce_markdown path =
   Ok (Omd.of_string contents)
 
 let run () =
+
   let* () =
     enforce_database
       ~force_migrations:(Lazy.force Configuration.force_migrations)
       (Lazy.force Configuration.database_path) in
-  (* let* about_this_instance = *)
-  (*   match Configuration.about_this_instance () with *)
-  (*   | None -> Ok None *)
-  (*   | Some path -> *)
-  (*     let* path = Fpath.of_string path in *)
-  (*     let* about_this_instance = OS.File.read path in *)
-  (*     Ok (Some about_this_instance) in *)
+
+  let* _ =
+    match Lazy.force Configuration.dump_json_dir with
+    | None -> Ok ()
+    | Some dir ->
+      let* _ = enforce_directory dir in
+      Ok () in
+
   let* _ =
     let* path = enforce_directory (Lazy.force Configuration.user_image_dir) in
     Ok path in
@@ -98,6 +100,6 @@ let _ =
       ~doc:"An OCaml Activitypub Server *with soul*!"
       "OCamlot" in
   let cmd = Term.(term_result @@ (
-    Configuration.wrap (const run) $
+    Configuration.(wrap (const run)) $
     const ())) in
   Cmd.eval (Cmd.v info cmd)

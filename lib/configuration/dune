@@ -1,2 +1,2 @@
 (library (name configuration)
- (libraries uri re omd cmdliner bos fpath))
+ (libraries uri re omd cmdliner bos fpath yojson dream logging ptime ptime.clock.os))

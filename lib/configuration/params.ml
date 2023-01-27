@@ -44,11 +44,11 @@ open (struct
           then Term.((const (fun x term ->
             pref.value <- Some x;
             term
-          )) $ (Arg.required (Arg.opt Arg.(some param_conv) None param_info)) $ !term)
+          )) $ (Arg.required (Arg.opt Arg.(some param_conv) pref.value param_info)) $ !term)
           else Term.((const (fun x term ->
             pref.value <- x;
             term
-          )) $ (Arg.value (Arg.opt Arg.(some param_conv) None param_info)) $ !term)
+          )) $ (Arg.value (Arg.opt Arg.(some param_conv) pref.value param_info)) $ !term)
     ) !operations;
     !term
 
@@ -67,12 +67,12 @@ open (struct
 
   let optional ~name ~documentation ~ty ?docv ?absent ?flags () : 'a value =
     let value = {name; documentation; docv; absent; flags; value=None} in
-    operations := Param (value, true, ty) :: !operations;
+    operations := Param (value, false, ty) :: !operations;
     lazy value.value 
 
   let optional_with_default ~name ~documentation ~ty ~default ?docv ?absent ?flags () : 'a value =
     let value = {name; documentation; docv; absent; flags; value=Some default} in
-    operations := Param (value, true, ty) :: !operations;
+    operations := Param (value, false, ty) :: !operations;
     lazy (Option.get value.value)
 end : sig
 
@@ -174,6 +174,13 @@ let force_migrations =
     ~documentation:"Determines whether the OCamlot server should perform (potentially destructive) migrations."
     ~flags:["m"; "migrate"] ()
 
+let dump_json_dir =
+  optional ~name:"dump_json_dir" ~docv:"DUMP-JSON-DIR"
+    ~documentation:"$(docv) is the path to a directory where the server should dump all JSON messages that it receives."
+    ~ty:Cmdliner.Arg.(dir)
+    ~absent:{|No JSON will be dumped (the default).|}
+    ~flags:["dump-json-dir"] ()
+
 
 let default_about_this_instance = {|
 # About this instance
@@ -210,7 +217,7 @@ end
 let host = domain
 let domain = lazy (Uri.of_string ("https://" ^ Lazy.force domain))
 let database_uri =
-  lazy (Uri.of_string ("sqlite3://:" ^ (Lazy.force database_path)))
+  lazy ("sqlite3://:" ^ (Lazy.force database_path))
 let port = port 
 let debug = debug 
 let user_image_path =

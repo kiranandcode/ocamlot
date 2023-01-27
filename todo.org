@@ -134,8 +134,10 @@ raw = {
 * Todos
 ** DONE Update html with edit page
 CLOSED: [2023-01-23 Mon 09:32]
-** TODO Add interface to images to save image (filename + data) (maybe bring in conan?)
-** TODO Support for user uploaded images
+** DONE Add interface to images to save image (filename + data) (maybe bring in conan?)
+CLOSED: [2023-01-27 Fri 14:51]
+** DONE Support for user uploaded images
+CLOSED: [2023-01-27 Fri 14:51]
 *** DONE Add table to track user images + hashes
 CLOSED: [2023-01-23 Mon 10:39]
 *** DONE Add parameter to configuration for user uploaded images 
@@ -146,6 +148,4 @@ CLOSED: [2023-01-23 Mon 11:28]
 CLOSED: [2023-01-23 Mon 11:42]
 *** DONE Update login form to display current avatar and option to upload avatar
 CLOSED: [2023-01-24 Tue 06:45]
-** TODO Lookup table description for local user
-** TODO Add table for user uploaded images
-** TODO Track alt for images
+** TODO Add parameter to track 
