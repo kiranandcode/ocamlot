@@ -151,5 +151,6 @@ CLOSED: [2023-01-24 Tue 06:45]
 ** DONE Add parameter to track dumping json 
 CLOSED: [2023-01-27 Fri 15:20]
 ** TODO See how profile pictures are represented in pleroma
+** TODO Add support for remote users profile pictures
 ** TODO On receiving like json request on user-inbox post, create new like for post
 *** TODO Add like task to worker
