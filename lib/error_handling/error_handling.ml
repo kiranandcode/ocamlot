@@ -50,14 +50,14 @@ let extract_error_details err =
 
 (* * Error Display  *)
 (* ** Html *)
-let handle_error_html config handler req =
+let handle_error_html handler req =
   Lwt.bind (handler req) @@ fun result ->
   match result with
   | Ok result -> Lwt.return result
   | Error err ->
     let status, msg, details = extract_error_details err in
     let details =
-      Option.return_if (Configuration.Params.debug config) details in
+      Option.return_if (Lazy.force Configuration.debug) details in
     tyxml_pure ~status @@
     Tyxml.Html.html
       Html.(head Tyxml.Html.(txt "OCamlot - Error"))
@@ -66,14 +66,14 @@ let handle_error_html config handler req =
        ])
 
 (* ** Json *)
-let handle_error_json config handler req =
+let handle_error_json handler req =
   Lwt.bind (handler req) @@ fun result ->
   match result with
   | Ok result -> Lwt.return result
   | Error err ->
     let status, msg, details = extract_error_details err in
     let details =
-      Option.return_if (Configuration.Params.debug config) details in
+      Option.return_if (Lazy.force Configuration.debug) details in
     log.debug (fun f -> f "ERROR: %s - %a" msg (Option.pp String.pp) details);
     json_pure ~status @@
     `Assoc  [

@@ -67,18 +67,18 @@ open struct
     )
 
 
-  let handle_local_post pool config user scope post_to title content_type content =
+  let handle_local_post pool user scope post_to title content_type content =
     log.debug (fun f -> f "working on local post by %s of %s" (user.Database.LocalUser.username) content);
 
     let post_to = Option.get_or ~default:[] post_to
                 |> List.filter (Fun.negate String.is_empty) in
     let+ _ =
       with_pool pool @@ fun db ->
-      Ap_resolver.create_new_note config scope user post_to [] title content content_type db in
+      Ap_resolver.create_new_note scope user post_to [] title content content_type db in
 
     Lwt.return_ok ()
 
-  let handle_search_user pool config username domain =
+  let handle_search_user pool username domain =
     log.debug (fun f ->
       f "received search query for user %s(@%a)?"
         username (Option.pp String.pp) domain);
@@ -112,17 +112,17 @@ open struct
       log.debug (fun f ->  f "successfully resolved user %s@%s" username domain);
       return_ok ()
 
-  let handle_follow_remote_user pool config user username domain =
+  let handle_follow_remote_user pool user username domain =
     log.debug (fun f ->
       f "handling follow remote user %s@%s by %s" username domain (user.Database.LocalUser.username)
     );
     let+ _ =
       with_pool pool @@ fun db ->
-      Ap_resolver.follow_remote_user config user ~username ~domain db
+      Ap_resolver.follow_remote_user user ~username ~domain db
       |> map_err (fun err -> `ResolverError err) in
     return_ok ()
 
-  let handle_accept_follow pool config follow_id =
+  let handle_accept_follow pool follow_id =
     log.debug (fun f -> f "worker accepting follow %s" follow_id);
     let+ follow = 
       with_pool pool @@ fun db ->
@@ -137,12 +137,12 @@ open struct
     log.debug (fun f -> f "worker updated follow status");
     return_ok ()
 
-  let handle_remote_follow pool config id actor target raw =
+  let handle_remote_follow pool id actor target raw =
     with_pool pool @@ fun db ->
-    Ap_resolver.follow_local_user config id actor target raw db
+    Ap_resolver.follow_local_user id actor target raw db
     |> map_err (fun err -> `DatabaseError err)
 
-  let handle_undo_follow pool config follow_id =
+  let handle_undo_follow pool follow_id =
     let+ follow =
       with_pool pool @@ fun db ->
       Database.Follows.lookup_by_url ~url:follow_id db
@@ -154,7 +154,7 @@ open struct
       |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
     return_ok ()
 
-  let handle_create_remote_note pool config author direct_message (note: Activitypub.Types.note) =
+  let handle_create_remote_note pool author direct_message (note: Activitypub.Types.note) =
 
     log.debug (fun f -> f "creating remote note!");
     let url = note.id in
@@ -166,9 +166,8 @@ open struct
 
     let is_public, is_follower_public = ref false, ref false in
     let extract_target =
-      let local_user_regex =
-        Configuration.Regex.local_user_id_format config
-        |> Re.compile in
+      let lazy local_user_regex =
+        Configuration.Regex.local_user_id_format in
       fun to_ ->
       if String.equal to_ Activitypub.Constants.ActivityStreams.public
       then (is_public := true; return_ok None)
@@ -244,7 +243,7 @@ open struct
 
     return_ok ()
 
-  let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) task_in config =
+  let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) task_in =
     log.debug (fun f -> f "worker now waiting for task");
     Lwt_stream.iter_s 
       (fun task ->
@@ -252,25 +251,25 @@ open struct
          try
            begin match[@warning "-8"] task with
            | HandleUndoFollow {follow_id} ->
-             let res = handle_undo_follow pool config follow_id in
+             let res = handle_undo_follow pool follow_id in
              handle_error res
            | HandleRemoteFollow {id; actor; target; raw} ->
-             let res = handle_remote_follow pool config id actor target raw in
+             let res = handle_remote_follow pool id actor target raw in
              handle_error res
            | HandleAcceptFollow {follow_id} ->
-             let res = handle_accept_follow pool config follow_id in
+             let res = handle_accept_follow pool follow_id in
              handle_error res
            | SearchRemoteUser {username; domain} ->
-             let res = handle_search_user pool config username domain in
+             let res = handle_search_user pool username domain in
              handle_error res
            | LocalPost {user; title; content; content_type; scope; post_to;} -> 
-             let res = handle_local_post pool config user scope post_to title content_type content in
+             let res = handle_local_post pool user scope post_to title content_type content in
              handle_error res
            | FollowRemoteUser {user; username; domain} ->
-             let res = handle_follow_remote_user pool config user username domain in
+             let res = handle_follow_remote_user pool user username domain in
              handle_error res             
            | CreateRemoteNote { author; direct_message; note } ->
-             let res = handle_create_remote_note pool config author direct_message note in
+             let res = handle_create_remote_note pool author direct_message note in
              handle_error res             
 
            end |> Lwt.map ignore
@@ -283,12 +282,22 @@ open struct
 
 end
 
+open (struct
+  let send_task_internal = ref None
+end)
 
-let init config task_in =
+let send_task : task -> unit =
+  let task_fun = lazy (Option.get_exn_or "send task without initialising worker" !send_task_internal) in
+  fun task ->
+    (Lazy.force task_fun) (Some task)
+
+let init () =
+  let task_in, send_task = Lwt_stream.create () in
+  send_task_internal := Some send_task;
   (* hackity hack hacks to get access to Dream's internal Sql pool *)
   let pool =
     let vl = ref None in
-    ignore @@ Dream.sql_pool  Configuration.Params.(database_path config) (fun req ->
+    ignore @@ Dream.sql_pool  Configuration.(Lazy.force database_path) (fun req ->
       vl :=(Dream__sql.Sql.Message.field req Dream__sql.Sql.pool_field);
       Dream.html ""
     ) (Dream.request "");
@@ -298,7 +307,7 @@ let init config task_in =
   (* configure journal with WAL and busy timeout to avoid busy errors *)
   log.info (fun f -> f "setting up worker database configurations");
   Lwt.join [
-    worker (Obj.magic pool) task_in config;
+    worker (Obj.magic pool) task_in;
     let enable_journal_mode =
       Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.string @:-  "PRAGMA journal_mode=WAL" ) in
     let update_busy_timout =

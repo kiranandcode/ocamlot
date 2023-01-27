@@ -60,7 +60,7 @@ let enforce_database ?force_migrations path =
     try
       init_database ?force_migrations (Fpath.to_string path)
     with Sqlite3.SqliteError err -> Error (`Msg ("failed to initialise a fresh database: " ^ err)) in
-  Ok (Fpath.to_string path)
+  Ok ()
 
 
 (** [enforce_markdown path] when given a path [path] ensures that
@@ -72,22 +72,22 @@ let enforce_markdown path =
   Ok (Omd.of_string contents)
 
 let run () =
-  let* database_path = enforce_database
-      ~force_migrations:(Configuration.Params.force_migrations ())
-      (Configuration.Params.database_path ()) in
+  let* () =
+    enforce_database
+      ~force_migrations:(Lazy.force Configuration.force_migrations)
+      (Lazy.force Configuration.database_path) in
   (* let* about_this_instance = *)
-  (*   match Configuration.Params.about_this_instance () with *)
+  (*   match Configuration.about_this_instance () with *)
   (*   | None -> Ok None *)
   (*   | Some path -> *)
   (*     let* path = Fpath.of_string path in *)
   (*     let* about_this_instance = OS.File.read path in *)
   (*     Ok (Some about_this_instance) in *)
-  let database_path =  "sqlite3://:" ^ database_path in
-  let* user_image_path =
-    let* path = enforce_directory (Configuration.Params.user_image_path ()) in
+  let* _ =
+    let* path = enforce_directory (Lazy.force Configuration.user_image_dir) in
     Ok path in
 
-  Ok (Server.run config)
+  Ok (Server.run ())
 
 
 
@@ -98,6 +98,6 @@ let _ =
       ~doc:"An OCaml Activitypub Server *with soul*!"
       "OCamlot" in
   let cmd = Term.(term_result @@ (
-    Configuration.Params.wrap (const run) $
+    Configuration.wrap (const run) $
     const ())) in
   Cmd.eval (Cmd.v info cmd)

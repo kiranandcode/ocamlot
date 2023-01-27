@@ -62,7 +62,7 @@ let extract_file_multipart_data = function
 (* ** Edit (html) *)
 
 
-let handle_actor_edit_get _config req =
+let handle_actor_edit_get req =
   let username = Dream.param req "username" in
   let+ current_user = get_user_checked req username in
   match current_user with
@@ -80,7 +80,7 @@ let handle_actor_edit_get _config req =
     ]
 
 (* ** Edit (html) post  *)
-let handle_actor_edit_post _config req =
+let handle_actor_edit_post req =
   log.debug (fun f -> f "POST to actor edit");
   let username = Dream.param req "username" in
   let+ current_user = get_user_checked req username in
@@ -107,7 +107,7 @@ let handle_actor_edit_post _config req =
         | Some (fname, avatar) ->
           log.debug (fun f -> f "got file %s, [%d]{%s..}" fname
                         (String.length avatar) (String.take 100 avatar));
-          let+ image = Images.upload_file _config req ~fname ~data:avatar in
+          let+ image = Images.upload_file req ~fname ~data:avatar in
           let+ () =
             sql req
             (Database.LocalUser.update_profile_picture
@@ -154,7 +154,7 @@ let handle_actor_edit_post _config req =
 
 
 (* ** Get (html) *)
-let handle_actor_get_html _config req =
+let handle_actor_get_html req =
   let username = Dream.param req "username" in
   let+ user =
     Dream.sql req
@@ -261,7 +261,7 @@ let handle_actor_get_html _config req =
 
 
 (* ** Get (json) *)
-let handle_actor_get_json config req =
+let handle_actor_get_json req =
   let username = Dream.param req "username" in
   let+ user =
     Dream.sql req
@@ -269,29 +269,29 @@ let handle_actor_get_json config req =
     |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
     >>= (fun v -> return (lift_opt ~else_:(fun () -> `UserNotFound username) v)) in
   let user_json = (user
-     |> Database.Interface.LocalUser.convert_to config
+     |> Database.Interface.LocalUser.convert_to
      |> Activitypub.Encode.person) in
   log.debug (fun f -> f "query for %s --> %a" username Yojson.Safe.pp user_json);
   activity_json user_json
 
 (* ** Get *)
-let handle_actor_get config req =
+let handle_actor_get req =
   let content_type = Dream.header req "Accept"
                      |> Option.value ~default:(Activitypub.Constants.ContentType.html) in
   log.debug (fun f -> f "got user request for %s" content_type);
   match Activitypub.Constants.ContentType.of_string content_type with
   | None ->
   log.debug (fun f -> f "no idea for %s, returning html" content_type);
-    Error_handling.handle_error_html config
+    Error_handling.handle_error_html
       (fun _ -> return @@ Error (`UnsupportedContentType content_type)) req
   | Some `HTML ->
     log.debug (fun f -> f "%s -> html; returning html" content_type);
-    Error_handling.handle_error_html config
-      (handle_actor_get_html config) req
+    Error_handling.handle_error_html
+      (handle_actor_get_html )req
   | Some `JSON ->
     log.debug (fun f -> f "%s -> json; returning json" content_type);
-    Error_handling.handle_error_json config
-      (handle_actor_get_json config) req
+    Error_handling.handle_error_json
+      (handle_actor_get_json) req
 
 (* * Outbox *)
 (* ** Get  *)
@@ -308,7 +308,7 @@ let handle_outbox_get req =
 
 (* * Followers *)
 (* ** Get *)
-let handle_followers_get config req =
+let handle_followers_get req =
   let username = Dream.param req "username" in
   let+ user = Dream.sql req (Database.LocalUser.find_user ~username)
               |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
@@ -328,7 +328,7 @@ let handle_followers_get config req =
   let+ followers_collection_page =
     Dream.sql req
       (Ap_resolver.build_followers_collection_page
-         config start_time offset user) in
+         start_time offset user) in
   let data =
     if is_page
     then Activitypub.Encode.ordered_collection_page (Decoders_yojson.Safe.Encode.string)
@@ -336,7 +336,7 @@ let handle_followers_get config req =
     else Activitypub.Encode.ordered_collection (Decoders_yojson.Safe.Encode.string)
         ({
           id = Some (
-              Configuration.Url.user_followers config (user.Database.LocalUser.username)
+              Configuration.Url.user_followers (user.Database.LocalUser.username)
               |> Uri.to_string
             );
           total_items=followers_collection_page.total_items
@@ -347,7 +347,7 @@ let handle_followers_get config req =
 
 (* * Following *)
 (* ** Get *)
-let handle_following_get config req =
+let handle_following_get req =
   let username = Dream.param req "username" in
   let+ user = Dream.sql req (Database.LocalUser.find_user ~username)
               |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
@@ -367,7 +367,7 @@ let handle_following_get config req =
   let+ following_collection_page =
     Dream.sql req
       (Ap_resolver.build_following_collection_page
-         config start_time offset user) in
+         start_time offset user) in
   let data =
     if is_page
     then Activitypub.Encode.ordered_collection_page (Decoders_yojson.Safe.Encode.string)
@@ -375,7 +375,7 @@ let handle_following_get config req =
     else Activitypub.Encode.ordered_collection (Decoders_yojson.Safe.Encode.string)
         ({
           id = Some (
-              Configuration.Url.user_following config (user.Database.LocalUser.username)
+              Configuration.Url.user_following (user.Database.LocalUser.username)
               |> Uri.to_string
             );
           total_items=following_collection_page.total_items
@@ -430,7 +430,7 @@ let render_users_page ?search_query req user_type users =
     ])
 
 (* ** Local users (get) *)
-let handle_local_users_get _config req =
+let handle_local_users_get req =
   let+ current_user_link = current_user_link req in
   let offset_start =
     Dream.query req "offset-start"
@@ -503,7 +503,7 @@ let handle_local_users_get _config req =
   render_users_page ?search_query req `Local users
 
 (* ** Remote users (get) *)
-let handle_remote_users_get config req =
+let handle_remote_users_get req =
   let+ current_user_link = current_user_link req in
   let offset =
     Dream.query req "offset-start"
@@ -522,7 +522,7 @@ let handle_remote_users_get config req =
       match classify_query query with
       | `Resolve (user, domain) ->
         log.debug (fun f -> f "received explicit search - sending task to worker");
-        Configuration.Params.send_task config Worker.(SearchRemoteUser {
+        Worker.send_task Worker.(SearchRemoteUser {
             username=user; domain=Some domain
           });
         let query = "%" ^ user ^ "%" in
@@ -536,7 +536,7 @@ let handle_remote_users_get config req =
         begin match query with
           | [username] -> 
             log.debug (fun f -> f "implicit search over single parameter - sending task to worker");
-            Configuration.Params.send_task config Worker.(SearchRemoteUser {
+            Worker.send_task Worker.(SearchRemoteUser {
                 username; domain=None
               });
           | _ -> ()
@@ -593,19 +593,19 @@ let handle_remote_users_get config req =
   render_users_page ?search_query req `Remote users
 
 (* ** Users (get) *)
-let handle_users_get _config req =
+let handle_users_get req =
   let user_list_ty =
     Dream.query req "type"
     |> Option.flat_map parse_user_types
     |> Option.value ~default:`Local in
   match user_list_ty with
   | `Local ->
-    handle_local_users_get _config req
+    handle_local_users_get req
   | `Remote ->
-    handle_remote_users_get _config req
+    handle_remote_users_get req
 
 (* * Follow local *)
-let handle_follow_local_user _config current_user username req =
+let handle_follow_local_user current_user username req =
   let+ current_user =
     Dream.sql req (Database.Actor.create_local_user ~local_id:(current_user.Database.LocalUser.id))
     |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
@@ -650,8 +650,8 @@ let handle_follow_local_user _config current_user username req =
     redirect req "/users"
 
 (* * Follow remote *)
-let handle_follow_remote_user config current_user username domain req =
-  Configuration.Params.send_task config Worker.(
+let handle_follow_remote_user current_user username domain req =
+  Worker.send_task Worker.(
       FollowRemoteUser {
         user=current_user;
         username;
@@ -660,7 +660,7 @@ let handle_follow_remote_user config current_user username domain req =
     );
   redirect req "/users"
 
-let handle_users_follow_post _config req =
+let handle_users_follow_post req =
   let username = Dream.param req "username" in
   let+ current_user =
     let+ current_user = current_user req in
@@ -670,12 +670,12 @@ let handle_users_follow_post _config req =
   match String.contains username '@', lazy (String.split_on_char '@' username) with
   | true, lazy (username :: domain)  ->
     let domain = String.concat "@" domain in
-    handle_follow_remote_user _config current_user username domain req
+    handle_follow_remote_user current_user username domain req
   | _ ->
-    handle_follow_local_user _config current_user username req
+    handle_follow_local_user current_user username req
 
 (* * Inbox (post) *)
-let handle_inbox_post config req =
+let handle_inbox_post req =
   log.debug (fun f -> f ~request:req "got POST to inbox");
   log.debug (fun f -> f "validating request");
   let+ valid_request =
@@ -698,7 +698,7 @@ let handle_inbox_post config req =
     |> (function
         | Ok _ as data -> data
         | Error err ->
-          if Configuration.Params.debug config then
+          if Lazy.force Configuration.debug then
             IO.with_out ~flags:[Open_append; Open_creat] "ocamlot-failed-events.json" (Fun.flip IO.write_line (body_text ^ "\n"));
           Error err)
     |> return
@@ -716,13 +716,13 @@ let handle_inbox_post config req =
   let+ _ =
     match[@warning "-27"] data with
     | `Accept { obj=`Follow { id=follow_id; _ }; id=accept_activity_id; raw=accept_obj; actor; _ } ->
-      Configuration.Params.send_task config Worker.(
+      Worker.send_task Worker.(
           HandleAcceptFollow { follow_id }
         );
       return_ok ()
     | `Follow { id; actor; cc; to_; object_; state; raw } ->
-      let user_re = Configuration.Regex.local_user_id_format config in
-      let+ re_matches = Re.exec_opt (Re.compile user_re) object_
+      let lazy user_re = Configuration.Regex.local_user_id_format in
+      let+ re_matches = Re.exec_opt user_re object_
                         |> lift_opt ~else_:(fun () -> `InvalidData "follow target was not a valid user")
                         |> return in
       let username = Re.Group.get re_matches 1 in
@@ -730,12 +730,12 @@ let handle_inbox_post config req =
                     |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
       let+ target = lift_opt ~else_:(fun _ -> `UserNotFound object_) target
                     |> return in
-      Configuration.Params.send_task config Worker.(
+      Worker.send_task Worker.(
           HandleRemoteFollow { id; actor; target; raw }
         );
       return_ok ()
     | `Undo { obj=`Follow { id=follow_id; _ }; _ } ->
-      Configuration.Params.send_task config Worker.(
+      Worker.send_task Worker.(
           HandleUndoFollow { follow_id }
         );
       return_ok ()
@@ -750,7 +750,7 @@ let handle_inbox_post config req =
             log.debug (fun f -> f "got request from unknown actor %s" actor);
             `UnknownRemoteUser actor)) in
       log.debug (fun f -> f "found remote user");
-      Configuration.Params.send_task config Worker.(
+      Worker.send_task Worker.(
           CreateRemoteNote { author=remote_user; direct_message; note }
         );
       return_ok ()
@@ -770,20 +770,20 @@ let handle_inbox_post config req =
     ])
 
 (* * Route *)
-let route config = 
+let route = 
   Dream.scope "/users" [] [
-    Dream.get "" @@ Error_handling.handle_error_html config (handle_users_get config);
-    Dream.get "/:username" @@ (handle_actor_get config);
+    Dream.get "" @@ Error_handling.handle_error_html (handle_users_get);
+    Dream.get "/:username" @@ (handle_actor_get);
 
-    Dream.get "/:username/edit" @@ Error_handling.handle_error_html config (handle_actor_edit_get config);
-    Dream.post "/:username/edit" @@ Error_handling.handle_error_html config (handle_actor_edit_post config);
+    Dream.get "/:username/edit" @@ Error_handling.handle_error_html (handle_actor_edit_get);
+    Dream.post "/:username/edit" @@ Error_handling.handle_error_html (handle_actor_edit_post);
 
-    Dream.post "/:username/follow" @@ Error_handling.handle_error_html config (handle_users_follow_post config);
+    Dream.post "/:username/follow" @@ Error_handling.handle_error_html (handle_users_follow_post);
     (* Dream.get "/:username/inbox" handle_inbox_get; *)
-    Dream.post ":username/inbox" @@ Error_handling.handle_error_json config (handle_inbox_post config);
+    Dream.post ":username/inbox" @@ Error_handling.handle_error_json (handle_inbox_post);
     Dream.get "/:username/outbox" handle_outbox_get;
     (* Dream.post "/:username/outbox" handle_outbox_post; *)
 
-    Dream.get "/:username/followers" @@ Error_handling.handle_error_json config (handle_followers_get config);
-    Dream.get "/:username/following" @@ Error_handling.handle_error_json config (handle_following_get config);
+    Dream.get "/:username/followers" @@ Error_handling.handle_error_json (handle_followers_get);
+    Dream.get "/:username/following" @@ Error_handling.handle_error_json (handle_following_get);
   ]

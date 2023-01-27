@@ -1,2 +1,2 @@
 (library (name configuration)
- (libraries uri re omd cmdliner))
+ (libraries uri re omd cmdliner bos fpath))

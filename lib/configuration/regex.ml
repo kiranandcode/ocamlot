@@ -16,33 +16,40 @@ let domain =
   let segment_dot = seq [segment; char '.' ] in
   seq [rep segment_dot; segment]
 
-let user_tag _config =
+let user_tag =
+  Re.compile @@
   Re.(seq [
     group local_username;
     char '@';
     group (rep1 any)
   ])
 
-let webfinger_format config =
+let webfinger_format = lazy begin
+  Re.compile @@
   Re.(seq [
     opt (str "acct:");
     group local_username;
     char '@';
-    str (Params.domain config |> Uri.host_with_default)
+    str (Lazy.force Params.domain |> Uri.host_with_default)
   ])
+end
 
-let local_user_id_format config =
+let local_user_id_format = lazy begin
+  Re.compile @@
   Re.(seq [
-    str (Url.user_base_url config |> Uri.to_string);
+    str (Lazy.force Url.user_base_url |> Uri.to_string);
     char '/';
     group local_username;
     opt (char '/')
   ])
+end
 
-let activity_format config =
+let activity_format = lazy begin
+  Re.compile @@
   Re.(seq [
-    str (Url.activity_base_endpoint config |> Uri.to_string);
+    str (Lazy.force Url.activity_base_endpoint |> Uri.to_string);
     char '/';
     group uuid;
     opt (char '/')
   ])
+end

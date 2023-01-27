@@ -37,58 +37,56 @@ let from_static local_root path req =
   | None ->
     Dream.respond ~status:`Not_Found ""
 
-let enforce_domain config: Dream.middleware =
-  (fun f -> (fun req ->
-     Dream.set_header req "host" (Configuration.Params.host config);
-     f req))
+let enforce_domain: Dream.middleware =
+  (fun f req -> 
+     Dream.set_header req "host" (Lazy.force Configuration.host);
+     f req)
 
 let (let+) x f = Lwt_result.bind x f
 
-let run config =
+let run () =
   let () = Mirage_crypto_rng_lwt.initialize () in
-  let task_in, send_task = Lwt_stream.create () in
-  if Configuration.Params.debug config then begin
+  if Lazy.force Configuration.debug then begin
     Dream.initialize_log ~level:`Info ~enable:true ();
     Dream.info (fun f -> f "Running OCamlot in debugging mode.");
     Logging.set_log_level `Debug;
   end;
 
-  Configuration.Params.set_task_fn config send_task;
 
-  let worker = Worker.init config task_in |> Lwt.map ignore in
+  let worker = Worker.init () |> Lwt.map ignore in
 
-  if Configuration.Params.is_tls_enabled config then
+  if Lazy.force Configuration.is_tls_enabled then
     Dream.info (fun f -> f "Enabled HTTPS/TLS for OCamlot server");
 
   Option.iter (fun fl ->
     Dream.info (fun f -> f "cert file is %s\ncontents: %s" fl (IO.with_in fl IO.read_all));
-  ) (Configuration.Params.certificate_file config);
+  ) (Lazy.force Configuration.certificate_file);
 
   Option.iter (fun fl ->
     Dream.info (fun f -> f "key file is %s\ncontents: %s" fl (IO.with_in fl IO.read_all))
-  ) (Configuration.Params.key_file config);
+  ) (Lazy.force Configuration.key_file);
 
 
   Dream_runner.run
     ~workers:[worker]
-    ~tls:(Configuration.Params.is_tls_enabled config)
-    ?certificate_file:(Configuration.Params.certificate_file config)
-    ?key_file:(Configuration.Params.key_file config)
-    ~port:(Configuration.Params.port config)
+    ~tls:(Lazy.force Configuration.is_tls_enabled)
+    ?certificate_file:(Lazy.force Configuration.certificate_file)
+    ?key_file:(Lazy.force Configuration.key_file)
+    ~port:(Lazy.force Configuration.port)
   @@ Dream.logger
-  @@ Dream.sql_pool Configuration.Params.(database_path config)
+  @@ Dream.sql_pool (Lazy.force Configuration.(database_path))
   @@ Dream.sql_sessions
-  @@ enforce_domain config
+  @@ enforce_domain
   @@ Dream.router [
-    Webfinger.route config;
+    Webfinger.route;
 
-    Authentication.route config;
-    Feed.route config;
-    Users.route config;
-    Write_post.route config;
-    Activity.route config;
+    Authentication.route;
+    Feed.route;
+    Users.route;
+    Write_post.route;
+    Activity.route;
 
-    Images.route config;
+    Images.route;
     (* Dream.get "/home" @@ (handle_get_home config);
      * Dream.post "/home" @@ (handle_post_home config); *)
 

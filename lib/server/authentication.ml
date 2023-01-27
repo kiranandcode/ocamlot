@@ -19,7 +19,7 @@ let recover f comp =
 
 (* * Register *)
 (* ** Get *)
-let handle_register_get ?errors config req =
+let handle_register_get ?errors req =
   let token = Dream.csrf_token req in 
   let+ headers = Navigation.build_navigation_bar req in
   tyxml @@ Html.build_page ~title:"Register a new account" ~headers [
@@ -29,12 +29,12 @@ let handle_register_get ?errors config req =
       ];
       Pure.grid_col_responsive [`sm, (1,2)] [
         Html.Login.login_info
-          (Markdown.markdown_to_html (Configuration.Params.about_this_instance config))
+          (Markdown.markdown_to_html (Lazy.force Configuration.about_this_instance))
       ];
     ];
   ]
 (* ** Post *)
-let handle_register_post config req =
+let handle_register_post req =
   log.info (fun f -> f "register page POST");
   let+ data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
   let res =
@@ -50,7 +50,7 @@ let handle_register_post config req =
   match res with
   | Error errors ->
     List.iter (fun error -> log.debug (fun f -> f "register page invalid form %s" error)) errors;
-    handle_register_get ~errors config req
+    handle_register_get ~errors req
   | Ok (username, password, _) ->
     let+ user = Dream.sql req (Database.LocalUser.create_user ~username ~password)
                 |> map_err (function
@@ -63,7 +63,7 @@ let handle_register_post config req =
 
 (* * Login *)  
 (* ** Get *)
-let handle_login_get ?errors config req =
+let handle_login_get ?errors req =
   let token = Dream.csrf_token req in
   let+ headers = Navigation.build_navigation_bar req in
   tyxml @@ Html.build_page ~title:"Log in to your account" ~headers [
@@ -73,13 +73,13 @@ let handle_login_get ?errors config req =
       ];
       Pure.grid_col_responsive [`sm, (1,2)] [
         Html.Login.login_info
-          (Markdown.markdown_to_html (Configuration.Params.about_this_instance config))
+          (Markdown.markdown_to_html (Lazy.force Configuration.about_this_instance))
       ];
     ];
   ]
     
 (* ** Post *)
-let handle_login_post config req =
+let handle_login_post req =
   log.info (fun f -> f "login page POST");
   let+ data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
   let res =
@@ -92,7 +92,7 @@ let handle_login_post config req =
   match res with
   | Error errors ->
     List.iter (fun error -> log.debug (fun f -> f "login page invalid form %s" error)) errors;
-    handle_login_get ~errors config req
+    handle_login_get ~errors req
   | Ok (username, password) ->
     let+ user = Dream.sql req (Database.LocalUser.login_user ~username ~password)
                 |> map_err (function
@@ -105,7 +105,7 @@ let handle_login_post config req =
         Dream.set_session_field req "user" (user.Database.LocalUser.username) in
       redirect req "/feed"
     | None ->
-      handle_login_get ~errors:["Invalid username or password"] config req
+      handle_login_get ~errors:["Invalid username or password"] req
 
 (* * Logout *)
 let handle_logout_post req =
@@ -115,14 +115,14 @@ let handle_logout_post req =
   redirect req "/feed"
 
 (* * Router *)
-let route config = 
+let route = 
   Dream.scope "/" [] [
     Dream.scope "/" [check_unauthenticated] [
-      Dream.get "/register" @@ Error_handling.handle_error_html config @@ handle_register_get config;
-      Dream.post "/register" @@ Error_handling.handle_error_html config @@ handle_register_post config;
+      Dream.get "/register" @@ Error_handling.handle_error_html @@ handle_register_get;
+      Dream.post "/register" @@ Error_handling.handle_error_html @@ handle_register_post;
       
-      Dream.get "/login" @@ Error_handling.handle_error_html config @@ handle_login_get config;
-      Dream.post "/login" @@ Error_handling.handle_error_html config @@ handle_login_post config;
+      Dream.get "/login" @@ Error_handling.handle_error_html @@ handle_login_get;
+      Dream.post "/login" @@ Error_handling.handle_error_html @@ handle_login_post;
     ];
-    Dream.post "/logout" @@ Error_handling.handle_error_html config @@ handle_logout_post;
+    Dream.post "/logout" @@ Error_handling.handle_error_html @@ handle_logout_post;
   ]

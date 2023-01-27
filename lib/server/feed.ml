@@ -203,6 +203,6 @@ let handle_feed_get req =
   ]
 
 (* * Route *)
-let route config =
+let route =
   Dream.get "/feed" @@
-  Error_handling.handle_error_html config @@ handle_feed_get
+  Error_handling.handle_error_html @@ handle_feed_get

@@ -14,7 +14,7 @@ open (struct
     | Param: 'a option param * bool * 'a Cmdliner.Arg.conv -> pref
     | Flag: bool param -> pref
 
-  type 'a value = unit -> 'a
+  type 'a value = 'a lazy_t
 
   let operations = ref []
 
@@ -22,61 +22,61 @@ open (struct
     let open Cmdliner in
     let term = ref term in
     List.iter (function
-        | Flag pref ->
-          let param_info =
-            Arg.info
-              ~doc:pref.documentation
-              ~docv:(Option.value pref.docv ~default:pref.name)
-              ?absent:pref.absent
-              (Option.value pref.flags ~default:[pref.name]) in
-          term := Term.((const (fun x term ->
-              pref.value <- x;
-              term
-            )) $ (Arg.value (Arg.flag param_info)) $ !term)
-        | Param (pref, required, param_conv) ->
-          let param_info =
-            Arg.info
-              ~doc:pref.documentation
-              ~docv:(Option.value pref.docv ~default:pref.name)
-              ?absent:pref.absent
-              (Option.value pref.flags ~default:[pref.name]) in
-          term := if required
-            then Term.((const (fun x term ->
-                pref.value <- Some x;
-                term
-              )) $ (Arg.required (Arg.opt Arg.(some param_conv) None param_info)) $ !term)
-            else Term.((const (fun x term ->
-                pref.value <- x;
-                term
-              )) $ (Arg.value (Arg.opt Arg.(some param_conv) None param_info)) $ !term)
-      ) !operations;
+      | Flag pref ->
+        let param_info =
+          Arg.info
+            ~doc:pref.documentation
+            ~docv:(Option.value pref.docv ~default:pref.name)
+            ?absent:pref.absent
+            (Option.value pref.flags ~default:[pref.name]) in
+        term := Term.((const (fun x term ->
+          pref.value <- x;
+          term
+        )) $ (Arg.value (Arg.flag param_info)) $ !term)
+      | Param (pref, required, param_conv) ->
+        let param_info =
+          Arg.info
+            ~doc:pref.documentation
+            ~docv:(Option.value pref.docv ~default:pref.name)
+            ?absent:pref.absent
+            (Option.value pref.flags ~default:[pref.name]) in
+        term := if required
+          then Term.((const (fun x term ->
+            pref.value <- Some x;
+            term
+          )) $ (Arg.required (Arg.opt Arg.(some param_conv) None param_info)) $ !term)
+          else Term.((const (fun x term ->
+            pref.value <- x;
+            term
+          )) $ (Arg.value (Arg.opt Arg.(some param_conv) None param_info)) $ !term)
+    ) !operations;
     !term
 
 
   let flag ~name ~documentation ?docv ?absent ?flags () : bool value =
     let value = {name; documentation; docv; absent; flags; value=false} in
     operations := Flag value :: !operations;
-    fun () -> value.value
+    lazy value.value
 
   let required ~name ~documentation ~ty ?docv ?absent ?flags () : 'a value =
     let value = {name; documentation; docv; absent; flags; value=None} in
     operations := Param (value, true, ty) :: !operations;
-    fun () -> match value.value with
+    lazy (match value.value with
       | None -> failwith ("parameter " ^ name ^ " was not provided")
-      | Some value -> value
+      | Some value -> value)
 
   let optional ~name ~documentation ~ty ?docv ?absent ?flags () : 'a value =
     let value = {name; documentation; docv; absent; flags; value=None} in
     operations := Param (value, true, ty) :: !operations;
-    fun () -> value.value 
+    lazy value.value 
 
   let optional_with_default ~name ~documentation ~ty ~default ?docv ?absent ?flags () : 'a value =
     let value = {name; documentation; docv; absent; flags; value=Some default} in
     operations := Param (value, true, ty) :: !operations;
-    fun () -> Option.get value.value 
+    lazy (Option.get value.value)
 end : sig
 
-        type 'a value = unit -> 'a
+        type 'a value = 'a lazy_t
 
         val wrap : 'a Cmdliner.Term.t -> 'a Cmdliner.Term.t
 
@@ -118,7 +118,7 @@ let domain =
     ~default:"localhost"
     ~flags:["d"; "domain"] ()
 
-let user_image_path =
+let user_image_dir =
   optional_with_default ~name:"user_image_path" ~docv:"USER-IMAGE-PATH"
     ~documentation:"$(docv) is the path to the directory used by OCamlot to store user images. The directory is created if not present."
     ~ty:Cmdliner.Arg.(dir)
@@ -186,20 +186,36 @@ Donate to the FSF if you wish to support FREEDOM: [Free Software Foundation](www
 |}
 
 
-let is_tls_enabled () = Option.is_some (certificate_file ()) && Option.is_some (key_file ())
-let certificate_file () =
-  if not (is_tls_enabled ())
-  then None
-  else (certificate_file ())
-let key_file () =
-  if not (is_tls_enabled ())
-  then None
-  else (key_file ())
+let is_tls_enabled =
+  lazy (Option.is_some (Lazy.force certificate_file) && Option.is_some (Lazy.force key_file))
+let certificate_file =
+  lazy (if not (Lazy.force is_tls_enabled)
+        then None
+        else (Lazy.force certificate_file))
 
-let about_this_instance () = about_this_instance ()
-let host () = domain ()
-let domain () = Uri.of_string ("https://" ^ domain ())
-let database_path () = database_path ()
-let port () = port ()
-let debug () = debug ()
-let user_image_path () = user_image_path ()
+let key_file =
+  lazy (if not (Lazy.force is_tls_enabled)
+        then None
+        else (Lazy.force key_file))
+
+let about_this_instance = lazy begin
+  Omd.of_string @@ match Lazy.force about_this_instance with
+  | None -> default_about_this_instance
+  | Some data ->
+      let path = match Fpath.of_string data with Ok path -> path | Error (`Msg m) -> failwith m in
+      let about_this_instance = match Bos.OS.File.read path with Ok data -> data | Error (`Msg m) -> failwith m in
+      about_this_instance
+end
+
+let host = domain
+let domain = lazy (Uri.of_string ("https://" ^ Lazy.force domain))
+let database_uri =
+  lazy (Uri.of_string ("sqlite3://:" ^ (Lazy.force database_path)))
+let port = port 
+let debug = debug 
+let user_image_path =
+  lazy begin
+    let path =
+      Result.get_ok (Fpath.of_string (Lazy.force user_image_dir)) in
+    Fpath.to_string (Fpath.to_dir_path path)
+  end

@@ -140,8 +140,8 @@ let resolve_remote_user_by_url url db =
 (** [resolve_tagged_user config username db] given a [username] in the
     form {<username>@<domain>} classifies the user a a local or remote
     user if they exist. *)
-let resolve_tagged_user config user db = 
-  let user_tag = Configuration.Regex.user_tag config |> Re.compile in
+let resolve_tagged_user user db = 
+  let user_tag = Configuration.Regex.user_tag in
   let matches = Re.all user_tag (String.trim user) in
   let user_tag = List.head_opt matches in
   match user_tag with
@@ -151,7 +151,7 @@ let resolve_tagged_user config user db =
                        |> map_err (fun err -> `WorkerFailure err ) in
     return (Ok (`Remote remote_user))
   | Some group when Option.equal String.equal
-                      (Some (Configuration.Params.domain config |> Uri.to_string))
+                      (Some (Lazy.force Configuration.domain |> Uri.to_string))
                       (Re.Group.get_opt group 2) ->
     (* local user *)
     let username = Re.Group.get group 1 in
@@ -167,14 +167,14 @@ let resolve_tagged_user config user db =
                          |> map_err (fun msg -> `WorkerFailure msg) in
     return_ok (`Remote resolved_user)
 
-let create_accept_follow config follow remote local db =
+let create_accept_follow follow remote local db =
   let local_user =
-    Configuration.Url.user config (local.Database.LocalUser.username)
+    Configuration.Url.user (local.Database.LocalUser.username)
     |> Uri.to_string in
   let id = fresh_id () in
   let accept = 
     ({
-      id=Configuration.Url.activity_endpoint config id |> Uri.to_string;
+      id=Configuration.Url.activity_endpoint id |> Uri.to_string;
       actor=local_user;
       published=Some (Ptime_clock.now ());
       obj=({
@@ -188,14 +188,14 @@ let create_accept_follow config follow remote local db =
   let+ _ = Database.Activity.create ~id ~data:accept db in
   Lwt_result.return accept
 
-let target_list_to_urls config to_ db =
+let target_list_to_urls to_ db =
   Lwt_list.map_s (fun actor ->
     let+ l = Database.Actor.resolve ~id:actor db in
     (match l with 
      | `Local l ->
        let+ l = Database.LocalUser.resolve ~id:l db in
        return_ok (l.Database.LocalUser.username
-                  |> Configuration.Url.user config
+                  |> Configuration.Url.user
                   |> Uri.to_string)
      | `Remote r ->
        let+ r = Database.RemoteUser.resolve ~id:r db in
@@ -210,18 +210,18 @@ let target_list_to_urls config to_ db =
   )
   |> lift_pure
 
-let create_note_obj config post_id author published scope to_ cc content summary =
+let create_note_obj post_id author published scope to_ cc content summary =
   let is_public, is_follower_public =
     match scope with
     | `DM -> false, false
     | `Followers -> false, true
     | `Public -> true, true in
   let id = post_id
-           |> Configuration.Url.activity_endpoint config
+           |> Configuration.Url.activity_endpoint
            |> Uri.to_string in
   let actor = 
     author.Database.LocalUser.username
-    |> Configuration.Url.user config
+    |> Configuration.Url.user
     |> Uri.to_string in
   let to_ =
     if is_public
@@ -231,7 +231,7 @@ let create_note_obj config post_id author published scope to_ cc content summary
     then
       let followers_url =
         author.Database.LocalUser.username
-        |> Configuration.Url.user_followers config
+        |> Configuration.Url.user_followers
         |> Uri.to_string in
       followers_url :: cc
     else cc in
@@ -250,7 +250,7 @@ let create_note_obj config post_id author published scope to_ cc content summary
     raw=`Null
   }
 
-let create_create_event_obj config post_id author published scope to_ cc post =
+let create_create_event_obj post_id author published scope to_ cc post =
   let is_public, is_follower_public =
     match scope with
     | `DM -> false, false
@@ -258,11 +258,11 @@ let create_create_event_obj config post_id author published scope to_ cc post =
     | `Public -> true, true in
   let id =
     post_id
-    |> Configuration.Url.activity_endpoint config
+    |> Configuration.Url.activity_endpoint
     |> Uri.to_string in
   let actor = 
     author.Database.LocalUser.username
-    |> Configuration.Url.user config
+    |> Configuration.Url.user
     |> Uri.to_string in
   let to_ =
     if is_public
@@ -272,7 +272,7 @@ let create_create_event_obj config post_id author published scope to_ cc post =
     then
       let followers_url =
         author.Database.LocalUser.username
-        |> Configuration.Url.user_followers config
+        |> Configuration.Url.user_followers
         |> Uri.to_string in
       followers_url :: cc
     else cc in
@@ -287,7 +287,7 @@ let create_create_event_obj config post_id author published scope to_ cc post =
     raw=`Null
   }
 
-let build_follow_request config local remote db =
+let build_follow_request local remote db =
   log.debug (fun f -> f "building follow request");
   let id = try fresh_id () with exn ->
     log.debug (fun f -> f "failed with error %s" (Printexc.to_string exn));
@@ -295,7 +295,7 @@ let build_follow_request config local remote db =
   log.debug (fun f -> f "created fresh id %s" id);
   let local_actor_url = 
     local.Database.LocalUser.username
-    |> Configuration.Url.user config
+    |> Configuration.Url.user
     |> Uri.to_string in
   log.debug (fun f -> f "calculated local actor url %s" local_actor_url);
   let remote_actor_url = remote.Database.RemoteUser.url in
@@ -303,7 +303,7 @@ let build_follow_request config local remote db =
   let follow_request =
     let id =
       id
-      |> Configuration.Url.activity_endpoint config
+      |> Configuration.Url.activity_endpoint
       |> Uri.to_string in
     Activitypub.Types.{
       id; actor=local_actor_url;
@@ -320,7 +320,7 @@ let build_follow_request config local remote db =
     let+ target = Database.Actor.create_remote_user ~remote_id:(remote.Database.RemoteUser.id) db in
     log.debug (fun f -> f "creating follow");
     Database.Follows.create
-      ~url:(Configuration.Url.activity_endpoint config id
+      ~url:(Configuration.Url.activity_endpoint id
             |> Uri.to_string)
       ~public_id:id
       ~author ~target ~pending:true
@@ -329,18 +329,18 @@ let build_follow_request config local remote db =
   let+ _ = Database.Activity.create ~id ~data db in
   Lwt_result.return (data |> Yojson.Safe.to_string)
 
-let follow_remote_user config
+let follow_remote_user
       (local: Database.LocalUser.t)
       ~username ~domain db: (unit,string) Lwt_result.t =
   log.debug (fun f -> f "resolving remote user %s@%s" username domain);
   let+ remote = resolve_remote_user ~username ~domain db in
   log.debug (fun f -> f "successfully resolved remote user %s@%s" username domain);
-  let+ follow_request = build_follow_request config local remote db |> sanitize in
+  let+ follow_request = build_follow_request local remote db |> sanitize in
   log.debug (fun f -> f "built follow request %s" follow_request);
   let+ uri = Lwt_result.lift (Result.of_opt remote.Database.RemoteUser.inbox) in
   let key_id =
     local.Database.LocalUser.username
-    |> Configuration.Url.user_key config
+    |> Configuration.Url.user_key
     |> Uri.to_string in
   let priv_key =
     local.Database.LocalUser.privkey in
@@ -352,12 +352,12 @@ let follow_remote_user config
   | `OK -> Lwt_result.return ()
   | _ -> Lwt_result.fail "request failed"
 
-let accept_remote_follow config follow remote local db =
-  let+ accept_follow = create_accept_follow config follow remote local db |> sanitize in
+let accept_remote_follow  follow remote local db =
+  let+ accept_follow = create_accept_follow follow remote local db |> sanitize in
   let+ uri = Lwt_result.lift (Result.of_opt remote.Database.RemoteUser.inbox) in
   let key_id =
     local.Database.LocalUser.username
-    |> Configuration.Url.user_key config
+    |> Configuration.Url.user_key
     |> Uri.to_string in
   let priv_key =
     local.Database.LocalUser.privkey in
@@ -408,7 +408,7 @@ let accept_local_follow _config follow ~target:remote ~author:local db =
   Lwt_result.return ()
 
 
-let follow_local_user config follow_url remote_url local_user data db =
+let follow_local_user follow_url remote_url local_user data db =
   let+ remote = resolve_remote_user_by_url (Uri.of_string remote_url) db in
   let+ follow = 
     let+ author =
@@ -421,11 +421,11 @@ let follow_local_user config follow_url remote_url local_user data db =
       ~created:(Ptime_clock.now ()) db |> sanitize in
   let+ () =
     if not @@ local_user.Database.LocalUser.manually_accepts_follows
-    then accept_remote_follow config follow remote local_user db
+    then accept_remote_follow follow remote local_user db
     else Lwt_result.return () in
   Lwt_result.return ()
 
-let create_note_request config scope author to_ cc summary content content_type db =
+let create_note_request scope author to_ cc summary content content_type db =
   let post_id = fresh_id () in
   let is_public, is_follower_public =
     match scope with
@@ -438,7 +438,7 @@ let create_note_request config scope author to_ cc summary content content_type 
                   |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
     Database.Posts.create
       ~public_id:(post_id)
-      ~url:(Configuration.Url.activity_endpoint config
+      ~url:(Configuration.Url.activity_endpoint
               post_id
             |> Uri.to_string)
       ~author ~is_public  ~is_follower_public
@@ -451,13 +451,13 @@ let create_note_request config scope author to_ cc summary content content_type 
             |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   let+ () = Database.Posts.add_post_ccs ~id:post.Database.Posts.id ~ccs:cc db
             |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-  let+ to_ = target_list_to_urls config to_ db
+  let+ to_ = target_list_to_urls to_ db
              |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-  let+ cc = target_list_to_urls config cc db
+  let+ cc = target_list_to_urls cc db
             |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
 
   let post_obj : Activitypub.Types.note =
-    create_note_obj config post_id author published scope to_ cc content summary in
+    create_note_obj post_id author published scope to_ cc content summary in
   let data = Activitypub.Encode.note post_obj in
   let+ _ = Database.Activity.create ~id:post_id ~data db
            |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
@@ -465,7 +465,7 @@ let create_note_request config scope author to_ cc summary content content_type 
 
   let create_post_id = fresh_id () in
   let create_note_obj : Activitypub.Types.note Activitypub.Types.create =
-    create_create_event_obj config create_post_id author published scope to_ cc post_obj in
+    create_create_event_obj create_post_id author published scope to_ cc post_obj in
 
   let data = Activitypub.Encode.(create note) create_note_obj in
   let+ _ = Database.Activity.create ~id:create_post_id ~data db
@@ -473,14 +473,14 @@ let create_note_request config scope author to_ cc summary content content_type 
 
   Lwt.return_ok (Yojson.Safe.to_string data)
 
-let create_new_note config scope author to_ cc summary content content_type db =
+let create_new_note scope author to_ cc summary content content_type db =
   let is_public, is_follower_public =
     match scope with
     | `DM -> false, false
     | `Followers -> false, true
     | `Public -> true, true in
   let partition_user tagged_user =
-    let+ user = resolve_tagged_user config tagged_user db in
+    let+ user = resolve_tagged_user tagged_user db in
     let+ link = (match user with
       | `Local user -> Database.(Actor.create_local_user ~local_id:(user.LocalUser.id) db)
       | `Remote user -> Database.(Actor.create_remote_user ~remote_id:(user.RemoteUser.id) db))
@@ -528,12 +528,12 @@ let create_new_note config scope author to_ cc summary content content_type db =
       Lwt.return_ok remote_targets
     end in
   let+ note_request =
-    create_note_request config scope author to_ cc summary content content_type db in
+    create_note_request scope author to_ cc summary content content_type db in
   let remote_targets = to_remotes @ cc_remotes @ remote_followers_targets in
   let+ _ =
     let key_id =
       author.Database.LocalUser.username
-      |> Configuration.Url.user_key config
+      |> Configuration.Url.user_key
       |> Uri.to_string in
     let priv_key =
       author.Database.LocalUser.privkey in
@@ -563,7 +563,7 @@ let create_new_note config scope author to_ cc summary content content_type db =
 
 
 
-let build_followers_collection_page config start_time offset user db =
+let build_followers_collection_page start_time offset user db =
   let+ followers, total_count =
     let+ user = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db
                 |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
@@ -586,7 +586,7 @@ let build_followers_collection_page config start_time offset user db =
         `Local u ->
         let+ u = Database.LocalUser.resolve ~id:u db
                  |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-        return_ok (Configuration.Url.user config (u.Database.LocalUser.username)
+        return_ok (Configuration.Url.user (u.Database.LocalUser.username)
                    |> Uri.to_string)
       | `Remote r ->
         let+ r = Database.RemoteUser.resolve ~id:r db
@@ -599,22 +599,22 @@ let build_followers_collection_page config start_time offset user db =
      |> Ptime.to_rfc3339 ~tz_offset_s:0
      |> Lwt.return_ok) in
   let id =
-    Configuration.Url.user_followers_page config (user.Database.LocalUser.username)
+    Configuration.Url.user_followers_page (user.Database.LocalUser.username)
       ~start_time ~offset:(Int.to_string offset)
     |> Uri.to_string in
 
   let next =
-    Configuration.Url.user_followers_page config (user.Database.LocalUser.username)
+    Configuration.Url.user_followers_page (user.Database.LocalUser.username)
       ~start_time ~offset:(Int.to_string (offset + 1))
     |> Uri.to_string in
 
   let prev =
-    Configuration.Url.user_followers_page config (user.Database.LocalUser.username)
+    Configuration.Url.user_followers_page (user.Database.LocalUser.username)
       ~start_time ~offset:(Int.to_string (offset - 1))
     |> Uri.to_string in
 
   let part_of =
-    Configuration.Url.user_followers config (user.Database.LocalUser.username)
+    Configuration.Url.user_followers (user.Database.LocalUser.username)
     |> Uri.to_string in
 
   Lwt.return_ok ({
@@ -627,7 +627,7 @@ let build_followers_collection_page config start_time offset user db =
     total_items=Some total_count;
   } : string Activitypub.Types.ordered_collection_page)
 
-let build_following_collection_page config start_time offset user db =
+let build_following_collection_page start_time offset user db =
   let+ following, total_count =
     let+ user = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db
                 |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
@@ -649,7 +649,7 @@ let build_following_collection_page config start_time offset user db =
     Lwt_list.map_s (function
         `Local u ->
         let+ u = Database.LocalUser.resolve ~id:u db in
-        return_ok (Configuration.Url.user config (u.Database.LocalUser.username)
+        return_ok (Configuration.Url.user (u.Database.LocalUser.username)
                    |> Uri.to_string)
       | `Remote r ->
         let+ r = Database.RemoteUser.resolve ~id:r db in
@@ -662,22 +662,22 @@ let build_following_collection_page config start_time offset user db =
      |> Ptime.to_rfc3339 ~tz_offset_s:0
      |> Lwt.return_ok) in
   let id =
-    Configuration.Url.user_following_page config (user.Database.LocalUser.username)
+    Configuration.Url.user_following_page (user.Database.LocalUser.username)
       ~start_time ~offset:(Int.to_string offset)
     |> Uri.to_string in
 
   let next =
-    Configuration.Url.user_following_page config (user.Database.LocalUser.username)
+    Configuration.Url.user_following_page (user.Database.LocalUser.username)
       ~start_time ~offset:(Int.to_string (offset + 1))
     |> Uri.to_string in
 
   let prev =
-    Configuration.Url.user_following_page config (user.Database.LocalUser.username)
+    Configuration.Url.user_following_page (user.Database.LocalUser.username)
       ~start_time ~offset:(Int.to_string (offset - 1))
     |> Uri.to_string in
 
   let part_of =
-    Configuration.Url.user_following config (user.Database.LocalUser.username)
+    Configuration.Url.user_following (user.Database.LocalUser.username)
     |> Uri.to_string in
 
   Lwt.return_ok ({
