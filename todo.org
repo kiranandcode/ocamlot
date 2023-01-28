@@ -150,7 +150,23 @@ CLOSED: [2023-01-23 Mon 11:42]
 CLOSED: [2023-01-24 Tue 06:45]
 ** DONE Add parameter to track dumping json 
 CLOSED: [2023-01-27 Fri 15:20]
-** TODO See how profile pictures are represented in pleroma
-** TODO Add support for remote users profile pictures
-** TODO On receiving like json request on user-inbox post, create new like for post
+** DONE Support local user profile pictures
+CLOSED: [2023-01-28 Sat 03:27]
+*** DONE See how profile pictures are represented in pleroma
+CLOSED: [2023-01-28 Sat 03:26]
+*** DONE Update encoder for localusers to include images
+CLOSED: [2023-01-28 Sat 03:27]
+*** DONE Confirm that images are visible in pleroma
+CLOSED: [2023-01-28 Sat 03:27]
+** DONE Support remote user profile pictures
+CLOSED: [2023-01-28 Sat 03:54]
+*** DONE Update remote user table to also include profile picture url
+CLOSED: [2023-01-28 Sat 03:54]
+*** DONE Update resolve remote user to add picture url into table
+CLOSED: [2023-01-28 Sat 03:54]
+*** DONE Update rendering of remote users in =server/users.ml= to include profile picture
+CLOSED: [2023-01-28 Sat 03:54]
+** TODO Support likes
 *** TODO Add like task to worker
+*** TODO On users/inbox like object, send like task to worker
+

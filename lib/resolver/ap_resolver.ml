@@ -6,7 +6,6 @@ let log = Logging.add_logger "back.resolver"
 
 let fresh_id () = Uuidm.v `V4 |> Uuidm.to_string
 
-
 let req_post ~headers url body =
   let body = Cohttp_lwt.Body.of_string body in
   try
@@ -112,6 +111,7 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
       ?followers:person_res.followers
       ?following:person_res.following
       ?summary:person_res.summary
+      ?profile_picture:person_res.icon
       ~public_key_pem:person_res.public_key.pem
       ~username
       ~instance:(remote_instance.Database.RemoteInstance.id)

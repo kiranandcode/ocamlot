@@ -68,7 +68,7 @@ let extract_post req (post: Database.Posts.t) =
       let name =
         Option.value ~default:l.Database.RemoteUser.username
           l.Database.RemoteUser.display_name in
-      return_ok (name, None) in
+      return_ok (name, l.Database.RemoteUser.profile_picture) in
   let author_obj = object
     method name = name
     method image =

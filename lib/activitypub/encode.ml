@@ -99,11 +99,17 @@ let public_key (key: Types.public_key) =
     "publicKeyPem" @ key.pem <: E.string;
   ]
 
+let icon (url: string) =
+  obj [
+    "type" @ "Image" <: E.string;
+    "url" @ url <: E.string;
+  ]
+
 let person ({ id; name; url; inbox; outbox;
               preferred_username; summary;
               manually_approves_followers;
               discoverable; followers; following;
-              public_key=key; icon=_; raw=_ }: Types.person) =
+              public_key=key; icon=i; raw=_ }: Types.person) =
   ap_obj "Person" [
 
     "id" @ id <: E.string;
@@ -127,6 +133,7 @@ let person ({ id; name; url; inbox; outbox;
     "followers" @? followers <: E.string;
     "following" @? following <: E.string;
 
+    "icon" @? i <: icon;
   ]
 
 let state = function

@@ -537,7 +537,7 @@ module UserImage = struct
 
   let decode (path, (hash, ())) =  {path;hash}
 
-  let find_by_hash ~hash conn =
+  let resolve_by_hash ~hash conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -545,9 +545,9 @@ module UserImage = struct
       Expr.[UserImage.path; UserImage.hash]
       ~from:UserImage.table
     |> Query.where Expr.(UserImage.hash = s hash)
-    |> Request.make_zero_or_one
-    |> Petrol.find_opt conn
-    |> Lwt_result.map (Option.map decode)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map decode
 
   let find_by_path ~path conn =
     let open Lwt_result.Syntax in
@@ -586,7 +586,7 @@ module UserImage = struct
       |> Query.on_err `IGNORE
       |> Request.make_zero
       |> Petrol.exec conn in
-    resolve ~path conn
+    find_by_path ~path conn
 
 end
 
@@ -604,7 +604,8 @@ module RemoteUser = struct
     followers: string option;
     following: string option;
     summary: string option;
-    public_key_pem: string
+    public_key_pem: string;
+    profile_picture: string option;
   }
   [@@deriving show]
 
@@ -619,7 +620,8 @@ module RemoteUser = struct
              (followers,
               (following,
                (summary,
-                (public_key_pem, ()))))))))))) = {
+                (public_key_pem,
+                 (profile_picture, ())))))))))))) = {
     id;
     username;
     instance_id;
@@ -630,7 +632,8 @@ module RemoteUser = struct
     followers;
     following;
     summary;
-    public_key_pem
+    public_key_pem;
+    profile_picture
   }
 
   let lookup_remote_user_by_address ~username ~url conn =
@@ -651,7 +654,8 @@ module RemoteUser = struct
         nullable RemoteUser.followers;
         nullable RemoteUser.following;
         nullable RemoteUser.summary;
-        RemoteUser.public_key_pem
+        RemoteUser.public_key_pem;
+        nullable RemoteUser.profile_picture;
       ]
       ~from:RemoteUser.table
     |> Query.join ~op:Query.INNER
@@ -680,7 +684,8 @@ module RemoteUser = struct
         nullable RemoteUser.followers;
         nullable RemoteUser.following;
         nullable RemoteUser.summary;
-        RemoteUser.public_key_pem
+        RemoteUser.public_key_pem;
+        nullable RemoteUser.profile_picture;
       ]
       ~from:RemoteUser.table
     |> Query.where Expr.(RemoteUser.url = s url)
@@ -704,7 +709,8 @@ module RemoteUser = struct
         nullable RemoteUser.followers;
         nullable RemoteUser.following;
         nullable RemoteUser.summary;
-        RemoteUser.public_key_pem
+        RemoteUser.public_key_pem;
+        nullable RemoteUser.profile_picture;
       ]
       ~from:RemoteUser.table
     |> Query.where Expr.(RemoteUser.id = i id)
@@ -713,7 +719,7 @@ module RemoteUser = struct
     |> Lwt_result.map decode
 
   let create_remote_user
-      ?display_name ?inbox ?outbox ?followers ?following ?summary
+      ?display_name ?inbox ?outbox ?followers ?following ?summary ?profile_picture
       ~username ~instance ~url ~public_key_pem conn =
     let create_remote remote_id conn = Actor.create_remote_user ~remote_id conn in
     let open Lwt_result.Syntax in
@@ -745,7 +751,10 @@ module RemoteUser = struct
           (summary |> Option.map Expr.(fun n ->
                RemoteUser.summary := s n
              ) |> Option.to_list) @
-          Expr.[RemoteUser.public_key_pem := s public_key_pem]
+          Expr.[RemoteUser.public_key_pem := s public_key_pem] @
+          (profile_picture |> Option.map Expr.(fun n ->
+               RemoteUser.profile_picture := s n
+             ) |> Option.to_list)
         )
       |> Request.make_zero
       |> Petrol.exec conn in
@@ -802,7 +811,8 @@ module RemoteUser = struct
         nullable RemoteUser.followers;
         nullable RemoteUser.following;
         nullable RemoteUser.summary;
-        RemoteUser.public_key_pem
+        RemoteUser.public_key_pem;
+        nullable RemoteUser.profile_picture;
       ]
       ~from:RemoteUser.table
     |> Query.join ~op:INNER
@@ -840,7 +850,8 @@ module RemoteUser = struct
         nullable RemoteUser.followers;
         nullable RemoteUser.following;
         nullable RemoteUser.summary;
-        RemoteUser.public_key_pem
+        RemoteUser.public_key_pem;
+        nullable RemoteUser.profile_picture;
       ] ~from:RemoteUser.table
     |> Query.join ~op:INNER ~on:Expr.(a_rid_ref = RemoteUser.id)
       (Query.select [a_id; a_rid] ~from:Actor.table)
@@ -880,7 +891,8 @@ module RemoteUser = struct
         nullable RemoteUser.followers;
         nullable RemoteUser.following;
         nullable RemoteUser.summary;
-        RemoteUser.public_key_pem
+        RemoteUser.public_key_pem;
+        nullable RemoteUser.profile_picture;
       ]
       ~from:RemoteUser.table
     |> Query.join ~op:INNER

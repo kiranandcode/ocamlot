@@ -2,8 +2,9 @@ open Petrol
 
 let version_0_0_1 = VersionedSchema.version [0;0;1]
 let version_0_0_2 = VersionedSchema.version [0;0;2]
+let version_0_0_3 = VersionedSchema.version [0;0;3]
 
-let db = VersionedSchema.init version_0_0_2 ~name:"ocamlot"
+let db = VersionedSchema.init version_0_0_3 ~name:"ocamlot"
 
 module DreamSession = struct
 
@@ -68,12 +69,6 @@ end
 
 module RemoteInstance = struct
 
-  type t = {
-    id: int;
-    url: string;
-    last_unreachable: Ptime.t option;
-  }
-
   let table, Expr.[id;url;last_unreachable] =
     VersionedSchema.declare_table db ~name:"remote_instance"
       Schema.[
@@ -87,8 +82,18 @@ end
 module RemoteUser = struct
 
   let table, Expr.[
-    id; username; instance_id; display_name; url; inbox;
-    outbox; followers; following; summary; public_key_pem
+    id;
+    username;
+    instance_id;
+    display_name;
+    url;
+    inbox;
+    outbox;
+    followers;
+    following;
+    summary;
+    public_key_pem;
+    profile_picture;
   ] = VersionedSchema.declare_table db ~name:"remote_user"
         Schema.[
           field ~constraints:[primary_key ()] "id" ~ty:Type.int;             (* internal id of the user *)
@@ -109,7 +114,14 @@ module RemoteUser = struct
 
           field ~constraints:[not_null ()]
             "public_key_pem" ~ty:Type.text;                                  (* public key of the user *)
+          field
+            "profile_picture"
+            ~ty:Type.text;                                                   (* profile picture of the user *)
+
         ]
+        ~migrations:[version_0_0_3, [
+            Caqti_request.Infix.(Caqti_type.unit ->. Caqti_type.unit) {sql| ALTER TABLE remote_user ADD COLUMN profile_picture TEXT |sql}
+          ]]
 
 end
 

@@ -7,6 +7,10 @@ let home_url =
 
 let image_path path = "/images/" ^ path
 
+let image_url path =
+  Lazy.force Params.domain
+  |> Fun.flip Uri.with_path ("/images/" ^ path)
+
 let user_base_url =
   lazy begin
     Lazy.force Params.domain

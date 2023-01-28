@@ -34,7 +34,7 @@ module LocalUser = struct
       discoverable = true;
       followers = Some (uri (Configuration.Url.user_followers username));
       following = Some (uri (Configuration.Url.user_following username));
-      icon = None;
+      icon = Option.map Fun.(uri % Configuration.Url.image_url) actor.profile_picture;
       raw = `Null
     }
 

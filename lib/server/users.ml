@@ -581,7 +581,9 @@ let handle_remote_users_get req =
              method profile_page = ("/users/" ^ fqn)
              method following = is_following
              method profile = object
-               method image = "/static/images/unknown.png"
+               method image =
+                 Option.value user.Database.RemoteUser.profile_picture
+                   ~default:"/static/images/unknown.png"
                method name = ""
              end
              method stats = object
