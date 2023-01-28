@@ -6,7 +6,7 @@ let log = Logging.add_logger "worker"
 
 type task =
   | CreateRemoteNote of {
-    author : Database.RemoteUser.t;
+    author : string;
     direct_message: bool;
     note: Activitypub.Types.note;
   }
@@ -29,6 +29,14 @@ type task =
     domain: string;
   }
 
+  | HandleRemoteLike of {
+      id: string;
+      published: Ptime.t;
+      target: Database.Posts.t;
+      author: string;
+      raw_data: Yojson.Safe.t;
+    }
+
   | SearchRemoteUser of {
     username: string;
     domain: string option;
@@ -50,30 +58,30 @@ open struct
 
   let handle_error res =
     Lwt.bind res (function
-      | Ok _ -> Lwt.return ()
-      | Error (#Caqti_error.t as err) ->
-        let _, msg, details = Error_handling.extract_error_details (`DatabaseError (Caqti_error.show err)) in
-        (* log.warning (fun f -> f "worker error: %s" msg); *)
-        Format.printf "worker error: %s" msg;
-        (* log.debug (fun f -> f "worker error details: %s" details); *)
-        Format.printf "worker error details: %s" details;
-        Lwt.return ()
-      | Error err ->
-        let _, msg, details = Error_handling.extract_error_details err in
-        (* log.warning (fun f -> f "worker error: %s" msg); *)
-        Format.printf "worker error: %s" msg;
-        (* log.debug (fun f -> f "worker error details: %s" details); *)
-        Format.printf "worker error details: %s" details;
+        | Ok _ -> Lwt.return ()
+        | Error (#Caqti_error.t as err) ->
+          let _, msg, details = Error_handling.extract_error_details (`DatabaseError (Caqti_error.show err)) in
+          (* log.warning (fun f -> f "worker error: %s" msg); *)
+          Format.printf "worker error: %s" msg;
+          (* log.debug (fun f -> f "worker error details: %s" details); *)
+          Format.printf "worker error details: %s" details;
+          Lwt.return ()
+        | Error err ->
+          let _, msg, details = Error_handling.extract_error_details err in
+          (* log.warning (fun f -> f "worker error: %s" msg); *)
+          Format.printf "worker error: %s" msg;
+          (* log.debug (fun f -> f "worker error details: %s" details); *)
+          Format.printf "worker error details: %s" details;
 
-        Lwt.return ()
-    )
+          Lwt.return ()
+      )
 
 
   let handle_local_post pool user scope post_to title content_type content =
     log.debug (fun f -> f "working on local post by %s of %s" (user.Database.LocalUser.username) content);
 
     let post_to = Option.get_or ~default:[] post_to
-                |> List.filter (Fun.negate String.is_empty) in
+                  |> List.filter (Fun.negate String.is_empty) in
     let+ _ =
       with_pool pool @@ 
       Ap_resolver.create_new_note scope user post_to [] title content content_type in
@@ -82,8 +90,8 @@ open struct
 
   let handle_search_user pool username domain =
     log.debug (fun f ->
-      f "received search query for user %s(@%a)?"
-        username (Option.pp String.pp) domain);
+        f "received search query for user %s(@%a)?"
+          username (Option.pp String.pp) domain);
     match domain with
     | None ->
       (* no domain given, we'll search any instances that don't have the user *)
@@ -94,17 +102,17 @@ open struct
         |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
       let+ query_res =
         Lwt_list.map_p (fun instance ->
-          let domain = instance.Database.RemoteInstance.url in
-          let+ _ = with_pool pool @@ fun db ->
-            Ap_resolver.resolve_remote_user ~username ~domain db
-            |> map_err (fun err -> `DatabaseError err) in
-          return_ok ()
-        ) instances
+            let domain = instance.Database.RemoteInstance.url in
+            let+ _ = with_pool pool @@ fun db ->
+              Ap_resolver.resolve_remote_user ~username ~domain db
+              |> map_err (fun err -> `DatabaseError err) in
+            return_ok ()
+          ) instances
         |> lift_pure in
       List.iter (function Ok () -> () | Error err ->
-        let _, msg, details = Error_handling.extract_error_details err in
-        log.error (fun f -> f "search query failed with error %s: %s" msg details)
-      ) query_res;
+          let _, msg, details = Error_handling.extract_error_details err in
+          log.error (fun f -> f "search query failed with error %s: %s" msg details)
+        ) query_res;
       return_ok ()      
     | Some domain ->
       log.debug (fun f ->  f "resolving user %s@%s?" username domain);
@@ -116,8 +124,8 @@ open struct
 
   let handle_follow_remote_user pool user username domain =
     log.debug (fun f ->
-      f "handling follow remote user %s@%s by %s" username domain (user.Database.LocalUser.username)
-    );
+        f "handling follow remote user %s@%s by %s" username domain (user.Database.LocalUser.username)
+      );
     let+ _ =
       with_pool pool @@ fun db ->
       Ap_resolver.follow_remote_user user ~username ~domain db
@@ -144,6 +152,22 @@ open struct
     Ap_resolver.follow_local_user id actor target raw db
     |> map_err (fun err -> `DatabaseError err)
 
+  let handle_remote_like pool id published target author raw_data =
+    log.debug (fun f -> f "worker handling remote like");
+    let+ author =
+      with_pool pool @@ fun db ->
+      Ap_resolver.resolve_remote_user_by_url (Uri.of_string author) db
+      |> map_err (fun err -> `DatabaseError err) in
+    let+ follow = 
+      with_pool pool @@ fun db ->
+      Database.Likes.create
+        ~raw_data ~url:id
+        ~post:target.Database.Posts.id ~published
+        ~actor:author.Database.RemoteUser.id db
+      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+    log.debug (fun f -> f "worker added remote like");
+    return_ok ()
+
   let handle_undo_follow pool follow_id =
     let+ follow =
       with_pool pool @@ fun db ->
@@ -157,7 +181,10 @@ open struct
     return_ok ()
 
   let handle_create_remote_note pool author direct_message (note: Activitypub.Types.note) =
-
+    let+ author =
+      with_pool pool @@ fun db ->
+      Ap_resolver.resolve_remote_user_by_url (Uri.of_string author) db
+      |> map_err (fun err -> `DatabaseError err) in
     log.debug (fun f -> f "creating remote note!");
     let url = note.id in
     let raw_data = note.raw in
@@ -171,47 +198,47 @@ open struct
       let lazy local_user_regex =
         Configuration.Regex.local_user_id_format in
       fun to_ ->
-      if String.equal to_ Activitypub.Constants.ActivityStreams.public
-      then (is_public := true; return_ok None)
-      else match Re.exec_opt local_user_regex to_ with
-        | Some group ->
-          let username = Re.Group.get group 1 in
-          let+ local_user =
-            with_pool pool @@ fun db ->
-            Database.LocalUser.find_user ~username db
-            |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-          begin match local_user with
-          | None -> return_ok None
-          | Some local_user ->
-            let+ user =
+        if String.equal to_ Activitypub.Constants.ActivityStreams.public
+        then (is_public := true; return_ok None)
+        else match Re.exec_opt local_user_regex to_ with
+          | Some group ->
+            let username = Re.Group.get group 1 in
+            let+ local_user =
               with_pool pool @@ fun db ->
-              Database.Actor.create_local_user ~local_id:(local_user.Database.LocalUser.id) db
+              Database.LocalUser.find_user ~username db
               |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-            return_ok (Some user)
-          end
-        | None ->
-          is_follower_public := !is_follower_public ||
-                                Uri.of_string to_ |> Uri.path |> String.split_on_char '/'
-                                |> List.last_opt |> Option.exists (String.equal "followers");
-          return_ok None in
+            begin match local_user with
+              | None -> return_ok None
+              | Some local_user ->
+                let+ user =
+                  with_pool pool @@ fun db ->
+                  Database.Actor.create_local_user ~local_id:(local_user.Database.LocalUser.id) db
+                  |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+                return_ok (Some user)
+            end
+          | None ->
+            is_follower_public := !is_follower_public ||
+                                  Uri.of_string to_ |> Uri.path |> String.split_on_char '/'
+                                  |> List.last_opt |> Option.exists (String.equal "followers");
+            return_ok None in
     let+ to_ =
       Lwt_list.map_p extract_target note.to_
       >> List.filter_map (function
-        | Ok v -> v
-        | Error err ->
-          let _, msg, details = Error_handling.extract_error_details err in
-          log.debug (fun f -> f "resolving target of post errored with msg %s: %s" msg details);
-          None
-      ) |> lift_pure in
+          | Ok v -> v
+          | Error err ->
+            let _, msg, details = Error_handling.extract_error_details err in
+            log.debug (fun f -> f "resolving target of post errored with msg %s: %s" msg details);
+            None
+        ) |> lift_pure in
     let+ cc_ =
       Lwt_list.map_p extract_target note.cc
       >> List.filter_map (function
-        | Ok v -> v
-        | Error err ->
-          let _, msg, details = Error_handling.extract_error_details err in
-          log.debug (fun f -> f "resolving ccd of post errored with msg %s: %s" msg details);
-          None
-      ) |> lift_pure in
+          | Ok v -> v
+          | Error err ->
+            let _, msg, details = Error_handling.extract_error_details err in
+            log.debug (fun f -> f "resolving ccd of post errored with msg %s: %s" msg details);
+            None
+        ) |> lift_pure in
     let+ author =
       with_pool pool @@ fun db ->
       Database.Actor.create_remote_user ~remote_id:(author.Database.RemoteUser.id) db
@@ -252,27 +279,30 @@ open struct
          log.debug (fun f -> f "worker woken up with task");
          try
            begin match[@warning "-8"] task with
-           | HandleUndoFollow {follow_id} ->
-             let res = handle_undo_follow pool follow_id in
-             handle_error res
-           | HandleRemoteFollow {id; actor; target; raw} ->
-             let res = handle_remote_follow pool id actor target raw in
-             handle_error res
-           | HandleAcceptFollow {follow_id} ->
-             let res = handle_accept_follow pool follow_id in
-             handle_error res
-           | SearchRemoteUser {username; domain} ->
-             let res = handle_search_user pool username domain in
-             handle_error res
-           | LocalPost {user; title; content; content_type; scope; post_to;} -> 
-             let res = handle_local_post pool user scope post_to title content_type content in
-             handle_error res
-           | FollowRemoteUser {user; username; domain} ->
-             let res = handle_follow_remote_user pool user username domain in
-             handle_error res             
-           | CreateRemoteNote { author; direct_message; note } ->
-             let res = handle_create_remote_note pool author direct_message note in
-             handle_error res             
+             | HandleUndoFollow {follow_id} ->
+               let res = handle_undo_follow pool follow_id in
+               handle_error res
+             | HandleRemoteFollow {id; actor; target; raw} ->
+               let res = handle_remote_follow pool id actor target raw in
+               handle_error res
+             | HandleAcceptFollow {follow_id} ->
+               let res = handle_accept_follow pool follow_id in
+               handle_error res
+             | HandleRemoteLike { id; published; target; author; raw_data } -> 
+               let res = handle_remote_like pool id published target author raw_data in
+               handle_error res
+             | SearchRemoteUser {username; domain} ->
+               let res = handle_search_user pool username domain in
+               handle_error res
+             | LocalPost {user; title; content; content_type; scope; post_to;} -> 
+               let res = handle_local_post pool user scope post_to title content_type content in
+               handle_error res
+             | FollowRemoteUser {user; username; domain} ->
+               let res = handle_follow_remote_user pool user username domain in
+               handle_error res             
+             | CreateRemoteNote { author; direct_message; note } ->
+               let res = handle_create_remote_note pool author direct_message note in
+               handle_error res             
 
            end |> Lwt.map ignore
          with

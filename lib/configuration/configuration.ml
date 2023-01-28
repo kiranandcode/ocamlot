@@ -4,8 +4,20 @@ module Regex = Regex
 module Url = Url
 module Format = Format
 module Features = Features
-
 include Params
+
+let extract_activity_id_from_url uri =
+  let lazy activity_format = Regex.activity_format in
+  match Re.exec_opt activity_format uri with
+  | Some group -> Some (Re.Group.get group 1)
+  | None -> None
+
+let extract_local_user_from_url uri =
+  let lazy id_format = Regex.local_user_id_format in
+  match Re.exec_opt id_format uri with
+  | Some group -> Some (Re.Group.get group 1)
+  | None -> None
+
 
 let dump_json ?ty (js: Yojson.Safe.t) : unit =
   match Lazy.force dump_json_dir with

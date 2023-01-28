@@ -73,12 +73,15 @@ CLOSED: [2022-09-25 Sun 03:31]
 :Effort:   2:00
 :END:
 *** TODO Update posts to include links to posts
-** TODO Add support for likes
+** DONE Add support for likes
+CLOSED: [2023-01-28 Sat 05:06]
 :PROPERTIES:
 :Effort:   2:00
 :END:
-*** TODO Add task to worker to update likes 
-*** TODO On post to inbox with like object send like to worker
+*** DONE Add task to worker to update likes 
+CLOSED: [2023-01-28 Sat 05:03]
+*** DONE On post to inbox with like object send like to worker
+CLOSED: [2023-01-28 Sat 05:03]
 #+begin_src ocaml
 `Like (  Types.id =
 "https://pleroma.ocamlot.xyz/activities/963b35f5-082b-4ded-b4";
@@ -108,8 +111,10 @@ raw = {
 } })
 
 #+end_src
-*** TODO update worker to insert likes into db if not already liked
-*** TODO Update feed post viewer to display link on toasts option
+*** DONE update worker to insert likes into db if not already liked
+CLOSED: [2023-01-28 Sat 05:03]
+*** DONE Update feed post viewer to display link on toasts option
+CLOSED: [2023-01-28 Sat 05:03]
 ** TODO Add support for toasts
 :PROPERTIES:
 :Effort:   2:00
@@ -123,14 +128,16 @@ raw = {
 *** TODO Handle deleted posts requests from remote 
 *** TODO Allow deleting posts from remote
 ** TODO Add support for replies
-** TODO Handle updating user profiles
+** DONE Handle updating user profiles
+CLOSED: [2023-01-28 Sat 05:11]
 * Tasks for alpha release
 ** TODO Add support for collecting user posts from remote instances (outbox?)
 *** TODO when adding a user for the first time, if not known to the system, queue a task to load in all their public posts 
 ** TODO Add admin page
 *** TODO Conditional registrations
 *** TODO Invite codes
-** TODO Add support for database migration
+** DONE Add support for database migration
+CLOSED: [2023-01-28 Sat 05:12]
 * Todos
 ** DONE Update html with edit page
 CLOSED: [2023-01-23 Mon 09:32]
@@ -167,6 +174,12 @@ CLOSED: [2023-01-28 Sat 03:54]
 *** DONE Update rendering of remote users in =server/users.ml= to include profile picture
 CLOSED: [2023-01-28 Sat 03:54]
 ** TODO Support likes
-*** TODO Add like task to worker
-*** TODO On users/inbox like object, send like task to worker
+*** DONE Add like task to worker
+CLOSED: [2023-01-28 Sat 05:00]
+*** DONE On users/inbox like object, send like task to worker
+CLOSED: [2023-01-28 Sat 05:00]
+*** TODO Update html to show actual likes for posts
+*** TODO Add endpoint to create like by local users
+** TODO Support reboosts
+** TODO Support replying to posts
 

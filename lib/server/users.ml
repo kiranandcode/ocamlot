@@ -744,17 +744,8 @@ let handle_inbox_post req =
       return_ok ()
     | `Create { obj=`Note note; actor; published; direct_message; _ } ->
       log.debug (fun f -> f "creating post");
-      let+ remote_user =
-        Dream.sql req
-          (Database.RemoteUser.lookup_remote_user_by_url ~url:actor)
-        |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
-        (* if the remote user isn't registered in our database, then ignore it *)
-        >> Result.flat_map (lift_opt ~else_:(fun _ ->
-            log.debug (fun f -> f "got request from unknown actor %s" actor);
-            `UnknownRemoteUser actor)) in
-      log.debug (fun f -> f "found remote user");
       Worker.send_task Worker.(
-          CreateRemoteNote { author=remote_user; direct_message; note }
+          CreateRemoteNote { author=actor; direct_message; note }
         );
       return_ok ()
     | `Accept _
@@ -764,9 +755,29 @@ let handle_inbox_post req =
     | `Person _
     | `Undo _
     | `Delete _
-    | `Create _
-    | `Like _ -> return_ok ()
-  in
+    | `Create _ -> return_ok ()
+    | `Like ({ id; published; actor; obj; raw; _ } as like) ->
+      log.debug (fun f -> f "received like");
+      let public_id = Configuration.extract_activity_id_from_url obj in
+      let+ public_id =
+        lift_opt public_id
+          ~else_:(fun _ ->
+              `InvalidData "received like addressed to a post not from this instance.")
+        |> return in
+      let+ post = Dream.sql req (Database.Posts.lookup_by_public_id ~public_id)
+                  |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      let+ post =
+        lift_opt post
+          ~else_:(fun _ ->
+              `ActivityNotFound "Received like for activity that is \
+                                 not present on this instance.")
+        |> return in
+      let published = Option.get_lazy Ptime_clock.now published in
+      Worker.send_task Worker.(
+          HandleRemoteLike { id; author=actor; target=post; published; raw_data=raw }
+        );
+      log.debug (fun f -> f "received like %a" Activitypub.Types.pp_like like);
+      return_ok () in
 
   json (`Assoc [
       "ok", `List []
