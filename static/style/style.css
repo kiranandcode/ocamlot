@@ -906,3 +906,28 @@ div.profile-box.feed-item-author {
 .user-item-display-name {
   margin-right: .25rem;
 }
+
+.feed-item-panel {
+  display: flex;
+  width: 100%;
+}
+
+.feed-panel-spacer {
+  flex-grow: 1;
+}
+
+.feed-item-like {
+  margin-left: 0.25em;
+  margin-right: 0.25em;
+}
+
+.feed-item-like .pure-menu-link {
+  background-color: var(--element-alt-color);
+  color: var(--header-text-color);
+  margin-top: .25rem;
+  margin-bottom: .25rem;
+  border: 0px;
+  margin-left: .25rem;
+  margin-right: .25rem;
+}
+

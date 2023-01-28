@@ -102,3 +102,29 @@ let search_box ?(fields=[]) ?a ?a_class ?(placeholder="Search...") ?value ?(butt
   ]
 
   
+
+let post_panel ?a ?a_class post =
+  H.div ?a:(H.a_class ("post-panel" :: !!a_class) +:: a) [
+    H.div ~a:[H.a_class ["post-date"]] [H.b [H.txt post#date]];
+    H.div ~a:[H.a_class ["post-panel-body"]] [
+      profile_box ~a_class:["post-panel-author"] post#author;
+      H.div ~a:[H.a_class ["post-panel-contents"]] post#contents;
+    ];
+    H.div ~a:[H.a_class ["post-panel-panel"]] (
+      List.map (fun (name, link) ->
+          let form_attrs, input_attrs =
+            match link with
+            | None -> [], [H.a_disabled ()]
+            | Some link ->
+              [H.a_action link; H.a_method `Post], []  in
+          H.div ~a:[H.a_class ["post-panel-like"]] [
+            H.form ~a:form_attrs [
+              H.input ~a:([H.a_input_type `Submit; H.a_value name] @ input_attrs) ()
+            ]
+          ]
+        ) post#actions
+      @ [
+        H.div ~a:[H.a_class ["post-panel-spacer"]] [];
+        stats_box ~a_class:["feed-stats"] post#stats;
+      ])
+  ]

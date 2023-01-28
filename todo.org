@@ -178,8 +178,13 @@ CLOSED: [2023-01-28 Sat 03:54]
 CLOSED: [2023-01-28 Sat 05:00]
 *** DONE On users/inbox like object, send like task to worker
 CLOSED: [2023-01-28 Sat 05:00]
-*** TODO Update html to show actual likes for posts
+*** DONE Update html to show actual likes for posts
+CLOSED: [2023-01-28 Sat 06:11]
 *** TODO Add endpoint to create like by local users
 ** TODO Support reboosts
 ** TODO Support replying to posts
+** TODO Support posts with images
+*** TODO Collect json for post with image
+*** TODO Add table for post images?
+*** TODO Update html with image
 

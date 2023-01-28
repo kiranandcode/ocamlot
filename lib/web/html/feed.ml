@@ -1,7 +1,6 @@
 module H = Tyxml.Html
 
 
-
 let feed_context = function
   | Some (`ToastedBy author) -> 
     [H.div ~a:[H.a_class ["feed-context"]] [
@@ -39,7 +38,23 @@ let feed_mini_post reply =
       Components.profile_box ~a_class:["feed-item-author"] reply#author;
       H.div ~a:[H.a_class ["feed-item-contents"]] reply#contents;
     ];
-    Components.stats_box ~a_class:["feed-stats"] reply#stats;
+    H.div ~a:[H.a_class ["feed-item-panel"]] (
+      List.map (fun (name, link) ->
+          let form_attrs, input_attrs =
+            match link with
+            | None -> [], [H.a_disabled ()]
+            | Some link ->
+              [H.a_action link; H.a_method `Post], []  in
+          H.div ~a:[H.a_class ["feed-item-like"]] [
+              H.form ~a:form_attrs [
+              H.input ~a:([H.a_input_type `Submit; H.a_value name] @ input_attrs) ()
+            ]
+          ]
+        ) reply#actions
+      @ [
+        H.div ~a:[H.a_class ["feed-panel-spacer"]] [];
+        Components.stats_box ~a_class:["feed-stats"] reply#stats;
+      ])
   ]
 
 let follow_request req =

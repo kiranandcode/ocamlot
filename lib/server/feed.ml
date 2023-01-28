@@ -53,6 +53,9 @@ let extract_post req (post: Database.Posts.t) =
       Markdown.markdown_to_html (Omd.of_string source)
     | _ -> [ Tyxml.Html.txt source ] in
 
+  let+ post_likes =
+    sql req (Database.Likes.count_for_post ~post:post.Database.Posts.id) in
+
   let+ name, image = match author with
       `Local l ->
       let+ l = sql req (Database.LocalUser.resolve ~id:l) in
@@ -84,7 +87,11 @@ let extract_post req (post: Database.Posts.t) =
       method contents = post_contents
       method date = post.Database.Posts.published |> Ptime.to_float_s |> CalendarLib.Calendar.from_unixfloat
                     |> CalendarLib.Printer.Calendar.to_string
-      method stats = object method cheers = 0 method toasts = 0 end
+      method actions = ["Cheer", None; "Toast", None]
+      method stats = object
+        method cheers = post_likes
+        method toasts = 0
+      end
     end
   | Some summary ->
     `Post object
@@ -92,7 +99,10 @@ let extract_post req (post: Database.Posts.t) =
       method contents = post_contents
       method date = post.Database.Posts.published  |> Ptime.to_float_s |> CalendarLib.Calendar.from_unixfloat
                     |> CalendarLib.Printer.Calendar.to_string
-      method stats = object method cheers = 0 method toasts = 0 end
+      method stats = object
+        method cheers = post_likes
+        method toasts = 0
+      end
       method title = summary
     end
 
@@ -204,5 +214,6 @@ let handle_feed_get req =
 
 (* * Route *)
 let route =
-  Dream.get "/feed" @@
-  Error_handling.handle_error_html @@ handle_feed_get
+  Dream.scope "/feed" [] [
+    Dream.get "/" @@ Error_handling.handle_error_html @@ handle_feed_get;
+  ]
