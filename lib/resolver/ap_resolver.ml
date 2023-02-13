@@ -5,54 +5,37 @@ open Common
 let log = Logging.add_logger "back.resolver"
 
 let fresh_id () = Uuidm.v `V4 |> Uuidm.to_string
+let sanitize err =
+  Lwt_result.map_error (fun err -> Caqti_error.show err) err
+let lift_database_error res =
+  map_err (fun err -> `DatabaseError (Caqti_error.show err)) res
 
-let req_post ~headers url body =
-  let body = Cohttp_lwt.Body.of_string body in
-  try
-    Cohttp_lwt_unix.Client.post
-      ~headers
-      ~body
-      url >> Result.return
-  with exn ->
-    Lwt.return (Result.of_exn exn)
+let map_list f ls =
+  Lwt_list.map_s f ls
+  |> Lwt.map (List.filter_map (function
+      | Ok v -> Some v
+      | Error err ->
+        let _, msg, details = Error_handling.extract_error_details err in
+        log.debug (fun f -> f "extracting results failed with %s: %s" msg details);
+        None
+    ))
+  |> lift_pure
 
-let req ~headers url =
-  try
-    Cohttp_lwt_unix.Client.get
-      ~headers:(Cohttp.Header.of_list headers)
-      url
-    >> Result.return 
-  with exn -> Lwt.return (Result.of_exn exn)
-
-let signed_req f (key_id, priv_key) uri body_str =
-  let current_time = Ptime_clock.now () in
-  let headers =
-    Http_sig.build_signed_headers
-      ~current_time ~method_:"POST" ~body_str
-      ~headers:(Http_sig.StringMap.of_list [
-        "Content-Type", APConstants.ContentType.ld_json_activity_streams
-      ]) ~key_id ~priv_key ~uri
-    |> Cohttp.Header.of_list in
-  f ~headers uri body_str
-
-let signed_post key uri body =
-  signed_req req_post key uri body
-
-let activity_req ?(headers=[]) url =
-  let activity_header =
-    ("Accept", APConstants.ContentType.activity_json) in
-  req ~headers:(activity_header :: headers) url
-
-let json_rd_req ?(headers=[]) url =
-  let json_rd_header =
-    ("Accept", APConstants.Webfinger.json_rd) in
-  req ~headers:(json_rd_header :: headers) url
+let decode_body ?ty ~into:decoder body =
+  let+ body = Cohttp_lwt.Body.to_string body >> Result.return in
+  begin match ty with
+    | Some ty -> Configuration.dump_string ~ty body
+    | None -> ()
+  end;
+  body
+  |> Activitypub.Decode.(decode_string decoder)
+  |> Lwt.return
 
 let resolve_public_key url =
-  (* NOTE: Not obvious, but you need to specify accept headers, else pleroma will return html *)
-  let+ (_resp, body) = activity_req (Uri.of_string url) in
-  let+ actor = Cohttp_lwt.Body.to_string body
-               |> Lwt.map Activitypub.Decode.(decode_string person) in
+  (* NOTE: Not obvious, but you need to specify accept headers, else
+     pleroma will return html *)
+  let+ (_resp, body) = Requests.activity_req (Uri.of_string url) in
+  let+ actor = decode_body ~into:Activitypub.Decode.person body in
   let pub_key =
     actor.public_key.pem
     |> Cstruct.of_string
@@ -60,50 +43,38 @@ let resolve_public_key url =
     |> Result.map_err (fun (`Msg err) -> err) in
   Lwt.return pub_key
 
-let sanitize err = Lwt_result.map_error (fun err -> Caqti_error.show err) err
-
 let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
   : (Database.RemoteUser.t, string) Lwt_result.t =
   let+ domain = Uri.host webfinger_uri |> Result.of_opt |> Lwt.return in
-  let extract_self_link query =
-    query.Activitypub.Types.Webfinger.links
-    |> List.find_map (function
-        Activitypub.Types.Webfinger.Self (
-          (`ActivityJson | `ActivityJsonLd | `Json), url
-        ) -> Some (Uri.of_string url)
-      | _ -> None)
-    |> Result.of_opt
-    |> Lwt.return in
   let+ result = local_lookup db in
   match result with
-    Some v -> Lwt.return_ok v
+  | Some v -> Lwt.return_ok v
   | None ->
     (* remote user not found *)
     (* webfinger to find user url *)
     let+ remote_user_url =
-      let+ (_, body) = json_rd_req webfinger_uri in
-      let+ body = Cohttp_lwt.Body.to_string body >> Result.return in
-      Configuration.dump_string ~ty:"webfinger" body;
-      let+ query_res = body
-                       |> Activitypub.Decode.(decode_string Webfinger.query_result)
-                       |> Lwt.return in
-      extract_self_link query_res in
+      let+ (_, body) = Requests.json_rd_req webfinger_uri in
+      let+ query_res =
+        decode_body ~ty:"webfinger" body
+          ~into:Activitypub.Decode.Webfinger.query_result in
+      get_opt (Activitypub.Types.Webfinger.self_link query_res)
+        ~else_:(fun () -> "could not retrieve self link.") in
     (* retrieve json *)
-    let+ (_, body) = activity_req remote_user_url in
-    let+ body = Cohttp_lwt.Body.to_string body >> Result.return in
-    Configuration.dump_string ~ty:"remote-user" body;
-    let+ person_res = body
-                      |> Activitypub.Decode.(decode_string person)
-                      |> Lwt.return in
+    let+ (_, body) = Requests.activity_req remote_user_url in
+    let+ person_res =
+      decode_body ~ty:"remote-user" body
+        ~into:Activitypub.Decode.person in
     let+ remote_instance = Database.RemoteInstance.create_instance ~url:domain db |> sanitize in
-    let+ () = Database.RemoteInstance.unset_instance_last_unreachable ~id:remote_instance.Database.RemoteInstance.id db
-              |> sanitize in
-    let+ username = person_res.preferred_username
-                    |> Result.of_opt
-                    |> Lwt.return in
-    let+ url = person_res.url
-               |> Result.of_opt
-               |> Lwt.return in
+    let+ () =
+      Database.RemoteInstance.unset_instance_last_unreachable
+        ~id:remote_instance.Database.RemoteInstance.id db
+      |> sanitize in
+    let+ username =
+      get_opt person_res.preferred_username
+        ~else_:(fun () -> "could not retrieve username") in
+    let+ url =
+      get_opt person_res.url
+        ~else_:(fun () -> "could not retrieve user url.") in
     Database.RemoteUser.create_remote_user
       ?display_name:person_res.name
       ~inbox:person_res.inbox
@@ -119,7 +90,8 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
 
 let resolve_remote_user ~username ~domain db =
   resolve_remote_user_with_webfinger
-    ~local_lookup:(fun db -> Database.RemoteUser.lookup_remote_user_by_address ~username ~url:domain db |> sanitize)
+    ~local_lookup:(fun db ->
+        Database.RemoteUser.lookup_remote_user_by_address ~username ~url:domain db |> sanitize)
     ~webfinger_uri:(Uri.make
                       ~scheme:"https"
                       ~host:domain
@@ -138,7 +110,6 @@ let resolve_remote_user_by_url url db =
       |> Fun.flip Uri.with_scheme (Some "https")
     ) db
 
-
 (** [resolve_tagged_user config username db] given a [username] in the
     form {<username>@<domain>} classifies the user a a local or remote
     user if they exist. *)
@@ -150,17 +121,19 @@ let resolve_tagged_user user db =
   | None ->
     (* remote user by url *)
     let+ remote_user = resolve_remote_user_by_url (Uri.of_string user) db
-                       |> map_err (fun err -> `WorkerFailure err ) in
+                       |> map_err (fun err -> `WorkerFailure err) in
     return (Ok (`Remote remote_user))
   | Some group when Option.equal String.equal
-                      (Some (Lazy.force Configuration.domain |> Uri.to_string))
-                      (Re.Group.get_opt group 2) ->
+        (Some (Lazy.force Configuration.domain |> Uri.to_string))
+        (Re.Group.get_opt group 2) ->
     (* local user *)
     let username = Re.Group.get group 1 in
-    let+ resolved_user = Database.LocalUser.find_user ~username db |> map_err (fun msg -> `DatabaseError (Caqti_error.show msg)) in
+    let+ resolved_user =
+      lift_database_error
+        (Database.LocalUser.find_user ~username db) in
     begin match resolved_user with
-    | None -> return (Error (`WorkerFailure (Format.sprintf "could not resolve local user %s" user)))
-    | Some user -> return_ok (`Local user)
+      | None -> return (Error (`WorkerFailure (Format.sprintf "could not resolve local user %s" user)))
+      | Some user -> return_ok (`Local user)
     end
   | Some group ->
     let username = Re.Group.get group 1 in
@@ -180,37 +153,21 @@ let create_accept_follow follow remote local db =
       actor=local_user;
       published=Some (Ptime_clock.now ());
       obj=({
-        id=follow.Database.Follows.url;
-        actor=remote.Database.RemoteUser.url;
-        cc=[]; to_=[local_user]; state=None; raw=`Null;
-        object_=local_user;
-      }: Activitypub.Types.follow); raw=`Null;
+          id=follow.Database.Follows.url;
+          actor=remote.Database.RemoteUser.url;
+          cc=[]; to_=[local_user]; state=None; raw=`Null;
+          object_=local_user;
+        }: Activitypub.Types.follow); raw=`Null;
     }:_ Activitypub.Types.accept) in
   let accept = Activitypub.Encode.(accept follow) accept in
   let+ _ = Database.Activity.create ~id ~data:accept db in
   Lwt_result.return accept
 
 let target_list_to_urls to_ db =
-  Lwt_list.map_s (fun actor ->
-    let+ l = Database.Actor.resolve ~id:actor db in
-    (match l with 
-     | `Local l ->
-       let+ l = Database.LocalUser.resolve ~id:l db in
-       return_ok (l.Database.LocalUser.username
-                  |> Configuration.Url.user
-                  |> Uri.to_string)
-     | `Remote r ->
-       let+ r = Database.RemoteUser.resolve ~id:r db in
-       return_ok r.Database.RemoteUser.url)
-  ) to_
-  >> List.filter_map (function
-    | Ok v -> Some v
-    | Error err ->
-      let _, msg, details = Error_handling.extract_error_details (`DatabaseErorr (Caqti_error.show err)) in
-      log.debug (fun f -> f "converting target to url failed with %s: %s" msg details);
-      None
-  )
-  |> lift_pure
+  map_list (fun actor ->
+      lift_database_error
+        (Database.resolve_actor_url ~id:actor db)
+    ) to_
 
 let create_note_obj post_id author published scope to_ cc content summary =
   let is_public, is_follower_public =
@@ -218,9 +175,10 @@ let create_note_obj post_id author published scope to_ cc content summary =
     | `DM -> false, false
     | `Followers -> false, true
     | `Public -> true, true in
-  let id = post_id
-           |> Configuration.Url.activity_endpoint
-           |> Uri.to_string in
+  let id =
+    post_id
+    |> Configuration.Url.activity_endpoint
+    |> Uri.to_string in
   let actor = 
     author.Database.LocalUser.username
     |> Configuration.Url.user
@@ -332,8 +290,8 @@ let build_follow_request local remote db =
   Lwt_result.return (data |> Yojson.Safe.to_string)
 
 let follow_remote_user
-      (local: Database.LocalUser.t)
-      ~username ~domain db: (unit,string) Lwt_result.t =
+    (local: Database.LocalUser.t)
+    ~username ~domain db: (unit,string) Lwt_result.t =
   log.debug (fun f -> f "resolving remote user %s@%s" username domain);
   let+ remote = resolve_remote_user ~username ~domain db in
   log.debug (fun f -> f "successfully resolved remote user %s@%s" username domain);
@@ -347,9 +305,10 @@ let follow_remote_user
   let priv_key =
     local.Database.LocalUser.privkey in
   log.debug (fun f -> f "sending signed follow request");
-  let+ resp, body  = signed_post (key_id, priv_key) (Uri.of_string uri) follow_request in
+  let+ resp, body  = Requests.signed_post (key_id, priv_key) (Uri.of_string uri) follow_request in
   let+ body = lift_pure (Cohttp_lwt.Body.to_string body) in
-  log.debug (fun f -> f "follow request response was (STATUS: %s) %s" (Cohttp.Code.string_of_status resp.status) body);
+  log.debug (fun f -> f "follow request response was (STATUS: %s) %s"
+                (Cohttp.Code.string_of_status resp.status) body);
   match resp.status with
   | `OK -> Lwt_result.return ()
   | _ -> Lwt_result.fail "request failed"
@@ -364,23 +323,21 @@ let accept_remote_follow  follow remote local db =
   let priv_key =
     local.Database.LocalUser.privkey in
   log.debug (fun f ->
-    f "sending accept follow request to %s\n\ndata is %s"
-      uri (Yojson.Safe.pretty_to_string accept_follow)
-  );
+      f "sending accept follow request to %s\n\ndata is %s"
+        uri (Yojson.Safe.pretty_to_string accept_follow)
+    );
 
-  let+ resp, body  = signed_post (key_id, priv_key) (Uri.of_string uri)
-                       (Yojson.Safe.to_string accept_follow) in
+  let+ resp, body  = Requests.signed_post (key_id, priv_key) (Uri.of_string uri)
+      (Yojson.Safe.to_string accept_follow) in
   let+ body = Cohttp_lwt.Body.to_string body >> Result.return in
 
   log.debug (fun f -> f  "response from server was %s" body);
 
   match resp.status with
   | `OK ->
-    let+ () =
-      Database.Follows.update_pending_status
-        ~id:(follow.Database.Follows.id) ~pending:false db
-      |> sanitize in
-    Lwt_result.return ()
+    Database.Follows.update_pending_status
+      ~id:(follow.Database.Follows.id) ~pending:false db
+    |> sanitize
   | _ -> Lwt_result.fail "request failed"
 
 let accept_local_follow _config follow ~target:remote ~author:local db =
@@ -409,7 +366,6 @@ let accept_local_follow _config follow ~target:remote ~author:local db =
       ~id:(follow.Database.Follows.id) ~pending:false db |> sanitize in
   Lwt_result.return ()
 
-
 let follow_local_user follow_url remote_url local_user data db =
   let+ remote = resolve_remote_user_by_url (Uri.of_string remote_url) db in
   let+ follow = 
@@ -436,8 +392,9 @@ let create_note_request scope author to_ cc summary content content_type db =
     | `Public -> true, true in
   let published = Ptime_clock.now () in
   let+ post =
-    let+ author = (Database.Actor.create_local_user ~local_id:(author.Database.LocalUser.id) db)
-                  |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+    let+ author =
+      lift_database_error
+        (Database.Actor.create_local_user ~local_id:(author.Database.LocalUser.id) db) in
     Database.Posts.create
       ~public_id:(post_id)
       ~url:(Configuration.Url.activity_endpoint
@@ -447,22 +404,24 @@ let create_note_request scope author to_ cc summary content content_type db =
       ?summary
       ~post_source:content ~post_content:content_type
       ~published db
-    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+    |> lift_database_error in
 
-  let+ () = Database.Posts.add_post_tos ~id:post.Database.Posts.id ~tos:to_ db
-            |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-  let+ () = Database.Posts.add_post_ccs ~id:post.Database.Posts.id ~ccs:cc db
-            |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-  let+ to_ = target_list_to_urls to_ db
-             |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-  let+ cc = target_list_to_urls cc db
-            |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  let+ () = lift_database_error
+      (Database.Posts.add_post_tos ~id:post.Database.Posts.id ~tos:to_ db) in
+  let+ () =
+    lift_database_error
+      (Database.Posts.add_post_ccs ~id:post.Database.Posts.id ~ccs:cc db) in
+  let+ to_ =
+    lift_database_error (target_list_to_urls to_ db) in
+  let+ cc =
+    lift_database_error (target_list_to_urls cc db) in
 
   let post_obj : Activitypub.Types.note =
     create_note_obj post_id author published scope to_ cc content summary in
   let data = Activitypub.Encode.note post_obj in
-  let+ _ = Database.Activity.create ~id:post_id ~data db
-           |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  let+ _ =
+    lift_database_error
+      (Database.Activity.create ~id:post_id ~data db) in
   log.debug (fun f -> f "added post to database!");
 
   let create_post_id = fresh_id () in
@@ -470,8 +429,9 @@ let create_note_request scope author to_ cc summary content content_type db =
     create_create_event_obj create_post_id author published scope to_ cc post_obj in
 
   let data = Activitypub.Encode.(create note) create_note_obj in
-  let+ _ = Database.Activity.create ~id:create_post_id ~data db
-           |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  let+ _ =
+    lift_database_error
+      (Database.Activity.create ~id:create_post_id ~data db) in
 
   Lwt.return_ok (Yojson.Safe.to_string data)
 
@@ -483,10 +443,10 @@ let create_new_note scope author to_ cc summary content content_type db =
     | `Public -> true, true in
   let partition_user tagged_user =
     let+ user = resolve_tagged_user tagged_user db in
-    let+ link = (match user with
-      | `Local user -> Database.(Actor.create_local_user ~local_id:(user.LocalUser.id) db)
-      | `Remote user -> Database.(Actor.create_remote_user ~remote_id:(user.RemoteUser.id) db))
-                |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+    let+ link =
+      lift_database_error (match user with
+          | `Local user -> Database.(Actor.create_local_user ~local_id:(user.LocalUser.id) db)
+          | `Remote user -> Database.(Actor.create_remote_user ~remote_id:(user.RemoteUser.id) db)) in
     match user with
     | `Local _ -> return_ok (None, link)
     | `Remote r -> return_ok (Some r, link) in
@@ -512,19 +472,21 @@ let create_new_note scope author to_ cc summary content content_type db =
     if not (is_public || is_follower_public)
     then return_ok []
     else begin
-      let+ author = (Database.Actor.create_local_user ~local_id:(author.Database.LocalUser.id) db)
-                    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-      let+ targets = Database.Follows.collect_followers_for_actor ~id:author db
-                     |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      let+ author =
+        lift_database_error
+          (Database.Actor.create_local_user ~local_id:(author.Database.LocalUser.id) db) in
+      let+ targets =
+        lift_database_error
+          (Database.Follows.collect_followers_for_actor ~id:author db) in
       let+ targets =
         List.map (fun tgt -> tgt.Database.Follows.author_id) targets
-        |> Lwt_list.map_s (fun v -> Database.Actor.resolve ~id:v db |> map_err (fun err -> `DatabaseError (Caqti_error.show err)))
+        |> Lwt_list.map_s (fun v -> lift_database_error (Database.Actor.resolve ~id:v db))
         |> lift_pure in
       let remote_targets =
         List.filter_map suppress_errors targets
         |> List.filter_map (function `Remote r -> Some r | _ -> None) in
       let+ remote_targets =
-        Lwt_list.map_s (fun id -> Database.RemoteUser.resolve ~id db |> map_err (fun err -> `DatabaseError (Caqti_error.show err)))
+        Lwt_list.map_s (fun id -> lift_database_error (Database.RemoteUser.resolve ~id db))
           remote_targets
         >> List.all_ok in
       Lwt.return_ok remote_targets
@@ -540,66 +502,66 @@ let create_new_note scope author to_ cc summary content content_type db =
     let priv_key =
       author.Database.LocalUser.privkey in
     Lwt_list.map_p (fun r ->
-      log.debug (fun f -> f "posting message to user %s" (r.Database.RemoteUser.username));
-      let+ remote_user_inbox = Lwt.return (Option.to_result (`WorkerFailure "no remote inbox") r.Database.RemoteUser.inbox) in
-      log.debug (fun f -> f "inbox url %s" (remote_user_inbox));
-      let+ (response, body) = signed_post (key_id, priv_key) (Uri.of_string remote_user_inbox) note_request
-                              |> map_err (fun err -> `WorkerFailure err) in
-      match Cohttp.Response.status response with
-      | `OK ->
-        let+ _ = Cohttp_lwt.Body.drain_body body |> lift_pure in
-        log.debug (fun f -> f "successfully sent message");
-        return_ok ()
-      | err ->
-        let+ body = Cohttp_lwt.Body.to_string body |> lift_pure in
-        log.warning (fun f -> f "web post request failed with response %s; body %s"
-                                (Cohttp.Code.string_of_status err)
-                                body);
-        return_ok ()
-    ) remote_targets
+        log.debug (fun f -> f "posting message to user %s" (r.Database.RemoteUser.username));
+        let+ remote_user_inbox =
+          Lwt.return (Option.to_result (`WorkerFailure "no remote inbox") r.Database.RemoteUser.inbox) in
+        log.debug (fun f -> f "inbox url %s" (remote_user_inbox));
+        let+ (response, body) =
+          Requests.signed_post (key_id, priv_key)
+            (Uri.of_string remote_user_inbox) note_request
+          |> map_err (fun err -> `WorkerFailure err) in
+        match Cohttp.Response.status response with
+        | `OK ->
+          let+ _ = Cohttp_lwt.Body.drain_body body |> lift_pure in
+          log.debug (fun f -> f "successfully sent message");
+          return_ok ()
+        | err ->
+          let+ body = Cohttp_lwt.Body.to_string body |> lift_pure in
+          log.warning (fun f -> f "web post request failed with response %s; body %s"
+                          (Cohttp.Code.string_of_status err)
+                          body);
+          return_ok ()
+      ) remote_targets
     |> lift_pure in
 
   log.debug (fun f -> f "completed user's %s post" (author.Database.LocalUser.username));
 
   return_ok ()
 
-
-
 let build_followers_collection_page start_time offset user db =
   let+ followers, total_count =
-    let+ user = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db
-                |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+    let+ user =
+      lift_database_error
+        (Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db) in
     let+ followers =
-      Database.Follows.collect_followers_for_actor
-        ~offset:(offset * 10) ~limit:10 ~since:start_time ~id:user db
-      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      lift_database_error
+        (Database.Follows.collect_followers_for_actor
+           ~offset:(offset * 10) ~limit:10 ~since:start_time ~id:user db) in
     let+ total_count =
-      Database.Follows.count_followers ~target:user db
-      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      lift_database_error
+        (Database.Follows.count_followers ~target:user db) in
     Lwt.return_ok (followers, total_count) in
   let+ followers =
-    Lwt_list.map_s (fun follow ->
-      Database.Actor.resolve ~id:follow.Database.Follows.author_id db
-    ) followers
-    >> Result.flatten_l
-    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+    map_list (fun follow ->
+        Database.Actor.resolve ~id:follow.Database.Follows.author_id db
+      ) followers
+    |> lift_database_error in
   let+ followers =
-    Lwt_list.map_s (function
-        `Local u ->
-        let+ u = Database.LocalUser.resolve ~id:u db
-                 |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-        return_ok (Configuration.Url.user (u.Database.LocalUser.username)
-                   |> Uri.to_string)
-      | `Remote r ->
-        let+ r = Database.RemoteUser.resolve ~id:r db
-                 |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-        return_ok r.Database.RemoteUser.url
-    ) followers
-    >> Result.flatten_l in
+    map_list (function
+          `Local u ->
+          let+ u = Database.LocalUser.resolve ~id:u db
+                   |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+          return_ok (Configuration.Url.user (u.Database.LocalUser.username)
+                     |> Uri.to_string)
+        | `Remote r ->
+          let+ r = Database.RemoteUser.resolve ~id:r db
+                   |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+          return_ok r.Database.RemoteUser.url
+      ) followers in
   let+ start_time =
     (start_time
      |> Ptime.to_rfc3339 ~tz_offset_s:0
-     |> Lwt.return_ok) in
+     |> return_ok) in
   let id =
     Configuration.Url.user_followers_page (user.Database.LocalUser.username)
       ~start_time ~offset:(Int.to_string offset)
@@ -620,45 +582,44 @@ let build_followers_collection_page start_time offset user db =
     |> Uri.to_string in
 
   Lwt.return_ok ({
-    id;
-    prev=if offset > 0 then Some prev else None;
-    next = if total_count < offset * 10 then None else Some next;
-    is_ordered = true;
-    items = followers;
-    part_of=Some part_of;
-    total_items=Some total_count;
-  } : string Activitypub.Types.ordered_collection_page)
+      id;
+      prev=if offset > 0 then Some prev else None;
+      next = if total_count < offset * 10 then None else Some next;
+      is_ordered = true;
+      items = followers;
+      part_of=Some part_of;
+      total_items=Some total_count;
+    } : string Activitypub.Types.ordered_collection_page)
 
 let build_following_collection_page start_time offset user db =
   let+ following, total_count =
-    let+ user = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db
-                |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+    let+ user =
+      lift_database_error
+        (Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db) in
     let+ following =
-      Database.Follows.collect_following_for_actor
-        ~since:start_time ~limit:10 ~offset:(offset * 10) ~id:user db
-      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      lift_database_error
+        (Database.Follows.collect_following_for_actor
+           ~since:start_time ~limit:10 ~offset:(offset * 10) ~id:user db) in
     let+ total_count =
-      Database.Follows.count_following ~author:user db
-      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      lift_database_error
+        (Database.Follows.count_following ~author:user db) in
     Lwt.return_ok (following, total_count) in
   let+ following =
-    Lwt_list.map_s (fun follow ->
-      Database.Actor.resolve ~id:follow.Database.Follows.author_id db
-    ) following
-    >> Result.flatten_l
-    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+    map_list (fun follow ->
+        Database.Actor.resolve ~id:follow.Database.Follows.author_id db
+      ) following
+    |> lift_database_error in
   let+ following =
-    Lwt_list.map_s (function
-        `Local u ->
-        let+ u = Database.LocalUser.resolve ~id:u db in
-        return_ok (Configuration.Url.user (u.Database.LocalUser.username)
-                   |> Uri.to_string)
-      | `Remote r ->
-        let+ r = Database.RemoteUser.resolve ~id:r db in
-        return_ok r.Database.RemoteUser.url
-    ) following
-    >> Result.flatten_l
-    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+    map_list (function
+          `Local u ->
+          let+ u = Database.LocalUser.resolve ~id:u db in
+          return_ok (Configuration.Url.user (u.Database.LocalUser.username)
+                     |> Uri.to_string)
+        | `Remote r ->
+          let+ r = Database.RemoteUser.resolve ~id:r db in
+          return_ok r.Database.RemoteUser.url
+      ) following
+    |> lift_database_error in
   let+ start_time =
     (start_time
      |> Ptime.to_rfc3339 ~tz_offset_s:0
@@ -683,11 +644,12 @@ let build_following_collection_page start_time offset user db =
     |> Uri.to_string in
 
   Lwt.return_ok ({
-    id;
-    prev=if offset > 0 then Some prev else None;
-    next = if total_count < offset * 10 then None else Some next;
-    is_ordered = true;
-    items = following;
-    part_of=Some part_of;
-    total_items=Some total_count;
-  } : string Activitypub.Types.ordered_collection_page)
+      id;
+      prev=if offset > 0 then Some prev else None;
+      next = if total_count < offset * 10 then None else Some next;
+      is_ordered = true;
+      items = following;
+      part_of=Some part_of;
+      total_items=Some total_count;
+    } : string Activitypub.Types.ordered_collection_page)
+ 

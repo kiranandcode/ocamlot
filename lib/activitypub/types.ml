@@ -191,4 +191,10 @@ module Webfinger = struct
   }
   [@@deriving show, eq]
 
+  let self_link query =
+    query.links
+    |> List.find_map (function
+        | Self ((`ActivityJson | `ActivityJsonLd | `Json), url) -> Some (Uri.of_string url)
+        | _ -> None)
+
 end

@@ -48,6 +48,7 @@ let extract_error_details err =
       | _ -> "No Further Details" in
     (status, msg, details)
 
+
 (* * Error Display  *)
 (* ** Html *)
 let handle_error_html handler req =

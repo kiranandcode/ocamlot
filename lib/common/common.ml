@@ -1,6 +1,7 @@
 open Containers
 module APConstants = Activitypub.Constants
 
+
 let (let+) x f = Lwt_result.bind x f
 let (>>) x f = Lwt.map f x
 let (>>=) x f = Lwt_result.bind x f
@@ -11,8 +12,14 @@ let return_ok v = Lwt.return_ok v
 let lift_opt ~else_:else_ = function
   | None -> Error (else_ ())
   | Some v -> Ok v
+let get_opt ~else_ opt = Lwt.return (lift_opt ~else_ opt)
 let lift_pure res = Lwt.map Result.return res
-let form_data key form = List.Assoc.get ~eq:String.equal key form |> Option.to_result (Format.sprintf "missing field %s" key)
+let form_data key form =
+  List.Assoc.get ~eq:String.equal key form
+  |> Option.to_result (Format.sprintf "missing field %s" key)
+
+let map_list f ls =
+  Lwt.map Result.flatten_l (Lwt_list.map_s f ls)
 
 (* Result monad for validation *)
 module VResult = struct
@@ -69,14 +76,14 @@ let current_user_link req =
 let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =
   fun res ->
   Lwt.map (function
-    | `Many_tokens data  -> Error (`FormError ("Many tokens", pp data))
-    | `Missing_token data -> Error (`FormError ("Missing token", pp data))
-    | `Invalid_token data -> Error (`FormError ("Wrong session", pp data))
-    | `Wrong_session data  -> Error (`FormError ("Wrong session", pp data))
-    | `Expired (data, _) -> Error (`FormError ("Expired form", pp data))
-    | `Wrong_content_type -> Error (`FormError ("Wrong Content Type", "No further information"))
-    | `Ok v -> Ok v
-  ) res
+      | `Many_tokens data  -> Error (`FormError ("Many tokens", pp data))
+      | `Missing_token data -> Error (`FormError ("Missing token", pp data))
+      | `Invalid_token data -> Error (`FormError ("Wrong session", pp data))
+      | `Wrong_session data  -> Error (`FormError ("Wrong session", pp data))
+      | `Expired (data, _) -> Error (`FormError ("Expired form", pp data))
+      | `Wrong_content_type -> Error (`FormError ("Wrong Content Type", "No further information"))
+      | `Ok v -> Ok v
+    ) res
 
 
 
@@ -89,10 +96,10 @@ let file ~local_root path =
   Lwt.catch
     (fun () ->
        Lwt_io.(with_file ~mode:Input file) (fun channel ->
-         Lwt.bind (Lwt_io.read channel) @@ fun content ->
-         Dream.response
-           ~headers:(mime_lookup path) content
-         |> Lwt.return_ok))
+           Lwt.bind (Lwt_io.read channel) @@ fun content ->
+           Dream.response
+             ~headers:(mime_lookup path) content
+           |> Lwt.return_ok))
     (fun _exn ->
        Dream.response ~status:`Not_Found "Not found"
        |> Lwt.return_ok)
@@ -151,7 +158,7 @@ let tyxml ?status ?code ?headers doc =
 
 let not_found_json ?headers msg =
   json ~status:`Not_Found ?headers (`Assoc [
-    "type", `String "error";
-    "reason", `String msg
-  ])
+      "type", `String "error";
+      "reason", `String msg
+    ])
   
