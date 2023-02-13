@@ -8,6 +8,7 @@ let is_source s =
   (String.suffix ~suf:".ml" s ||
    String.suffix ~suf:".mli" s ||
    String.suffix ~suf:".css" s ||
+   String.suffix ~suf:".ttf" s ||
    String.equal s "dune")
   && not (String.contains s '#')
 

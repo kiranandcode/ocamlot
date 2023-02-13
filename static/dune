@@ -3,7 +3,7 @@
  (deps (source_tree ./))
  (action 
   (setenv OCAMLRUNPARAM "b"
-   (run %{bin:ocaml-crunch} --mode=plain -o static.ml -e css -e svg -e png -e jpg ./))
+   (run %{bin:ocaml-crunch} --mode=plain -o static.ml -e css -e svg -e png -e jpg -e ttf ./))
   ))
 
 (library (name static)

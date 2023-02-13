@@ -1,0 +1,19 @@
+@font-face {
+    font-family: "Vera";
+    src: url(/static/fonts/Vera.ttf) format("truetype");
+}
+
+@font-face {
+    font-family: "Vera Sans";
+    src: url(/static/fonts/VeraSe.ttf) format("truetype");
+}
+
+@font-face {
+    font-family: "Vera Bold";
+    src: url(/static/fonts/VeraBd.ttf) format("truetype");
+}
+
+@font-face {
+    font-family: "Vera Mono";
+    src: url(/static/fonts/VeraMono.ttf) format("truetype");
+}
