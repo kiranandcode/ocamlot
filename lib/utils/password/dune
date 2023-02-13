@@ -1,3 +1,2 @@
 (library (name password)
- (libraries argon2)
- (preprocess (pps lwt_ppx)))
+ (libraries argon2 result))

@@ -1,0 +1,19 @@
+(library (name ap_resolver)
+ (preprocess (pps ppx_deriving.show))
+ (libraries
+   ;; Internal libraries
+   common database configuration error_handling logging http_sig activitypub
+   ;; General utility libraries
+   containers uuidm uri lwt re yojson
+   ;; Decoding results
+   decoders decoders-yojson
+   ;; For dream's logging capabilities
+   dream
+   ;; Database 
+   caqti
+   ;; Http requests
+   cohttp cohttp-lwt cohttp-lwt-unix
+   ;; Signing
+   x509 cstruct
+   ;; Time 
+   ptime ptime.clock.os))

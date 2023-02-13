@@ -1,5 +1,11 @@
 (library (name http_sig)
- (libraries http_date
-            calendar ptime containers dream x509
-            cohttp cohttp-lwt cohttp-lwt-unix lwt yojson))
+ (libraries
+   containers
+   uri
+   base64
+   cstruct mirage-crypto x509
+   lwt cohttp cohttp-lwt
+   dream
+   ptime calendar
+   http_date))
 

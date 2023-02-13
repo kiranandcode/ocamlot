@@ -1,0 +1,11 @@
+(library (name error_handling)
+ (preprocess (pps ppx_deriving.show))
+ (libraries
+   ;; Internal libraries
+   common logging configuration html
+
+   ;; General utility libraries
+   containers lwt tyxml tyxml.functor yojson
+
+   ;; Web server
+   dream))

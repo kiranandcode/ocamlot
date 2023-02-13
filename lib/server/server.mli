@@ -1,2 +1,2 @@
 
-val run: Worker.task Configuration.Params.t -> unit
+val run: unit -> unit

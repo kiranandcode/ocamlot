@@ -19,6 +19,8 @@ test.db
 ocamlot.db
 ocamlot.db-shm
 ocamlot.db-wal
+user-images/
+json/
 
 tests/integration_tests/pleroma/
 log.txt

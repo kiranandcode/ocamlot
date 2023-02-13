@@ -1,0 +1,20 @@
+(tests (names app_launcher)
+ (libraries
+   database
+
+   containers uri yojson
+
+   lwt lwt.unix
+
+   caqti caqti-lwt 
+
+   mirage-crypto-rng.lwt
+   ppx_deriving.runtime
+
+   petrol
+
+   ptime
+))
+
+
+(cram (deps ./app_launcher.exe))

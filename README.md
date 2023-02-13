@@ -18,19 +18,19 @@ interaction between the two containers to work).
 1. Clone a copy of pleroma to the `tests/integration_test/` directory:
 
 ```bash
-git clone -b stable https://git.pleroma.social/pleroma/pleroma ./tests/integration_test/pleroma
+git clone -b  v2.5.0 --single-branch https://git.pleroma.social/pleroma/pleroma ./tests/integration_tests/pleroma
 ```
 
 2. Apply patch to pleroma to disable TLS validation (required for local testing)
 
 ```bash
-(cd ./tests/integration_test/pleroma && git apply ../pleroma.patch)
+(cd ./tests/integration_tests/pleroma && git apply ../pleroma.patch)
 ```
 
 3. Change directory into the `tests/integration_test/` directory:
 
 ```bash
-cd ./tests/integration_test/
+cd ./tests/integration_tests/
 ```
 
 4. Run `docker-compose build` with the local docker-compose file:

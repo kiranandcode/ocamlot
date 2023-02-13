@@ -2,13 +2,15 @@
  (libraries
    ;; internal libraries
    password activitypub configuration
-   ;; external libraries
-   containers uuidm
    ;; crypto
-   x509
+   x509 cstruct
    ;; database
-   caqti-lwt caqti-driver-sqlite3 sqlite3 caqti-type-calendar
+   caqti caqti-lwt caqti-driver-sqlite3
+   ;; time
+   ptime ptime.clock.os
+   ;; general utility libraries
+   containers uri lwt yojson
+   petrol
  )
- (preprocess (pps ppx_sql))
- (preprocessor_deps ../../resources/schema.sql)
+ (preprocess (pps ppx_deriving.show))
 )

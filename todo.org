@@ -73,12 +73,15 @@ CLOSED: [2022-09-25 Sun 03:31]
 :Effort:   2:00
 :END:
 *** TODO Update posts to include links to posts
-** TODO Add support for likes
+** DONE Add support for likes
+CLOSED: [2023-01-28 Sat 05:06]
 :PROPERTIES:
 :Effort:   2:00
 :END:
-*** TODO Add task to worker to update likes 
-*** TODO On post to inbox with like object send like to worker
+*** DONE Add task to worker to update likes 
+CLOSED: [2023-01-28 Sat 05:03]
+*** DONE On post to inbox with like object send like to worker
+CLOSED: [2023-01-28 Sat 05:03]
 #+begin_src ocaml
 `Like (  Types.id =
 "https://pleroma.ocamlot.xyz/activities/963b35f5-082b-4ded-b4";
@@ -108,8 +111,10 @@ raw = {
 } })
 
 #+end_src
-*** TODO update worker to insert likes into db if not already liked
-*** TODO Update feed post viewer to display link on toasts option
+*** DONE update worker to insert likes into db if not already liked
+CLOSED: [2023-01-28 Sat 05:03]
+*** DONE Update feed post viewer to display link on toasts option
+CLOSED: [2023-01-28 Sat 05:03]
 ** TODO Add support for toasts
 :PROPERTIES:
 :Effort:   2:00
@@ -123,11 +128,63 @@ raw = {
 *** TODO Handle deleted posts requests from remote 
 *** TODO Allow deleting posts from remote
 ** TODO Add support for replies
-** TODO Handle updating user profiles
+** DONE Handle updating user profiles
+CLOSED: [2023-01-28 Sat 05:11]
 * Tasks for alpha release
 ** TODO Add support for collecting user posts from remote instances (outbox?)
 *** TODO when adding a user for the first time, if not known to the system, queue a task to load in all their public posts 
 ** TODO Add admin page
 *** TODO Conditional registrations
 *** TODO Invite codes
-** TODO Add support for database migration
+** DONE Add support for database migration
+CLOSED: [2023-01-28 Sat 05:12]
+* Todos
+** DONE Update html with edit page
+CLOSED: [2023-01-23 Mon 09:32]
+** DONE Add interface to images to save image (filename + data) (maybe bring in conan?)
+CLOSED: [2023-01-27 Fri 14:51]
+** DONE Support for user uploaded images
+CLOSED: [2023-01-27 Fri 14:51]
+*** DONE Add table to track user images + hashes
+CLOSED: [2023-01-23 Mon 10:39]
+*** DONE Add parameter to configuration for user uploaded images 
+CLOSED: [2023-01-23 Mon 11:23]
+*** DONE Add endpoint for viewing uploaded images
+CLOSED: [2023-01-23 Mon 11:28]
+*** DONE Update local user to have profile image option
+CLOSED: [2023-01-23 Mon 11:42]
+*** DONE Update login form to display current avatar and option to upload avatar
+CLOSED: [2023-01-24 Tue 06:45]
+** DONE Add parameter to track dumping json 
+CLOSED: [2023-01-27 Fri 15:20]
+** DONE Support local user profile pictures
+CLOSED: [2023-01-28 Sat 03:27]
+*** DONE See how profile pictures are represented in pleroma
+CLOSED: [2023-01-28 Sat 03:26]
+*** DONE Update encoder for localusers to include images
+CLOSED: [2023-01-28 Sat 03:27]
+*** DONE Confirm that images are visible in pleroma
+CLOSED: [2023-01-28 Sat 03:27]
+** DONE Support remote user profile pictures
+CLOSED: [2023-01-28 Sat 03:54]
+*** DONE Update remote user table to also include profile picture url
+CLOSED: [2023-01-28 Sat 03:54]
+*** DONE Update resolve remote user to add picture url into table
+CLOSED: [2023-01-28 Sat 03:54]
+*** DONE Update rendering of remote users in =server/users.ml= to include profile picture
+CLOSED: [2023-01-28 Sat 03:54]
+** TODO Support likes
+*** DONE Add like task to worker
+CLOSED: [2023-01-28 Sat 05:00]
+*** DONE On users/inbox like object, send like task to worker
+CLOSED: [2023-01-28 Sat 05:00]
+*** DONE Update html to show actual likes for posts
+CLOSED: [2023-01-28 Sat 06:11]
+*** TODO Add endpoint to create like by local users
+** TODO Support reboosts
+** TODO Support replying to posts
+** TODO Support posts with images
+*** TODO Collect json for post with image
+*** TODO Add table for post images?
+*** TODO Update html with image
+

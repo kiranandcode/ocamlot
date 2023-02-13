@@ -4,6 +4,7 @@ open Common
 let log = Logging.add_logger "web.home"
 let limit = 10
 
+(* * Utilities  *)
 let parse_feed = function
   | "feed" -> Some `Feed
   | "direct" -> Some `Direct
@@ -26,50 +27,82 @@ let feed_type_to_string = function
 let parse_calendar s =
   let (let+) x f = Option.bind x f in
   let+ s = Float.of_string_opt s in
-  Some (CalendarLib.Calendar.from_unixfloat s)
+  Ptime.of_float_s s
 
-let extract_post req (post: Database.Post.t) =
-  let+ author = Database.Post.author post
-                |> fun p -> Dream.sql req (Database.Link.resolve p) in
+let sql req f = Dream.sql req f |> Lwt_result.map_error (fun err -> `DatabaseError (Caqti_error.show err))
+
+(* * Extracting data *)
+let extract_post req (post: Database.Posts.t) =
+  let+ author = post.Database.Posts.author_id
+                |> fun p -> sql req (Database.Actor.resolve ~id:p) in
   let+ author_instance =
     match author with
-    | Local _ -> return_ok None
-    | Remote r ->
+    | `Local _ -> return_ok None
+    | `Remote r ->
+      let+ r = sql req (Database.RemoteUser.resolve ~id:r) in
       let+ instance =
-        Dream.sql req
-          (Database.Link.resolve
-             (Database.RemoteUser.instance r)) in
-      return_ok (Some (Database.RemoteInstance.url instance)) in
+        sql req
+          (Database.RemoteInstance.resolve
+             ~id:(r.Database.RemoteUser.instance_id)) in
+      return_ok (Some (instance.Database.RemoteInstance.url)) in
 
   let post_contents =
-    let source = Database.Post.post_source post in
-    match Database.Post.content_type post with
+    let source = post.Database.Posts.post_source in
+    match post.Database.Posts.content_type with
     | `Markdown ->
       Markdown.markdown_to_html (Omd.of_string source)
     | _ -> [ Tyxml.Html.txt source ] in
 
+  let+ post_likes =
+    sql req (Database.Likes.count_for_post ~post:post.Database.Posts.id) in
+
+  let+ name, image = match author with
+      `Local l ->
+      let+ l = sql req (Database.LocalUser.resolve ~id:l) in
+      let name =
+        Option.value ~default:l.Database.LocalUser.username
+          l.Database.LocalUser.display_name in
+      let image = Option.map Configuration.Url.image_path
+          l.Database.LocalUser.profile_picture in
+      return_ok (name,
+                 image)
+    | `Remote l ->
+      let+ l = sql req (Database.RemoteUser.resolve ~id:l) in
+      let name =
+        Option.value ~default:l.Database.RemoteUser.username
+          l.Database.RemoteUser.display_name in
+      return_ok (name, l.Database.RemoteUser.profile_picture) in
   let author_obj = object
-    method name = match author with
-        Local l -> Database.LocalUser.username l
-      | Remote l -> Database.RemoteUser.username l
-    method image = "/static/images/unknown.png"
+    method name = name
+    method image =
+      Option.value ~default:"/static/images/unknown.png"
+        image
     method instance_url = author_instance
   end in
 
-  return_ok @@ match Database.Post.summary post with
+  return_ok @@ match post.Database.Posts.summary with
   | None ->
     `MicroPost object
       method author = author_obj
       method contents = post_contents
-      method date = Database.Post.published post |> CalendarLib.Printer.Calendar.to_string
-      method stats = object method cheers = 0 method toasts = 0 end
+      method date = post.Database.Posts.published |> Ptime.to_float_s |> CalendarLib.Calendar.from_unixfloat
+                    |> CalendarLib.Printer.Calendar.to_string
+      method actions = ["Cheer", None; "Toast", None]
+      method stats = object
+        method cheers = post_likes
+        method toasts = 0
+      end
     end
   | Some summary ->
     `Post object
       method author = author_obj
       method contents = post_contents
-      method date = Database.Post.published post |> CalendarLib.Printer.Calendar.to_string
-      method stats = object method cheers = 0 method toasts = 0 end
+      method date = post.Database.Posts.published  |> Ptime.to_float_s |> CalendarLib.Calendar.from_unixfloat
+                    |> CalendarLib.Printer.Calendar.to_string
+      method stats = object
+        method cheers = post_likes
+        method toasts = 0
+      end
       method title = summary
     end
 
@@ -79,103 +112,108 @@ let build_feed_navigation_panel options =
     (feed_type_to_string feed, ("/feed?feed-ty=" ^ encode_feed feed))
   ) options
 
-let route config =
-  Dream.get "/feed" @@ Error_handling.handle_error_html config @@ (fun req ->
-    let feed_ty = Dream.query req "feed-ty"
-                  |> Option.flat_map parse_feed
-                  |> Option.value ~default:`Local in
-    let offset_date =
-      Dream.query req "offset-time"
-      |> Option.flat_map parse_calendar
-      |> Option.value ~default:(CalendarLib.Calendar.now ()) in
+(* * Feed Html *)
+let handle_feed_get req =
+  let feed_ty = Dream.query req "feed-ty"
+                |> Option.flat_map parse_feed
+                |> Option.value ~default:`Local in
 
-    let offset_start =
-      Dream.query req "offset-start"
-      |> Option.flat_map Int.of_string
-      |> Option.value ~default:0 in
+  let start_time =
+    Dream.query req "offset-time"
+    |> Option.flat_map parse_calendar
+    |> Option.value ~default:(Ptime_clock.now ()) in
 
+  let offset =
+    Dream.query req "offset-start"
+    |> Option.flat_map Int.of_string
+    |> Option.value ~default:0 in
 
+  let+ current_user_link = current_user_link req in
 
-    let offset = (offset_date, limit, offset_start * limit) in
+  let+ feed_elements, feed_element_count =
+    sql req @@ fun db ->
+    begin match feed_ty, current_user_link with
+    | `Direct, Some user ->
+      let+ posts =
+        Database.Posts.collect_direct
+          ~offset ~limit ~start_time ~id:user db in
+      let+ total_posts =
+        Database.Posts.count_direct ~id:user db in
+      return_ok (posts, total_posts)
+    | `Feed, Some user ->
+      let+ posts =
+        Database.Posts.collect_feed
+          ~offset ~limit ~start_time ~id:user db in
+      let+ total_posts =
+        Database.Posts.count_feed ~id:user db in
+      return_ok (posts, total_posts)
+    | `WholeKnownNetwork, _ ->
+      let+ posts = Database.Posts.collect_twkn ~offset ~limit ~start_time db in
+      let+ total_posts = Database.Posts.count_twkn db in
+      return_ok (posts, total_posts)        
+    | _, _ ->
+      let+ posts = Database.Posts.collect_local ~offset ~limit ~start_time db in
+      let+ total_posts = Database.Posts.count_local db in
+      return_ok (posts, total_posts)
+    end
+  in
 
-    let+ _current_user = current_user req in
-    let+ current_user_link = current_user_link req in
+  let title = feed_type_to_string feed_ty in
 
-    let+ feed_elements, feed_element_count =
-      Dream.sql req @@ fun db ->
-      begin match feed_ty, current_user_link with
-      | `Direct, Some user ->
-        let+ posts = Database.Post.collect_post_direct ~offset user db in
-        let+ total_posts = Database.Post.collect_post_direct_count user db in
-        return_ok (posts, total_posts)
-      | `Feed, Some user ->
-        let+ posts = Database.Post.collect_post_feed ~offset user db in
-        let+ total_posts = Database.Post.collect_post_feed_count user db in
-        return_ok (posts, total_posts)
-      | `WholeKnownNetwork, _ ->
-        let+ posts = Database.Post.collect_post_whole_known_network ~offset db in
-        let+ total_posts = Database.Post.collect_post_whole_known_network_count db in
-        return_ok (posts, total_posts)        
-      | _, _ ->
-        let+ posts = Database.Post.collect_post_local_network ~offset db in
-        let+ total_posts = Database.Post.collect_post_local_network_count db in
-        return_ok (posts, total_posts)
-      end
-      |> map_err (fun err -> `DatabaseError err)
-    in
+  let+ posts =
+    Lwt_list.map_p (extract_post req) feed_elements
+    |> Lwt.map Result.flatten_l in
 
-    let title = feed_type_to_string feed_ty in
+  let+ headers = Navigation.build_navigation_bar req in
 
-    let+ posts =
-      Lwt_list.map_p (extract_post req) feed_elements
-      |> Lwt.map Result.flatten_l
-      |> map_err (fun e -> `DatabaseError e) in
+  let feed_navigation = match current_user_link with
+    | None -> [`Local; `WholeKnownNetwork]
+    | Some _ -> [`Feed; `Direct; `Local; `WholeKnownNetwork] in
 
-    let+ headers = Navigation.build_navigation_bar req in
-
-    let feed_navigation = match current_user_link with
-      | None -> [`Local; `WholeKnownNetwork]
-      | Some _ -> [`Feed; `Direct; `Local; `WholeKnownNetwork] in
-
-    let write_post_button = match current_user_link with
-      | None -> [ ]
-      | Some _ -> [
-          Pure.grid_row [
-            Pure.grid_col [
-              Pure.a_button
-                ~a:[Tyxml.Html.a_href "/write"]
-                ~a_class:["feed-write-post-button"]
-                [Tyxml.Html.txt "Write a new post"]
-            ]
+  let write_post_button = match current_user_link with
+    | None -> [ ]
+    | Some _ -> [
+        Pure.grid_row [
+          Pure.grid_col [
+            Pure.a_button
+              ~a:[Tyxml.Html.a_href "/write"]
+              ~a_class:["feed-write-post-button"]
+              [Tyxml.Html.txt "Write a new post"]
           ]
-        ] in
+        ]
+      ] in
 
-    let navigation_panel =
-            Html.Components.numeric_navigation_panel ~from_:1 ~to_:(feed_element_count / 10 + 1) ~current:(offset_start + 1)
-              (fun ind ->
-                 Format.sprintf "/feed?feed-ty=%s&offset-time=%f&offset-start=%d"
-                   (encode_feed feed_ty) (CalendarLib.Calendar.to_unixfloat offset_date)
-                   (ind - 1)
-              ) in
-              
+  let navigation_panel =
+    Html.Components.numeric_navigation_panel ~from_:1 ~to_:(feed_element_count / limit + 1) ~current:(offset / limit)
+      (fun ind ->
+         Format.sprintf "/feed?feed-ty=%s&offset-time=%f&offset-start=%d"
+           (encode_feed feed_ty) (Ptime.to_float_s start_time)
+           ((ind - 1) * limit)
+      ) in
 
-    tyxml @@ Html.build_page ~headers ~title @@ List.concat [
-      [
-        Html.Components.page_title title;
-        (build_feed_navigation_panel feed_navigation)
-      ];
-      write_post_button;
 
-      [
-        Pure.grid_row (
-          List.map (fun post ->
-            Pure.grid_col [Html.Feed.feed_item post]
-          ) posts)
-      ];
+  tyxml @@ Html.build_page ~headers ~title @@ List.concat [
+    [
+      Html.Components.page_title title;
+      (build_feed_navigation_panel feed_navigation)
+    ];
+    write_post_button;
 
-      [
-        navigation_panel
-      ]
+    [
+      Pure.grid_row (
+        List.map (fun post ->
+          Pure.grid_col [Html.Feed.feed_item post]
+        ) posts)
+    ];
 
+    [
+      navigation_panel
     ]
-  )
+
+  ]
+
+(* * Route *)
+let route =
+  Dream.scope "/feed" [] [
+    Dream.get "/" @@ Error_handling.handle_error_html @@ handle_feed_get;
+  ]

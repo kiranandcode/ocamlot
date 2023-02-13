@@ -1,6 +1,7 @@
 (lang dune 2.9)
-
+(cram enable)
 (generate_opam_files true)
+(implicit_transitive_deps false)
 
 (license AGPL-3.0-or-later)
 (maintainers "The OCamlot developers")
@@ -25,6 +26,8 @@
    caqti
    caqti-driver-sqlite3
    caqti-type-calendar
+
+   conan conan-database
 
    uuidm
 

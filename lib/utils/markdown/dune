@@ -1,3 +1,3 @@
 (library (name markdown)
  (public_name ocamlot.markdown)
- (libraries containers tyxml omd))
+ (libraries tyxml tyxml.functor omd))

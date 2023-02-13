@@ -18,6 +18,10 @@ body {
   --element-text-alt-color: #aaa;
 }
 
+.float-right {
+    float: right;
+}
+
 .header .pure-menu-heading {
   padding: .125em 1em !important;
 }
@@ -339,6 +343,7 @@ div.post-replies-list {
   color: var(--element-text-color);
   background-color: var(--element-color);
   margin-bottom: .5rem;
+  position: relative;
 }
 
 @media screen and (max-width:48.0em) {
@@ -351,6 +356,28 @@ div.post-replies-list {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  flex-grow: 1;
+}
+
+.profile-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: flex;
+}
+
+.profile-panel-button {
+  border-radius: .25rem;
+  background: var(--element-color);
+  margin-left: .25rem;
+  margin-right: .25rem;
+  padding: 0.125em;
+  font-size: larger;
+}
+
+.profile-panel-button > a {
+  color: white;
+  text-decoration: none;
 }
 
 .profile-name b {
@@ -370,14 +397,49 @@ div.post-replies-list {
   /*! width: 100%; */
   background-color: #00132f;
 }
+
 .profile-details > span, .profile-details > div {
   padding-left: .5rem;
   padding-bottom: .25rem;
   padding-right: .5rem;
 }
+
 .profile img {
   max-width: 10rem;
   border-radius: 0px;
+}
+
+.profile-details-update {
+    position: relative;
+}
+
+.avatar-update-form {
+  display: flex;
+  position: relative;
+}
+
+.avatar-input-box {
+    flex-grow: 1;
+}
+
+.profile-details-update > input[type=submit],
+.avatar-update-form > input[type=submit] {
+  float: right;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  margin-right: .25em;
+  margin-bottom: .25em;
+  padding: .25em;
+}
+
+.avatar-input-textbox {
+  flex-grow: 1;
+}
+
+.profile-edit-title {
+  margin-top: .25em;
+  margin-bottom: .25em;
 }
 
 .followers-list {
@@ -844,3 +906,28 @@ div.profile-box.feed-item-author {
 .user-item-display-name {
   margin-right: .25rem;
 }
+
+.feed-item-panel {
+  display: flex;
+  width: 100%;
+}
+
+.feed-panel-spacer {
+  flex-grow: 1;
+}
+
+.feed-item-like {
+  margin-left: 0.25em;
+  margin-right: 0.25em;
+}
+
+.feed-item-like .pure-menu-link {
+  background-color: var(--element-alt-color);
+  color: var(--header-text-color);
+  margin-top: .25rem;
+  margin-bottom: .25rem;
+  border: 0px;
+  margin-left: .25rem;
+  margin-right: .25rem;
+}
+

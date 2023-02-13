@@ -1,0 +1,11 @@
+(library (name common)
+ (preprocess (pps ppx_deriving.show))
+ (libraries
+   ;; Internal libraries 
+   activitypub database
+   ;; General utility libraries
+   containers lwt lwt.unix magic-mime yojson tyxml
+   ;; Web server
+   dream
+   ;; Database
+   caqti caqti-lwt))

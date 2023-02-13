@@ -1,24 +1,18 @@
-diff --git a/lib/pleroma/gun/conn.ex b/lib/pleroma/gun/conn.ex
-index a56625699..494ed2a5f 100644
---- a/lib/pleroma/gun/conn.ex
-+++ b/lib/pleroma/gun/conn.ex
-@@ -24,12 +24,8 @@ defp maybe_add_tls_opts(opts, %URI{scheme: "http"}), do: opts
+diff --git a/config/dev.exs b/config/dev.exs
+index ab3e83c12..a8a86c724 100644
+--- a/config/dev.exs
++++ b/config/dev.exs
+@@ -20,6 +20,8 @@
  
-   defp maybe_add_tls_opts(opts, %URI{scheme: "https"}) do
-     tls_opts = [
--      verify: :verify_peer,
--      cacertfile: CAStore.file_path(),
--      depth: 20,
--      reuse_sessions: false,
--      log_level: :warning,
--      customize_hostname_check: [match_fun: :public_key.pkix_verify_hostname_match_fun(:https)]
-+      verify: :verify_none,
-+      log_level: :debug,
-     ]
+ config :pleroma, Pleroma.Emails.Mailer, adapter: Swoosh.Adapters.Local
  
-     tls_opts =
++config :pleroma, :http_security, enabled: false
++
+ # ## SSL Support
+ #
+ # In order to use HTTPS in development, a self-signed
 diff --git a/lib/pleroma/http/adapter_helper/gun.ex b/lib/pleroma/http/adapter_helper/gun.ex
-index 251539f34..3070c49fa 100644
+index 74ab9851e..c571b2aee 100644
 --- a/lib/pleroma/http/adapter_helper/gun.ex
 +++ b/lib/pleroma/http/adapter_helper/gun.ex
 @@ -37,7 +37,7 @@ def options(incoming_opts \\ [], %URI{} = uri) do
@@ -31,68 +25,22 @@ index 251539f34..3070c49fa 100644
  
    defp put_timeout(opts) do
 diff --git a/lib/pleroma/http/adapter_helper/hackney.ex b/lib/pleroma/http/adapter_helper/hackney.ex
-index fe3f91a72..0d6f20e55 100644
+index f3be1f3d0..5fae2dae5 100644
 --- a/lib/pleroma/http/adapter_helper/hackney.ex
 +++ b/lib/pleroma/http/adapter_helper/hackney.ex
-@@ -25,7 +25,7 @@ def options(connection_opts \\ [], %URI{} = uri) do
-   end
+@@ -3,11 +3,14 @@
+ # SPDX-License-Identifier: AGPL-3.0-only
  
-   defp add_scheme_opts(opts, %URI{scheme: "https"}) do
--    Keyword.put(opts, :ssl_options, versions: [:"tlsv1.2", :"tlsv1.1", :tlsv1])
-+    Keyword.put(opts, :ssl_options, versions: [:"tlsv1.2", :"tlsv1.1", :tlsv1], verify: :verify_none)
-   end
+ defmodule Pleroma.HTTP.AdapterHelper.Hackney do
++  require Logger
++
+   @behaviour Pleroma.HTTP.AdapterHelper
  
-   defp add_scheme_opts(opts, _), do: opts
-diff --git a/lib/pleroma/reverse_proxy/client/hackney.ex b/lib/pleroma/reverse_proxy/client/hackney.ex
-index dba946308..d32700b20 100644
---- a/lib/pleroma/reverse_proxy/client/hackney.ex
-+++ b/lib/pleroma/reverse_proxy/client/hackney.ex
-@@ -7,7 +7,7 @@ defmodule Pleroma.ReverseProxy.Client.Hackney do
+   @defaults [
+     follow_redirect: true,
+-    force_redirect: true
++    force_redirect: true,
++    insecure: true
+   ]
  
-   @impl true
-   def request(method, url, headers, body, opts \\ []) do
--    opts = Keyword.put(opts, :ssl_options, versions: [:"tlsv1.2", :"tlsv1.1", :tlsv1])
-+    opts = Keyword.put(opts, :ssl_options, versions: [:"tlsv1.2", :"tlsv1.1", :tlsv1], verify: :verify_none)
-     :hackney.request(method, url, headers, body, opts)
-   end
- 
-diff --git a/lib/pleroma/tesla/middleware/connection_pool.ex b/lib/pleroma/tesla/middleware/connection_pool.ex
-index 906706d39..886995d87 100644
---- a/lib/pleroma/tesla/middleware/connection_pool.ex
-+++ b/lib/pleroma/tesla/middleware/connection_pool.ex
-@@ -24,7 +24,7 @@ def call(%Tesla.Env{url: url, opts: opts} = env, next, _) do
- 
-     case ConnectionPool.get_conn(uri, opts[:adapter]) do
-       {:ok, conn_pid} ->
--        adapter_opts = Keyword.merge(opts[:adapter], conn: conn_pid, close_conn: false)
-+        adapter_opts = Keyword.merge(opts[:adapter], conn: conn_pid, close_conn: false, certificates_verification: false)
-         opts = Keyword.put(opts, :adapter, adapter_opts)
-         env = %{env | opts: opts}
- 
-diff --git a/lib/pleroma/web/web_finger.ex b/lib/pleroma/web/web_finger.ex
-index 938fc09e3..a28881169 100644
---- a/lib/pleroma/web/web_finger.ex
-+++ b/lib/pleroma/web/web_finger.ex
-@@ -135,7 +135,7 @@ defp webfinger_from_json(body) do
-               data
-           end
-         end)
--
-+      Logger.debug(fn -> "result from webfinger was #{inspect(data)}" end)
-       {:ok, data}
-     end
-   end
-@@ -208,10 +208,12 @@ def finger(account) do
-               webfinger_from_json(body)
- 
-             _ ->
-+              Logger.debug(fn -> "couldn't finger #{account} because invalid content type: #{inspect(content_type)}" end)
-               {:error, {:content_type, content_type}}
-           end
- 
--        _ ->
-+        e ->
-+          Logger.debug(fn -> "couldn't finger #{account} because error: #{inspect(e)}" end)
-           {:error, {:content_type, nil}}
-       end
-     else
+   @spec options(keyword(), URI.t()) :: keyword()

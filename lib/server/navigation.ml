@@ -9,7 +9,7 @@ let build_navigation_bar req =
         "Register", "/register", false
       ]
     | Some user -> [
-        "Profile", "/users/" ^ Database.LocalUser.username user, false;
+        "Profile", "/users/" ^ user.Database.LocalUser.username, false;
         "Log out", "/logout", true
       ] in
   let navigation_components = [

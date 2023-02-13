@@ -1,0 +1,13 @@
+(library (name worker)
+ (preprocess (pps ppx_deriving.show))
+ (libraries
+   ;; Internal libraries
+   common configuration ap_resolver database error_handling activitypub logging
+   ;; General utility libraries
+   containers yojson lwt re uri calendar
+   ;; Dream server
+   dream dream.sql dream-pure
+   ;; Database connections
+   caqti caqti-lwt
+   ;; Time now
+   ptime ptime.clock.os))

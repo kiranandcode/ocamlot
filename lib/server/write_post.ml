@@ -18,7 +18,7 @@ let parse_scope = function
   | ct -> Error (Format.sprintf "unsupported scope type %s" ct)
 
 
-let handle_get_write ?errors ?title ?to_ ?content_type ?scope:_ ?contents _config req =
+let handle_get_write ?errors ?title ?to_ ?content_type ?scope:_ ?contents req =
   let _context = Dream.query req "context" in
   let+ headers = Navigation.build_navigation_bar req in
   let token = Dream.csrf_token req in
@@ -48,7 +48,7 @@ let handle_get_write ?errors ?title ?to_ ?content_type ?scope:_ ?contents _confi
     ]
   ]
 
-let handle_post_write config req =
+let handle_post_write req =
   let+ data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
   log.info (fun f -> f ~request:req "got post to write with %s" ([%show: (string * string) list] data));
 
@@ -72,10 +72,10 @@ let handle_post_write config req =
     let to_ = form_data "to" data |> Result.to_opt in
     let contents = form_data "contents" data |> Result.to_opt in
     let content_type = form_data "content-type" data |> Result.flat_map parse_content_type |> Result.to_opt in
-    handle_get_write ~errors ?title ?to_ ?content_type ?contents config req
+    handle_get_write ~errors ?title ?to_ ?content_type ?contents req
   (* if is a preview request, then just handle get write *)
   | Ok (title, to_, content_type, scope, contents, true) ->
-    handle_get_write ?title ?to_ ~content_type ~scope ~contents config req
+    handle_get_write ?title ?to_ ~content_type ~scope ~contents req
   | Ok (title, post_to, content_type, scope, contents, false) ->
     log.info (fun f -> f "received get request %s"
                          ([%show: string option * string option *
@@ -83,7 +83,7 @@ let handle_post_write config req =
                                   [> `DM | `Followers | `Public ] * string]
                             (title, post_to, content_type, scope, contents)));
     let+ Some user = current_user req in
-    let () = Configuration.Params.send_task config
+    let () = Worker.send_task
                Worker.((LocalPost {
                  user=user;  title; scope; content_type;
                  post_to=post_to |> Option.map (String.split_on_char ',' ); 
@@ -93,9 +93,9 @@ let handle_post_write config req =
     redirect req "/feed"
 [@@warning "-8"]
 
-let route config =
+let route =
   Dream.scope "/write" [check_authenticated] [
-    Dream.get "" @@ Error_handling.handle_error_html config @@ handle_get_write config;
-    Dream.post "" @@ Error_handling.handle_error_html config @@ handle_post_write config;
+    Dream.get "" @@ Error_handling.handle_error_html @@ handle_get_write;
+    Dream.post "" @@ Error_handling.handle_error_html @@ handle_post_write;
 
   ]
