@@ -2,7 +2,7 @@ open Containers
 module APConstants = Activitypub.Constants
 
 
-let (let+) x f = Lwt_result.bind x f
+let (let*) x f = Lwt_result.bind x f
 let (>>) x f = Lwt.map f x
 let (>>=) x f = Lwt_result.bind x f
 let map_err f x = Lwt_result.map_error f x
@@ -65,7 +65,7 @@ let current_user req =
     |> map_err (fun err -> `Internal ("Lookup user failed", Caqti_error.show err))
 
 let current_user_link req =
-  let+ current_user = current_user req in
+  let* current_user = current_user req in
   match current_user with
   | None as opt -> return_ok opt
   | Some user ->

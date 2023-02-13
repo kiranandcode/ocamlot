@@ -42,7 +42,6 @@ let enforce_domain: Dream.middleware =
      Dream.set_header req "host" (Lazy.force Configuration.host);
      f req)
 
-let (let+) x f = Lwt_result.bind x f
 
 let run () =
   let () = Mirage_crypto_rng_lwt.initialize () in

@@ -25,22 +25,22 @@ let feed_type_to_string = function
   | `WholeKnownNetwork -> "Whole-known-network"
 
 let parse_calendar s =
-  let (let+) x f = Option.bind x f in
-  let+ s = Float.of_string_opt s in
+  let (let*) x f = Option.bind x f in
+  let* s = Float.of_string_opt s in
   Ptime.of_float_s s
 
 let sql req f = Dream.sql req f |> Lwt_result.map_error (fun err -> `DatabaseError (Caqti_error.show err))
 
 (* * Extracting data *)
 let extract_post req (post: Database.Posts.t) =
-  let+ author = post.Database.Posts.author_id
+  let* author = post.Database.Posts.author_id
                 |> fun p -> sql req (Database.Actor.resolve ~id:p) in
-  let+ author_instance =
+  let* author_instance =
     match author with
     | `Local _ -> return_ok None
     | `Remote r ->
-      let+ r = sql req (Database.RemoteUser.resolve ~id:r) in
-      let+ instance =
+      let* r = sql req (Database.RemoteUser.resolve ~id:r) in
+      let* instance =
         sql req
           (Database.RemoteInstance.resolve
              ~id:(r.Database.RemoteUser.instance_id)) in
@@ -53,12 +53,12 @@ let extract_post req (post: Database.Posts.t) =
       Markdown.markdown_to_html (Omd.of_string source)
     | _ -> [ Tyxml.Html.txt source ] in
 
-  let+ post_likes =
+  let* post_likes =
     sql req (Database.Likes.count_for_post ~post:post.Database.Posts.id) in
 
-  let+ name, image = match author with
+  let* name, image = match author with
       `Local l ->
-      let+ l = sql req (Database.LocalUser.resolve ~id:l) in
+      let* l = sql req (Database.LocalUser.resolve ~id:l) in
       let name =
         Option.value ~default:l.Database.LocalUser.username
           l.Database.LocalUser.display_name in
@@ -67,7 +67,7 @@ let extract_post req (post: Database.Posts.t) =
       return_ok (name,
                  image)
     | `Remote l ->
-      let+ l = sql req (Database.RemoteUser.resolve ~id:l) in
+      let* l = sql req (Database.RemoteUser.resolve ~id:l) in
       let name =
         Option.value ~default:l.Database.RemoteUser.username
           l.Database.RemoteUser.display_name in
@@ -128,43 +128,43 @@ let handle_feed_get req =
     |> Option.flat_map Int.of_string
     |> Option.value ~default:0 in
 
-  let+ current_user_link = current_user_link req in
+  let* current_user_link = current_user_link req in
 
-  let+ feed_elements, feed_element_count =
+  let* feed_elements, feed_element_count =
     sql req @@ fun db ->
     begin match feed_ty, current_user_link with
     | `Direct, Some user ->
-      let+ posts =
+      let* posts =
         Database.Posts.collect_direct
           ~offset ~limit ~start_time ~id:user db in
-      let+ total_posts =
+      let* total_posts =
         Database.Posts.count_direct ~id:user db in
       return_ok (posts, total_posts)
     | `Feed, Some user ->
-      let+ posts =
+      let* posts =
         Database.Posts.collect_feed
           ~offset ~limit ~start_time ~id:user db in
-      let+ total_posts =
+      let* total_posts =
         Database.Posts.count_feed ~id:user db in
       return_ok (posts, total_posts)
     | `WholeKnownNetwork, _ ->
-      let+ posts = Database.Posts.collect_twkn ~offset ~limit ~start_time db in
-      let+ total_posts = Database.Posts.count_twkn db in
+      let* posts = Database.Posts.collect_twkn ~offset ~limit ~start_time db in
+      let* total_posts = Database.Posts.count_twkn db in
       return_ok (posts, total_posts)        
     | _, _ ->
-      let+ posts = Database.Posts.collect_local ~offset ~limit ~start_time db in
-      let+ total_posts = Database.Posts.count_local db in
+      let* posts = Database.Posts.collect_local ~offset ~limit ~start_time db in
+      let* total_posts = Database.Posts.count_local db in
       return_ok (posts, total_posts)
     end
   in
 
   let title = feed_type_to_string feed_ty in
 
-  let+ posts =
+  let* posts =
     Lwt_list.map_p (extract_post req) feed_elements
     |> Lwt.map Result.flatten_l in
 
-  let+ headers = Navigation.build_navigation_bar req in
+  let* headers = Navigation.build_navigation_bar req in
 
   let feed_navigation = match current_user_link with
     | None -> [`Local; `WholeKnownNetwork]

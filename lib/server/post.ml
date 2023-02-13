@@ -5,14 +5,14 @@ let sql req f = Dream.sql req f |> Lwt_result.map_error (fun err -> `DatabaseErr
 
 (* * Extracting data *)
 let extract_post req (post: Database.Posts.t) =
-  let+ author = post.Database.Posts.author_id
+  let* author = post.Database.Posts.author_id
                 |> fun p -> sql req (Database.Actor.resolve ~id:p) in
-  let+ author_instance =
+  let* author_instance =
     match author with
     | `Local _ -> return_ok None
     | `Remote r ->
-      let+ r = sql req (Database.RemoteUser.resolve ~id:r) in
-      let+ instance =
+      let* r = sql req (Database.RemoteUser.resolve ~id:r) in
+      let* instance =
         sql req
           (Database.RemoteInstance.resolve
              ~id:(r.Database.RemoteUser.instance_id)) in
@@ -25,12 +25,12 @@ let extract_post req (post: Database.Posts.t) =
       Markdown.markdown_to_html (Omd.of_string source)
     | _ -> [ Tyxml.Html.txt source ] in
 
-  let+ post_likes =
+  let* post_likes =
     sql req (Database.Likes.count_for_post ~post:post.Database.Posts.id) in
 
-  let+ name, image = match author with
+  let* name, image = match author with
       `Local l ->
-      let+ l = sql req (Database.LocalUser.resolve ~id:l) in
+      let* l = sql req (Database.LocalUser.resolve ~id:l) in
       let name =
         Option.value ~default:l.Database.LocalUser.username
           l.Database.LocalUser.display_name in
@@ -39,7 +39,7 @@ let extract_post req (post: Database.Posts.t) =
       return_ok (name,
                  image)
     | `Remote l ->
-      let+ l = sql req (Database.RemoteUser.resolve ~id:l) in
+      let* l = sql req (Database.RemoteUser.resolve ~id:l) in
       let name =
         Option.value ~default:l.Database.RemoteUser.username
           l.Database.RemoteUser.display_name in
@@ -68,18 +68,18 @@ let extract_post req (post: Database.Posts.t) =
 
 let handle_post_get req =
   let public_id = Dream.param req "postid" in
-  let+ post =
+  let* post =
     sql req (Database.Posts.lookup_by_public_id ~public_id) in
-  let+ post =
+  let* post =
     post
     |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
     |> return in
-  let+ can_access_post =
+  let* can_access_post =
     if post.Database.Posts.is_public
     then return_ok true
     else
-      let+ current_user = current_user_link req in
-      let+ current_user =
+      let* current_user = current_user_link req in
+      let* current_user =
         current_user
         |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
         |> return in
@@ -88,8 +88,8 @@ let handle_post_get req =
 
   if can_access_post
   then 
-    let+ post_data = extract_post req post in
-    let+ headers = Navigation.build_navigation_bar req in
+    let* post_data = extract_post req post in
+    let* headers = Navigation.build_navigation_bar req in
     let title = post.Database.Posts.summary in
     tyxml @@ Html.build_page ~headers ?title @@ [
       Html.Components.post_panel post_data;

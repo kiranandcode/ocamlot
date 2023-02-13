@@ -21,7 +21,7 @@ let recover f comp =
 (* ** Get *)
 let handle_register_get ?errors req =
   let token = Dream.csrf_token req in 
-  let+ headers = Navigation.build_navigation_bar req in
+  let* headers = Navigation.build_navigation_bar req in
   tyxml @@ Html.build_page ~title:"Register a new account" ~headers [
     Pure.grid_row [
       Pure.grid_col_responsive [`sm, (1,2)] [
@@ -36,7 +36,7 @@ let handle_register_get ?errors req =
 (* ** Post *)
 let handle_register_post req =
   log.info (fun f -> f "register page POST");
-  let+ data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
+  let* data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
   let res =
     let open VResult in
     let* username = form_data "username" data |> Result.map_err List.return in
@@ -52,12 +52,12 @@ let handle_register_post req =
     List.iter (fun error -> log.debug (fun f -> f "register page invalid form %s" error)) errors;
     handle_register_get ~errors req
   | Ok (username, password, _) ->
-    let+ user = Dream.sql req (Database.LocalUser.create_user ~username ~password)
+    let* user = Dream.sql req (Database.LocalUser.create_user ~username ~password)
                 |> map_err (function
                   `ArgonError err -> `ArgonError err 
                   | #Caqti_error.t as err -> `DatabaseError (Caqti_error.show err)) in
-    let+ () = Lwt.map Result.return (Dream.invalidate_session req) in
-    let+ () = Lwt.map Result.return @@
+    let* () = Lwt.map Result.return (Dream.invalidate_session req) in
+    let* () = Lwt.map Result.return @@
       Dream.set_session_field req "user" (user.Database.LocalUser.username) in
     redirect req "/feed"
 
@@ -65,7 +65,7 @@ let handle_register_post req =
 (* ** Get *)
 let handle_login_get ?errors req =
   let token = Dream.csrf_token req in
-  let+ headers = Navigation.build_navigation_bar req in
+  let* headers = Navigation.build_navigation_bar req in
   tyxml @@ Html.build_page ~title:"Log in to your account" ~headers [
     Pure.grid_row [
       Pure.grid_col_responsive [`sm, (1,2)] [
@@ -81,7 +81,7 @@ let handle_login_get ?errors req =
 (* ** Post *)
 let handle_login_post req =
   log.info (fun f -> f "login page POST");
-  let+ data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
+  let* data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
   let res =
     let open VResult in
     let* username = form_data "username" data |> Result.map_err List.return in
@@ -94,14 +94,14 @@ let handle_login_post req =
     List.iter (fun error -> log.debug (fun f -> f "login page invalid form %s" error)) errors;
     handle_login_get ~errors req
   | Ok (username, password) ->
-    let+ user = Dream.sql req (Database.LocalUser.login_user ~username ~password)
+    let* user = Dream.sql req (Database.LocalUser.login_user ~username ~password)
                 |> map_err (function
                   `ArgonError err -> `ArgonError err
                   | #Caqti_error.t as err -> `DatabaseError (Caqti_error.show err)) in
     match user with
     | Some user ->
-      let+ () = Lwt.map Result.return (Dream.invalidate_session req) in
-      let+ () = Lwt.map Result.return @@
+      let* () = Lwt.map Result.return (Dream.invalidate_session req) in
+      let* () = Lwt.map Result.return @@
         Dream.set_session_field req "user" (user.Database.LocalUser.username) in
       redirect req "/feed"
     | None ->
@@ -109,9 +109,9 @@ let handle_login_post req =
 
 (* * Logout *)
 let handle_logout_post req =
-  let+ _ = Dream.form ~csrf:false req
+  let* _ = Dream.form ~csrf:false req
            |> sanitize_form_error ([%show: (string * string) list]) in
-  let+ () = Dream.invalidate_session req |> Lwt.map Result.return in
+  let* () = Dream.invalidate_session req |> Lwt.map Result.return in
   redirect req "/feed"
 
 (* * Router *)

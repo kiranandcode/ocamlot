@@ -96,14 +96,14 @@ open struct
     else match Re.exec_opt local_user_regex to_ with
       | Some group ->
         let username = Re.Group.get group 1 in
-        let+ local_user =
+        let* local_user =
           with_pool pool @@ fun db ->
           Database.LocalUser.find_user ~username db
           |> lift_database_error in
         begin match local_user with
           | None -> return_ok None
           | Some local_user ->
-            let+ user =
+            let* user =
               with_pool pool @@ fun db ->
               Database.Actor.create_local_user ~local_id:(local_user.Database.LocalUser.id) db
               |> lift_database_error in
@@ -136,7 +136,7 @@ open struct
 
     let post_to = Option.get_or ~default:[] post_to
                   |> List.filter (Fun.negate String.is_empty) in
-    let+ _ =
+    let* _ =
       with_pool pool @@ 
       Ap_resolver.create_new_note scope user post_to [] title content content_type in
 
@@ -149,7 +149,7 @@ open struct
     match domain with
     | None ->
       (* no domain given, we'll search any instances that don't have the user *)
-      let+ instances =
+      let* instances =
         with_pool pool @@ fun db ->
         Database.RemoteInstance.find_possible_remote_instances_to_query
           ("%" ^ username ^ "%") db
@@ -164,7 +164,7 @@ open struct
         ) instances
     | Some domain ->
       log.debug (fun f ->  f "resolving user %s@%s?" username domain);
-      let+ _ = with_pool pool @@ fun db ->
+      let* _ = with_pool pool @@ fun db ->
         Ap_resolver.resolve_remote_user ~username ~domain db
         |> lift_resolver_error in
       log.debug (fun f ->  f "successfully resolved user %s@%s" username domain);
@@ -174,7 +174,7 @@ open struct
     log.debug (fun f ->
         f "handling follow remote user %s@%s by %s"
           username domain (user.Database.LocalUser.username));
-    let+ _ =
+    let* _ =
       with_pool pool @@ fun db ->
       Ap_resolver.follow_remote_user user ~username ~domain db
       |> map_err (fun err -> `ResolverError err) in
@@ -182,14 +182,14 @@ open struct
 
   let handle_accept_follow pool follow_id =
     log.debug (fun f -> f "worker accepting follow %s" follow_id);
-    let+ follow = 
+    let* follow = 
       with_pool pool @@ fun db ->
       Database.Follows.lookup_by_url ~url:follow_id db
       |> lift_database_error in
     log.debug (fun f -> f "worker found follow with id %s" follow_id);
-    let+ follow = get_opt follow
+    let* follow = get_opt follow
         ~else_:(fun () -> (`WorkerError "no follow found"))  in
-    let+ _ =
+    let* _ =
       with_pool pool @@ fun db ->
       Database.Follows.update_pending_status ~id:follow.Database.Follows.id ~pending:false db
       |> lift_database_error in
@@ -203,11 +203,11 @@ open struct
 
   let handle_remote_like pool id published target author raw_data =
     log.debug (fun f -> f "worker handling remote like");
-    let+ author =
+    let* author =
       with_pool pool @@ fun db ->
       Ap_resolver.resolve_remote_user_by_url (Uri.of_string author) db
       |> lift_resolver_error in
-    let+ follow = 
+    let* follow = 
       with_pool pool @@ fun db ->
       Database.Likes.create
         ~raw_data ~url:id
@@ -218,20 +218,20 @@ open struct
     return_ok ()
 
   let handle_undo_follow pool follow_id =
-    let+ follow =
+    let* follow =
       with_pool pool @@ fun db ->
       Database.Follows.lookup_by_url ~url:follow_id db
       |> lift_database_error in
-    let+ follow = get_opt follow
+    let* follow = get_opt follow
         ~else_:(fun () -> (`WorkerError "no follow found")) in
-    let+ () =
+    let* () =
       with_pool pool @@ fun db ->    
       Database.Follows.delete ~id:(follow.Database.Follows.id) db
       |> lift_database_error in
     return_ok ()
 
   let handle_create_remote_note pool author direct_message (note: Activitypub.Types.note) =
-    let+ author =
+    let* author =
       with_pool pool @@ fun db ->
       Ap_resolver.resolve_remote_user_by_url (Uri.of_string author) db
       |>  lift_resolver_error in
@@ -250,15 +250,15 @@ open struct
         if uri_ends_with_followers to_ then
           is_follower_public := true          
       ) (note.to_ @ note.cc);
-  let+ to_ =
+  let* to_ =
     filter_map_list ~msg:"resolving target of post" (extract_local_target_link pool) note.to_ in
-  let+ cc_ =
+  let* cc_ =
     filter_map_list ~msg:"resolving ccd of post" (extract_local_target_link pool) note.cc in
-  let+ author =
+  let* author =
     with_pool pool @@ fun db ->
     Database.Actor.create_remote_user ~remote_id:(author.Database.RemoteUser.id) db
     |> lift_database_error in
-  let+ post =
+  let* post =
     with_pool pool @@ fun db -> 
     Database.Posts.create
       ?summary
@@ -273,12 +273,12 @@ open struct
     |> lift_database_error in
   log.debug (fun f -> f "created post");
 
-  let+ _ =
+  let* _ =
     with_pool pool @@ fun db ->
     Database.Posts.add_post_tos ~id:(post.Database.Posts.id) ~tos:to_ db
     |> lift_database_error  in
   log.debug (fun f -> f "to_s added");
-  let+ _ =
+  let* _ =
     with_pool pool @@ fun db ->
     Database.Posts.add_post_ccs ~id:(post.Database.Posts.id) ~ccs:cc_ db
     |> lift_database_error in
@@ -349,8 +349,8 @@ let init () =
     let update_busy_timout =
       Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.int @:-  "PRAGMA busy_timeout = 5000" ) in
     ((Caqti_lwt.Pool.use (fun (module DB : Caqti_lwt.CONNECTION) ->
-       let+ _ = DB.find enable_journal_mode () in
-       let+ _ = DB.find update_busy_timout () in
+       let* _ = DB.find enable_journal_mode () in
+       let* _ = DB.find update_busy_timout () in
        Lwt.return_ok ()
      ) pool)
      |> Obj.magic

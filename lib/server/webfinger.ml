@@ -28,14 +28,14 @@ let handle_webfinger req =
   if not (Option.for_all is_webfinger_supported_content_type content_type) then
     log.warning (fun f -> f "webfinger for unsupported content type \"%s\", ignoring silently"
                             (Option.value ~default:"" content_type));
-  let+ queried_resource = Dream.query req "resource"
+  let* queried_resource = Dream.query req "resource"
                           |> lift_opt ~else_:(fun () -> `InvalidWebfinger ("bad query", "missing params")) |> return in
   log.debug (fun f -> f "queried resource: %s" queried_resource);
   match resource_to_username queried_resource with
   | Some username ->
-    let+ user = 
+    let* user = 
       Dream.sql req begin fun db -> 
-        let+ query_res = Database.LocalUser.find_user ~username db |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+        let* query_res = Database.LocalUser.find_user ~username db |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
         return @@ lift_opt ~else_:(fun () -> `DatabaseError ("Inconsistent state: user's link failed to resolve")) query_res
       end in
     let result = 

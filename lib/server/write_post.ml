@@ -20,7 +20,7 @@ let parse_scope = function
 
 let handle_get_write ?errors ?title ?to_ ?content_type ?scope:_ ?contents req =
   let _context = Dream.query req "context" in
-  let+ headers = Navigation.build_navigation_bar req in
+  let* headers = Navigation.build_navigation_bar req in
   let token = Dream.csrf_token req in
 
   let preview = match content_type, contents with
@@ -49,7 +49,7 @@ let handle_get_write ?errors ?title ?to_ ?content_type ?scope:_ ?contents req =
   ]
 
 let handle_post_write req =
-  let+ data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
+  let* data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
   log.info (fun f -> f ~request:req "got post to write with %s" ([%show: (string * string) list] data));
 
   let res =
@@ -82,7 +82,7 @@ let handle_post_write req =
                                   [> `Markdown | `Org | `Text ] *
                                   [> `DM | `Followers | `Public ] * string]
                             (title, post_to, content_type, scope, contents)));
-    let+ Some user = current_user req in
+    let* Some user = current_user req in
     let () = Worker.send_task
                Worker.((LocalPost {
                  user=user;  title; scope; content_type;

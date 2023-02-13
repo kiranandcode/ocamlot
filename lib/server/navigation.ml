@@ -1,7 +1,7 @@
 open Common
 
 let build_navigation_bar req =
-  let+ user = current_user req in
+  let* user = current_user req in
   let login =
     match user with
     | None -> [
