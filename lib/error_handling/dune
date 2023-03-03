@@ -2,7 +2,7 @@
  (preprocess (pps ppx_deriving.show))
  (libraries
    ;; Internal libraries
-   common logging configuration html
+   common logging configuration view
 
    ;; General utility libraries
    containers lwt tyxml tyxml.functor yojson

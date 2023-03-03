@@ -26,7 +26,7 @@ let pp_date: Format.formatter -> Ptime.date -> unit =
   fun fmt (year, month, day) ->
   Format.fprintf fmt "%d%s of %s %d" day (day_terminator day) (month_to_string month) year
 
-let div class_ elts = H.div ~a:[H.a_class [class_]] elts
+let div class_ elts = H.div ~a:[ H.a_class [class_]] elts
 
 let div_flex elts =
   div "flex" elts
