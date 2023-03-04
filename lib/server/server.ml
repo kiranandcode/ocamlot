@@ -78,10 +78,10 @@ let run () =
   @@ Dream.router [
     Webfinger.route;
 
-    Authentication.route;
-    Feed.route;
-    Users.route;
-    Write_post.route;
+    (* Authentication.route; *)
+    (* Feed.route; *)
+    (* Users.route; *)
+    (* Write_post.route; *)
     Activity.route;
 
     Images.route;

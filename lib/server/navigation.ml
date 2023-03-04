@@ -8,7 +8,7 @@ let build_navigation_bar req =
         "Log in", "/login", false;
         "Register", "/register", false
       ]
-    | Some user -> [
+    | Some user -> View.[
         "Profile", "/users/" ^ user.Database.LocalUser.username, false;
         "Log out", "/logout", true
       ] in

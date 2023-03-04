@@ -60,11 +60,18 @@ let handle_error_html handler req =
     let details =
       Option.return_if (Lazy.force Configuration.debug) details in
     tyxml_pure ~status @@
-    Tyxml.Html.html
-      Html.(head Tyxml.Html.(txt "OCamlot - Error"))
-      (Tyxml.Html.body [
-         Html.Error.error ?details msg
-       ])
+    View.Page.render_page "OCamlot - Error" [
+      View.Components.render_heading
+        ~icon:"E" ~current:("Error " ^ msg)
+        ();
+      Tyxml.(Html.div ~a:[Html.a_class ["error-box"; "error-details"]] [
+          Html.code [
+            Html.txt (match details with
+                | None -> "No further details..."
+                | Some details -> details)
+          ]
+        ])
+    ]
 
 (* ** Json *)
 let handle_error_json handler req =
