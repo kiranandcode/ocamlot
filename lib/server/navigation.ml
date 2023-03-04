@@ -2,18 +2,20 @@ open Common
 
 let build_navigation_bar req =
   let* user = current_user req in
-  let login =
+  let login, last =
     match user with
-    | None -> [
-        "Log in", "/login", false;
-        "Register", "/register", false
-      ]
-    | Some user -> View.[
-        "Profile", "/users/" ^ user.Database.LocalUser.username, false;
-        "Log out", "/logout", true
-      ] in
-  let navigation_components = [
-    "Feed", "/feed", false;
-    "Users", "/users", false;
+    | None -> View.Utils.([
+      {text="Log in"; url="/login"};
+      ],
+        {text="Register"; url="/register"}
+    )
+    | Some user ->
+      View.Utils.([
+        {text="Profile";
+         url="/users/" ^ user.Database.LocalUser.username}
+      ], {text="Log out"; url="/logout"}) in
+  let navigation_components = View.Utils.[
+    {text="Feed"; url="/feed"};
+    {text="Users"; url="/users"};
   ] in
-  return_ok (navigation_components @ login)
+  return_ok (navigation_components @ login, Some last)

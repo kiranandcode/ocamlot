@@ -21,8 +21,9 @@ let recover f comp =
 (* ** Get *)
 let handle_register_get ?errors req =
   let token = Dream.csrf_token req in 
-  let* headers = Navigation.build_navigation_bar req in
-  tyxml @@ Html.build_page ~title:"Register a new account" ~headers [
+  let* headers, _last = Navigation.build_navigation_bar req in
+  tyxml @@
+  View.Page.render_page "Register a new account" [
     Pure.grid_row [
       Pure.grid_col_responsive [`sm, (1,2)] [
         Html.Login.register_box ~fields:["dream.csrf", token] ?errors ()
@@ -33,6 +34,7 @@ let handle_register_get ?errors req =
       ];
     ];
   ]
+
 (* ** Post *)
 let handle_register_post req =
   log.info (fun f -> f "register page POST");
