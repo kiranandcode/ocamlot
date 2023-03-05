@@ -19,20 +19,15 @@ let recover f comp =
 
 (* * Register *)
 (* ** Get *)
-let handle_register_get ?errors req =
+let handle_register_get ?errors:_ req =
   let token = Dream.csrf_token req in 
-  let* headers, _last = Navigation.build_navigation_bar req in
+  let* headers, action = Navigation.build_navigation_bar req in
   tyxml @@
   View.Page.render_page "Register a new account" [
-    Pure.grid_row [
-      Pure.grid_col_responsive [`sm, (1,2)] [
-        Html.Login.register_box ~fields:["dream.csrf", token] ?errors ()
-      ];
-      Pure.grid_col_responsive [`sm, (1,2)] [
-        Html.Login.login_info
-          (Markdown.markdown_to_html (Lazy.force Configuration.about_this_instance))
-      ];
-    ];
+    View.Header.render_header ?action headers;
+    View.Login_box.render_register_box ~fields:["dream.csrf", token] ();
+    Tyxml.Html.div ~a:[Tyxml.Html.a_class ["login-info"; "markdown"]]
+      (Markdown.markdown_to_html (Lazy.force Configuration.about_this_instance))
   ]
 
 (* ** Post *)
@@ -56,8 +51,8 @@ let handle_register_post req =
   | Ok (username, password, _) ->
     let* user = Dream.sql req (Database.LocalUser.create_user ~username ~password)
                 |> map_err (function
-                  `ArgonError err -> `ArgonError err 
-                  | #Caqti_error.t as err -> `DatabaseError (Caqti_error.show err)) in
+                      `ArgonError err -> `ArgonError err 
+                    | #Caqti_error.t as err -> `DatabaseError (Caqti_error.show err)) in
     let* () = Lwt.map Result.return (Dream.invalidate_session req) in
     let* () = Lwt.map Result.return @@
       Dream.set_session_field req "user" (user.Database.LocalUser.username) in
@@ -65,21 +60,16 @@ let handle_register_post req =
 
 (* * Login *)  
 (* ** Get *)
-let handle_login_get ?errors req =
+let handle_login_get ?errors:_ req =
   let token = Dream.csrf_token req in
-  let* headers = Navigation.build_navigation_bar req in
-  tyxml @@ Html.build_page ~title:"Log in to your account" ~headers [
-    Pure.grid_row [
-      Pure.grid_col_responsive [`sm, (1,2)] [
-        Html.Login.login_box ~fields:["dream.csrf", token] ?errors ();
-      ];
-      Pure.grid_col_responsive [`sm, (1,2)] [
-        Html.Login.login_info
-          (Markdown.markdown_to_html (Lazy.force Configuration.about_this_instance))
-      ];
-    ];
+  let* headers, action = Navigation.build_navigation_bar req in
+  tyxml @@ View.Page.render_page "Log in to your account" [
+    View.Header.render_header ?action headers;
+    View.Login_box.render_login_box ~fields:["dream.csrf", token] ();
+    Tyxml.Html.div ~a:[Tyxml.Html.a_class ["login-info"; "markdown"]]
+      (Markdown.markdown_to_html (Lazy.force Configuration.about_this_instance))
   ]
-    
+
 (* ** Post *)
 let handle_login_post req =
   log.info (fun f -> f "login page POST");
@@ -98,8 +88,8 @@ let handle_login_post req =
   | Ok (username, password) ->
     let* user = Dream.sql req (Database.LocalUser.login_user ~username ~password)
                 |> map_err (function
-                  `ArgonError err -> `ArgonError err
-                  | #Caqti_error.t as err -> `DatabaseError (Caqti_error.show err)) in
+                      `ArgonError err -> `ArgonError err
+                    | #Caqti_error.t as err -> `DatabaseError (Caqti_error.show err)) in
     match user with
     | Some user ->
       let* () = Lwt.map Result.return (Dream.invalidate_session req) in
@@ -122,7 +112,7 @@ let route =
     Dream.scope "/" [check_unauthenticated] [
       Dream.get "/register" @@ Error_handling.handle_error_html @@ handle_register_get;
       Dream.post "/register" @@ Error_handling.handle_error_html @@ handle_register_post;
-      
+
       Dream.get "/login" @@ Error_handling.handle_error_html @@ handle_login_get;
       Dream.post "/login" @@ Error_handling.handle_error_html @@ handle_login_post;
     ];

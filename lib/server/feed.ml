@@ -106,11 +106,11 @@ let extract_post req (post: Database.Posts.t) =
       method title = summary
     end
 
-let build_feed_navigation_panel options =
-  Html.Components.subnavigation_menu @@
-  List.map (fun feed ->
-    (feed_type_to_string feed, ("/feed?feed-ty=" ^ encode_feed feed))
-  ) options
+(* let build_feed_navigation_panel options = *)
+(*   Html.Components.subnavigation_menu @@ *)
+(*   List.map (fun feed -> *)
+(*     (feed_type_to_string feed, ("/feed?feed-ty=" ^ encode_feed feed)) *)
+(*   ) options *)
 
 (* * Feed Html *)
 let handle_feed_get req =
@@ -164,46 +164,45 @@ let handle_feed_get req =
     Lwt_list.map_p (extract_post req) feed_elements
     |> Lwt.map Result.flatten_l in
 
-  let* headers = Navigation.build_navigation_bar req in
+  let* headers,action = Navigation.build_navigation_bar req in
 
   let feed_navigation = match current_user_link with
     | None -> [`Local; `WholeKnownNetwork]
     | Some _ -> [`Feed; `Direct; `Local; `WholeKnownNetwork] in
 
-  let write_post_button = match current_user_link with
-    | None -> [ ]
-    | Some _ -> [
-        Pure.grid_row [
-          Pure.grid_col [
-            Pure.a_button
-              ~a:[Tyxml.Html.a_href "/write"]
-              ~a_class:["feed-write-post-button"]
-              [Tyxml.Html.txt "Write a new post"]
-          ]
-        ]
-      ] in
-
   let navigation_panel =
-    Html.Components.numeric_navigation_panel ~from_:1 ~to_:(feed_element_count / limit + 1) ~current:(offset / limit)
+    View.Components.render_pagination_numeric
+      ~start:1 ~stop:(feed_element_count / limit + 1)
+      (* ~current:(offset/limit) *)
       (fun ind ->
          Format.sprintf "/feed?feed-ty=%s&offset-time=%f&offset-start=%d"
            (encode_feed feed_ty) (Ptime.to_float_s start_time)
            ((ind - 1) * limit)
-      ) in
+      ) () in
 
-
-  tyxml @@ Html.build_page ~headers ~title @@ List.concat [
+  tyxml @@ View.Page.render_page title @@ List.concat [
+    [View.Header.render_header ?action headers];
     [
-      Html.Components.page_title title;
-      (build_feed_navigation_panel feed_navigation)
+      View.Components.render_heading
+        ~icon:(List.find_idx (Equal.poly feed_ty) feed_navigation
+               |> Option.map fst
+               |> Option.value ~default:(-1)
+               |> ((+) 1)
+               |> string_of_int)
+        ~current:(feed_type_to_string feed_ty)
+        ~options:(List.map (fun ty ->
+            View.Utils.{url=Format.sprintf "/feed?feed-ty=%s" (encode_feed ty);
+                        text=feed_type_to_string ty}
+          ) feed_navigation) ();
     ];
-    write_post_button;
 
     [
-      Pure.grid_row (
-        List.map (fun post ->
-          Pure.grid_col [Html.Feed.feed_item post]
-        ) posts)
+      View.Post_grid.render_post_grid (
+        List.map (fun _post ->
+          (* Pure.grid_col [Html.Feed.feed_item post] *)
+            assert false
+        ) posts
+      )
     ];
 
     [
