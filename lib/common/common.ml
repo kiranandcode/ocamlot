@@ -3,6 +3,7 @@ module APConstants = Activitypub.Constants
 
 
 let (let*) x f = Lwt_result.bind x f
+let (let+) x f = Lwt_result.map f x
 let (>>) x f = Lwt.map f x
 let (>>=) x f = Lwt_result.bind x f
 let map_err f x = Lwt_result.map_error f x

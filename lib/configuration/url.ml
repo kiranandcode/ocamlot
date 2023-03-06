@@ -17,6 +17,10 @@ let user_base_url =
     |> Fun.flip Uri.with_path "/users"
   end
 
+let user_profile_picture = function
+  | Some path -> image_path path
+  | None -> "/static/images/unknown.png"
+
 let user_path username = ("/users/" ^ username)
 let user username = 
   Lazy.force Params.domain

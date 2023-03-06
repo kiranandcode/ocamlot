@@ -162,7 +162,7 @@ let handle_actor_get_html req =
     |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
     >>= (fun v -> return (lift_opt ~else_:(fun () -> `UserNotFound username) v)) in
   (* let> _current_user = Common.with_current_user req in *)
-  let* no_following, no_followers, no_posts =
+  let* no_following, no_followers, _no_posts =
     Dream.sql req (fun db ->
         let* user = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db in
         let* following = Database.Follows.count_following ~author:user db in
@@ -170,7 +170,6 @@ let handle_actor_get_html req =
         let* posts = Database.Posts.count_posts_by_author ~author:user db in
         Lwt.return_ok (following, followers,posts)
       ) |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-
   let timestamp = Dream.query req "start"
                   |> Fun.flip Option.bind (fun v -> Ptime.of_rfc3339 v |> Result.to_opt)
                   |> Option.map (fun (t, _, _) -> t)
@@ -178,8 +177,33 @@ let handle_actor_get_html req =
   let offset = Dream.query req "offset"
                |> Fun.flip Option.bind Int.of_string
                |> Option.value ~default:0 in
+  let* profile =
+    let+ current_user = current_user req in
+    let actions = match current_user with
+      | Some current_user when String.equal current_user.username user.username ->
+        View.Utils.[true, {url="/users/" ^ user.username ^ "/edit"; text="Edit"}]
+      | _ ->
+        View.Utils.[true, {url="/users/" ^ user.username ^ "/follow"; text="Follow"};
+         false, {url="/users/" ^ user.username ^ "/mute"; text="Mute"};
+         false, {url="/users/" ^ user.username ^ "/block"; text="Block"}] in
+    View.Profile.{
+      user=View.User.{
+          display_name=Option.value ~default:user.username user.display_name;
+          username=user.username;
+          profile_picture=
+            Configuration.Url.user_profile_picture
+              user.Database.LocalUser.profile_picture;
+          self_link=
+            Configuration.Url.user_path user.Database.LocalUser.username;
+        };
+      actions;
+      followers=no_followers;
+      following=no_following;
+      details=[];
+      details_source=""
+    } in
 
-  let* _state =
+  let* contents =
     Dream.sql req begin fun db ->
       let* user = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db in
       match Dream.query req "state" with
@@ -194,8 +218,12 @@ let handle_actor_get_html req =
               Lwt.return_ok (follow, target)) follows
           >> Result.flatten_l in
         let* follows = Lwt_list.map_s (function
-              follow, `Remote r -> let* remote = Database.RemoteUser.resolve ~id:r db in Lwt.return_ok (follow, `Remote remote)
-            | follow, `Local l -> let* local = Database.LocalUser.resolve ~id:l db in Lwt.return_ok (follow, `Local local)
+              follow, `Remote r ->
+              let* remote =
+                Database.RemoteUser.resolve ~id:r db in Lwt.return_ok (follow, `Remote remote)
+            | follow, `Local l ->
+              let* local =
+                Database.LocalUser.resolve ~id:l db in Lwt.return_ok (follow, `Local local)
           ) follows >> Result.flatten_l in
         Lwt.return_ok (`Followers (timestamp, offset, follows))
       | Some "following" ->
@@ -224,39 +252,37 @@ let handle_actor_get_html req =
         let* posts = Lwt.return @@ Result.flatten_l posts in
         Lwt.return_ok (`Posts (timestamp, offset, posts))
     end
-    |> map_err (fun err -> `DatabaseError (Caqti_error.show err))  in
-  let* edit =
-    let* current_user = current_user req in
-    Lwt_result.return @@
-    Option.bind current_user (fun user ->
-        if String.equal user.Database.LocalUser.username username
-        then Some ("/users/" ^ username ^ "/edit")
-        else None) in
-  let* headers = Navigation.build_navigation_bar req in
+    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  let heading =
+    let options =
+      View.Utils.[
+        {url=Format.sprintf "/users/%s?state=posts" username; text="Posts"};
+        {url=Format.sprintf "/users/%s?state=followers" username; text="Followers"};
+        {url=Format.sprintf "/users/%s?state=following" username; text="Following"};
+      ] in
+    match contents with
+    | `Posts _ ->
+      View.Components.render_heading ~icon:"1" ~current:"Posts" ~options ()
+    | `Followers _ ->
+      View.Components.render_heading ~icon:"2" ~current:"Followers" ~options ()
+    | `Following _ ->
+      View.Components.render_heading ~icon:"3" ~current:"Following" ~options () in
+  let contents =
+    match contents with
+    | `Posts (_, _, _posts) ->
+      (* View.Post_grid.render_post_grid posts *)
+      assert false
+    | `Followers _ ->
+      assert false
+    | `Following _ ->
+      assert false in
+  let* headers, action = Navigation.build_navigation_bar req in
   tyxml @@
-  Html.build_page ~headers ~title:(username ^ "'s Profile")  [
-    Html.Profile.profile ?edit object
-      method name = Option.value ~default:user.Database.LocalUser.username user.Database.LocalUser.display_name
-      method details = 
-        (user.Database.LocalUser.about)
-        |> Option.map Fun.(
-            List.map (fun t -> Tyxml.(Html.p [Html.txt t]))
-            % String.lines)
-        |> Option.value ~default:[
-          Tyxml.(Html.p [Html.txt "Hi - this is the default profile details for my profile!"]);
-          Tyxml.(Html.p [Html.txt "I love OCaml, I'm using an activitypub server based purely on OCaml!"]);
-          Tyxml.(Html.p [Html.txt "Wow this is crazy!"]);
-        ]
-      method image = (match user.Database.LocalUser.profile_picture with
-          | None -> "/static/images/unknown.png"
-          | Some image -> (Configuration.Url.image_path image)
-        )
-      method stats = object
-        method followers = no_followers
-        method following = no_following
-        method posts = no_posts
-      end
-    end
+  View.Page.render_page (username ^ "'s Profile") [
+    View.Header.render_header ?action headers;
+    View.Profile.render_profile profile;
+    heading;
+    contents;
   ]
 
 
