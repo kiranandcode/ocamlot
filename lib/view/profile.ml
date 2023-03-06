@@ -55,16 +55,21 @@ let render_profile (profile: t) =
   ]
 
 
-let render_update_profile_box (profile: t) =
+let render_update_profile_box ?(fields=[]) (profile: t) =
   div "update-profile-box" [
-    Form.render_input_form [
-      Form.render_input_form_entry ~disabled:true ~initial_value:profile.user.username ~ty:`Text
-        ~value:"username" ~name:"Username" ();
-      Form.render_input_form_entry ~initial_value:profile.user.display_name ~ty:`Text
-        ~value:"display-name" ~name:"Display Name" ();
-      Form.render_input_form_checkbox ~value:"manually-accepts-followers"
-        ~name:"Manually accepts followers" ();
-      Form.render_input_form_textarea ~value:"about" ~name:"About"
-        ~initial_value:(H.txt profile.details_source) ()
-    ]
+    Form.render_input_form (List.concat [
+      [Form.render_input_form_entry ~disabled:true ~initial_value:profile.user.username ~ty:`Text
+          ~value:"username" ~name:"Username" ();
+        Form.render_input_form_entry ~initial_value:profile.user.display_name ~ty:`Text
+          ~value:"display-name" ~name:"Display Name" ();
+        Form.render_input_form_checkbox ~value:"manually-accepts-followers"
+          ~name:"Manually accepts followers" ();
+        Form.render_input_form_textarea ~value:"about" ~name:"About"
+          ~initial_value:(H.txt profile.details_source) ()];
+      List.map (fun (key, value) ->
+        H.input
+          ~a:[H.a_name key; H.a_input_type `Hidden;
+              H.a_value value] ()
+      ) fields;
+    ])
   ]

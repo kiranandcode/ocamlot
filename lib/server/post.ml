@@ -7,7 +7,7 @@ let sql req f = Dream.sql req f |> Lwt_result.map_error (fun err -> `DatabaseErr
 let extract_post req (post: Database.Posts.t) =
   let* author = post.Database.Posts.author_id
                 |> fun p -> sql req (Database.Actor.resolve ~id:p) in
-  let* author_instance =
+  let* _author_instance =
     match author with
     | `Local _ -> return_ok None
     | `Remote r ->
@@ -28,42 +28,46 @@ let extract_post req (post: Database.Posts.t) =
   let* post_likes =
     sql req (Database.Likes.count_for_post ~post:post.Database.Posts.id) in
 
-  let* name, image = match author with
+  let* self_url, username, name, image = match author with
       `Local l ->
       let* l = sql req (Database.LocalUser.resolve ~id:l) in
+      let username = l.Database.LocalUser.username in
+      let self_url = Configuration.Url.user_path username in
       let name =
-        Option.value ~default:l.Database.LocalUser.username
+        Option.value ~default:username
           l.Database.LocalUser.display_name in
-      let image = Option.map Configuration.Url.image_path
+      let image =
+        Configuration.Url.user_profile_picture
           l.Database.LocalUser.profile_picture in
-      return_ok (name,
-                 image)
+      return_ok (self_url, username, name, image)
     | `Remote l ->
       let* l = sql req (Database.RemoteUser.resolve ~id:l) in
+      let username = l.Database.RemoteUser.username in
+      let self_url = l.Database.RemoteUser.url in
       let name =
-        Option.value ~default:l.Database.RemoteUser.username
+        Option.value ~default:username
           l.Database.RemoteUser.display_name in
-      return_ok (name, l.Database.RemoteUser.profile_picture) in
-  let author_obj = object
-    method name = name
-    method image =
-      Option.value ~default:"/static/images/unknown.png"
-        image
-    method instance_url = author_instance
-  end in
+      let image =
+        Option.value ~default:"/static/images/unknown.png"
+          l.Database.RemoteUser.profile_picture in
+      return_ok (self_url, username, name, image) in
+  let author_obj =
+    View.User.{
+      display_name=name;
+      username=username;
+      profile_picture=image;
+      self_link=self_url;
+    } in
 
-  return_ok @@     object
-    method author = author_obj
-    method contents = post_contents
-    method date = post.Database.Posts.published |> Ptime.to_float_s |> CalendarLib.Calendar.from_unixfloat
-                  |> CalendarLib.Printer.Calendar.to_string
-    method actions = ["Cheer", None; "Toast", None]
-    method stats = object
-      method cheers = post_likes
-      method toasts = 0
-    end
-    method title = post.Database.Posts.summary
-  end
+  return_ok @@ View.Post.{
+    headers=[];
+    content=post_contents;
+    posted_date=post.Database.Posts.published;
+    no_toasts= post_likes;
+    no_cheers=0;
+    has_been_cheered=false; has_been_toasted=false;
+    author=author_obj
+  } 
 
 
 let handle_post_get req =
@@ -89,10 +93,13 @@ let handle_post_get req =
   if can_access_post
   then 
     let* post_data = extract_post req post in
-    let* headers = Navigation.build_navigation_bar req in
-    let title = post.Database.Posts.summary in
-    tyxml @@ Html.build_page ~headers ?title @@ [
-      Html.Components.post_panel post_data;
+    let* headers,action = Navigation.build_navigation_bar req in
+    let title =
+      Option.value ~default:"(Untitled post)"
+        post.Database.Posts.summary in
+    tyxml @@ View.Page.render_page title @@ [
+      View.Header.render_header ?action headers;
+      View.Post.render post_data;
     ]
   else
     Lwt_result.fail (`ActivityNotFound "Could not find the requested post")

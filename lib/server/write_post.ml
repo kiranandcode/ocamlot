@@ -18,10 +18,16 @@ let parse_scope = function
   | ct -> Error (Format.sprintf "unsupported scope type %s" ct)
 
 
-let handle_get_write ?errors ?title ?to_ ?content_type ?scope:_ ?contents req =
+let handle_get_write ?errors:_ ?title:_ ?to_:_ ?content_type ?scope:_ ?contents req =
   let _context = Dream.query req "context" in
-  let* headers = Navigation.build_navigation_bar req in
-  let token = Dream.csrf_token req in
+  let* current_user = current_user req in
+  let* user = match current_user with
+    | None -> return_ok None
+    | Some user ->
+      let+ user = Users.extract_user req user in
+      Some user in
+  let* headers,action = Navigation.build_navigation_bar req in
+  let _token = Dream.csrf_token req in
 
   let preview = match content_type, contents with
     | Some `Markdown, Some contents ->
@@ -29,24 +35,31 @@ let handle_get_write ?errors ?title ?to_ ?content_type ?scope:_ ?contents req =
     | _ -> None in
 
 
-  tyxml @@ Html.build_page ~headers ~title:"Write a new post" [
-    Html.Write_post.write_post_title ();
-    Pure.grid_row @@ List.concat [
-      match preview with
-      | None ->
-        [Pure.grid_col [
-           Html.Write_post.write_post_box ?errors ?title ?to_ ?contents ~fields:["dream.csrf", token] ();
-         ]]
-      | Some preview -> [
-          Pure.grid_col_responsive [`sm, (1,2)] [
-            Html.Write_post.write_post_box ?errors ?title ?to_ ?contents ~fields:["dream.csrf", token] ();
-          ];
-          Pure.grid_col_responsive ~a_class:["write-post-preview"] [`sm, (1,2)] [
-            Tyxml.Html.div               preview
-          ];
-        ]
-    ]
-  ]
+  tyxml @@ View.Page.render_page "Write a new post" (List.concat [
+    [View.Header.render_header ?action headers;
+    View.Components.render_heading
+      ~icon:"W" ~current:"Write a post" ~actions:[
+      { text="Preview"; url="/rendered/preview" };
+      { text="Submit"; url="/rendered/submit" }
+    ] ();
+    View.Write_post_box.render_write_post_box ()];
+    match preview,user with
+    | Some preview, Some user -> [
+        View.Components.render_heading
+          ~icon:"P" ~current:"Preview" ();
+        View.Write_post_box.render_write_post_preview
+          View.Post.{
+            headers=[];
+            content=preview;
+            posted_date=Ptime_clock.now ();
+            no_toasts=10;
+            no_cheers=5;
+            has_been_cheered=false; has_been_toasted=false;
+            author=user.user
+          };
+      ]
+    | _ -> []
+  ])
 
 let handle_post_write req =
   let* data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in

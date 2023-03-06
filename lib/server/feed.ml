@@ -56,55 +56,46 @@ let extract_post req (post: Database.Posts.t) =
   let* post_likes =
     sql req (Database.Likes.count_for_post ~post:post.Database.Posts.id) in
 
-  let* name, image = match author with
+  let* self_link, name, username, image = match author with
       `Local l ->
       let* l = sql req (Database.LocalUser.resolve ~id:l) in
+      let username = l.Database.LocalUser.username in
+      let self_link = Configuration.Url.user_path username in
       let name =
         Option.value ~default:l.Database.LocalUser.username
           l.Database.LocalUser.display_name in
       let image = Option.map Configuration.Url.image_path
           l.Database.LocalUser.profile_picture in
-      return_ok (name,
-                 image)
+      return_ok (self_link, name, username, image)
     | `Remote l ->
       let* l = sql req (Database.RemoteUser.resolve ~id:l) in
+      let username = l.Database.RemoteUser.username ^ "@" ^
+                     Option.value ~default:"" author_instance in
+      let self_link = l.Database.RemoteUser.url in
       let name =
         Option.value ~default:l.Database.RemoteUser.username
           l.Database.RemoteUser.display_name in
-      return_ok (name, l.Database.RemoteUser.profile_picture) in
-  let author_obj = object
-    method name = name
-    method image =
-      Option.value ~default:"/static/images/unknown.png"
-        image
-    method instance_url = author_instance
-  end in
+      let image = l.Database.RemoteUser.profile_picture in
+      return_ok (self_link, name, username, image) in
+  let author_obj =
+    View.User.{
+      display_name=name;
+      username;
+      profile_picture=Configuration.Url.user_profile_picture image;
+      self_link;
+    } in
 
-  return_ok @@ match post.Database.Posts.summary with
-  | None ->
-    `MicroPost object
-      method author = author_obj
-      method contents = post_contents
-      method date = post.Database.Posts.published |> Ptime.to_float_s |> CalendarLib.Calendar.from_unixfloat
-                    |> CalendarLib.Printer.Calendar.to_string
-      method actions = ["Cheer", None; "Toast", None]
-      method stats = object
-        method cheers = post_likes
-        method toasts = 0
-      end
-    end
-  | Some summary ->
-    `Post object
-      method author = author_obj
-      method contents = post_contents
-      method date = post.Database.Posts.published  |> Ptime.to_float_s |> CalendarLib.Calendar.from_unixfloat
-                    |> CalendarLib.Printer.Calendar.to_string
-      method stats = object
-        method cheers = post_likes
-        method toasts = 0
-      end
-      method title = summary
-    end
+  return_ok @@
+  View.Post.{
+    headers=[];
+    content=post_contents;
+    posted_date=post.Database.Posts.published;
+    no_toasts=post_likes;
+    no_cheers=0;
+    has_been_toasted=false;
+    has_been_cheered=false;
+    author=author_obj
+  }
 
 (* let build_feed_navigation_panel options = *)
 (*   Html.Components.subnavigation_menu @@ *)
@@ -197,12 +188,7 @@ let handle_feed_get req =
     ];
 
     [
-      View.Post_grid.render_post_grid (
-        List.map (fun _post ->
-          (* Pure.grid_col [Html.Feed.feed_item post] *)
-            assert false
-        ) posts
-      )
+      View.Post_grid.render_post_grid posts
     ];
 
     [

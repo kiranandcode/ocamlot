@@ -22,6 +22,7 @@ let user_profile_picture = function
   | None -> "/static/images/unknown.png"
 
 let user_path username = ("/users/" ^ username)
+let user_follow_path username = user_path username ^ "/follow"
 let user username = 
   Lazy.force Params.domain
   |> Fun.flip  Uri.with_path (user_path username)
