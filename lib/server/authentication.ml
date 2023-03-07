@@ -19,16 +19,24 @@ let recover f comp =
 
 (* * Register *)
 (* ** Get *)
-let handle_register_get ?errors:_ req =
+let handle_register_get ?(errors=[]) req =
   let token = Dream.csrf_token req in 
   let* headers, action = Navigation.build_navigation_bar req in
   tyxml @@
-  View.Page.render_page "Register a new account" [
-    View.Header.render_header ?action headers;
-    View.Login_box.render_register_box ~fields:["dream.csrf", token] ();
-    Tyxml.Html.div ~a:[Tyxml.Html.a_class ["login-info"; "markdown"]]
-      (Markdown.markdown_to_html (Lazy.force Configuration.about_this_instance))
-  ]
+  View.Page.render_page "Register a new account" (List.concat [
+      [View.Header.render_header ?action headers;
+       View.Components.render_heading
+         ~icon:"R" ~current:"Register" ~actions:[{
+             text="Log in"; url="/login"
+           }] ()];
+      (match errors with
+         [] -> []
+       | errors -> [View.Error.render_error_list errors]);
+      [
+       View.Login_box.render_register_box ~action:"/register" ~fields:["dream.csrf", token] ();
+       (* Tyxml.Html.div ~a:[Tyxml.Html.a_class ["login-info"; "markdown"]] *)
+       (*   (Markdown.markdown_to_html (Lazy.force Configuration.about_this_instance)) *)]
+    ])
 
 (* ** Post *)
 let handle_register_post req =
@@ -39,7 +47,7 @@ let handle_register_post req =
     let* username = form_data "username" data |> Result.map_err List.return in
     let* password = form_data "password" data |> Result.map_err List.return  in
     let* password2 = form_data "password2" data |> Result.map_err List.return in
-    let* reason = form_data "reason" data  |> Result.map_err List.return in
+    let* reason = form_data "about" data  |> Result.map_err List.return in
     let* () = ensure "username must not be empty" (not @@ String.is_empty username)
     and* () = ensure "password must not be empty" (not @@ String.is_empty password)
     and* () = ensure "passwords should match" (String.equal password password2) in
@@ -60,15 +68,22 @@ let handle_register_post req =
 
 (* * Login *)  
 (* ** Get *)
-let handle_login_get ?errors:_ req =
+let handle_login_get ?(errors=[]) req =
   let token = Dream.csrf_token req in
   let* headers, action = Navigation.build_navigation_bar req in
-  tyxml @@ View.Page.render_page "Log in to your account" [
-    View.Header.render_header ?action headers;
-    View.Login_box.render_login_box ~fields:["dream.csrf", token] ();
-    Tyxml.Html.div ~a:[Tyxml.Html.a_class ["login-info"; "markdown"]]
-      (Markdown.markdown_to_html (Lazy.force Configuration.about_this_instance))
-  ]
+  tyxml @@ View.Page.render_page "Log in to your account" (List.concat [
+      [View.Header.render_header ?action headers;
+       View.Components.render_heading
+         ~icon:"L" ~current:"Log in" ~actions:[{
+             text="Register"; url="/register"
+           }] ()];
+      (match errors with
+         [] -> []
+       | errors -> [View.Error.render_error_list errors]);
+      [View.Login_box.render_login_box  ~action:"/login" ~fields:["dream.csrf", token] ();
+       (* Tyxml.Html.div ~a:[Tyxml.Html.a_class ["login-info"; "markdown"]] *)
+       (*   (Markdown.markdown_to_html (Lazy.force Configuration.about_this_instance)) *)]
+    ])
 
 (* ** Post *)
 let handle_login_post req =

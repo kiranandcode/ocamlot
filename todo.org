@@ -187,4 +187,9 @@ CLOSED: [2023-01-28 Sat 06:11]
 *** TODO Collect json for post with image
 *** TODO Add table for post images?
 *** TODO Update html with image
+* Immediate todos
+** DONE Add styling for header bar buttons to not look like buttons
+CLOSED: [2023-03-07 Tue 16:29]
+** TODO Update header to have login (as link) logout (as button)
+
 

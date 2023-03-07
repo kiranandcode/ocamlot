@@ -6,8 +6,9 @@ let build_navigation_bar req =
   | None ->
     View.Utils.(
       [{text="Feed"; url="/feed"};
-       {text="Users"; url="/users"}],
-      Some {text="Log in/Register"; url="/login"}
+       {text="Users"; url="/users"};
+       {text="Log in/Register"; url="/login"}],
+      None
     )
   | Some user ->
     View.Utils.(List.concat [

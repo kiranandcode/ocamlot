@@ -1,6 +1,5 @@
 open Utils
 
-
 let render_header_option option =
   div "header-option" [
     H.a ~a:[H.a_href option.url] [H.txt option.text]

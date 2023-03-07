@@ -240,3 +240,18 @@ nav.pagination-bar > a {
   margin-bottom: 0.5em;
   font-size: small;
 }
+
+/* ** Error list */
+.error p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.error {
+  color: var(--highlight);
+}
+
+.error-list {
+  margin-left: .25em;
+  margin-right: .25em;
+}

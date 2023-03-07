@@ -62,9 +62,10 @@ let handle_error_html handler req =
     tyxml_pure ~status @@
     View.Page.render_page "OCamlot - Error" [
       View.Components.render_heading
-        ~icon:"E" ~current:("Error " ^ msg)
+        ~icon:"E" ~current:("Internal Server Error")
         ();
       Tyxml.(Html.div ~a:[Html.a_class ["error-box"; "error-details"]] [
+          Html.p [Html.txt msg];
           Html.code [
             Html.txt (match details with
                 | None -> "No further details..."
