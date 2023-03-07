@@ -15,3 +15,5 @@
    server cmdliner bos
  )
  (preprocessor_deps "../resources/schema.sql"))
+
+(alias (name server) (deps ./main.exe))

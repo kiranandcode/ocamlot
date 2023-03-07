@@ -71,7 +71,7 @@ let js_watch = Inotify.add_watch inotify "./lib/error_handling" [Inotify.S_Modif
 let js_watch = Inotify.add_watch inotify "./lib/resolver" [Inotify.S_Modify; Inotify.S_Create]
 let js_watch = Inotify.add_watch inotify "./lib/server" [Inotify.S_Modify; Inotify.S_Create]
 let js_watch = Inotify.add_watch inotify "./lib/utils" [Inotify.S_Modify; Inotify.S_Create]
-let js_watch = Inotify.add_watch inotify "./lib/web" [Inotify.S_Modify; Inotify.S_Create]
+let js_watch = Inotify.add_watch inotify "./lib/view" [Inotify.S_Modify; Inotify.S_Create]
 let js_watch = Inotify.add_watch inotify "./lib/worker" [Inotify.S_Modify; Inotify.S_Create]
 
 let data_watch = Inotify.add_watch inotify "./static/style" [Inotify.S_Modify; Inotify.S_Create]
