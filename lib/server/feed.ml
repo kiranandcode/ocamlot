@@ -200,5 +200,5 @@ let handle_feed_get req =
 (* * Route *)
 let route =
   Dream.scope "/feed" [] [
-    Dream.get "/" @@ Error_handling.handle_error_html @@ handle_feed_get;
+    Dream.get "" @@ Error_handling.handle_error_html @@ handle_feed_get;
   ]

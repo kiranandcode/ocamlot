@@ -78,15 +78,16 @@ let run () =
   @@ Dream.router [
     Webfinger.route;
 
-    (* Authentication.route; *)
-    (* Feed.route; *)
-    (* Users.route; *)
-    (* Write_post.route; *)
+    Authentication.route;
+    Feed.route;
+    Users.route;
+    Write_post.route;
     Activity.route;
 
     Images.route;
-    (* Dream.get "/home" @@ (handle_get_home config);
-     * Dream.post "/home" @@ (handle_post_home config); *)
+    (* Dream.get "/home" @@ (handle_get_home config); *)
+    (* Dream.post "/home" @@ (handle_post_home config); *)
+
 
     Dream.get "/static/**" @@ Dream.static ~loader:from_static "static";
     Dream.get "/**" @@ fun req -> Dream.redirect req "/feed"

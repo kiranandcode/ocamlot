@@ -10,10 +10,10 @@ let render_page title contents =
         charset "utf-8";
         meta "viewport" "width=device-width, initial-scale=1.0";
         meta "generator" "tyxml";
-        stylesheet "/static/styles/colors.css";
-        stylesheet "/static/styles/fonts.css";
-        stylesheet "/static/styles/components.css";
-        stylesheet "/static/styles/style.css";
+        stylesheet "/static/style/colors.css";
+        stylesheet "/static/style/fonts.css";
+        stylesheet "/static/style/components.css";
+        stylesheet "/static/style/style.css";
       ]) (H.body [
         div "main-body" contents
       ])
