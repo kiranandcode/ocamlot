@@ -223,3 +223,20 @@ nav.pagination-bar > a {
     margin-left: 0.5em;
     margin-right: 0.5em;
 }
+/* * Error */
+/* ** Error Box */
+.error-box {
+  padding: .25em 0.25em;
+}
+
+.error-box code {
+  border: 1px dashed var(--primary-accent);
+  display: block;
+  padding: .25em;
+}
+
+.error-box p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  font-size: small;
+}
