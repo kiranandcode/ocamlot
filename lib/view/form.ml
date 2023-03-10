@@ -22,13 +22,15 @@ let render_input_form_entry ?a_class
       ]) ()
   ]
 
-let render_input_form_dropdown ?a_class ~value ~name options =
+let render_input_form_dropdown ?selected ?a_class ~value ~name options =
   H.div ~a:[H.a_class (a_class ^:: ["input-form-entry"])] [
     H.label ~a:[H.a_label_for value] [H.txt (name ^ ":")];
-    H.select (List.map (fun (option, name) ->
-        match option with
-          None -> H.option (H.txt name)
-        | Some option -> H.option ~a:[H.a_value option] (H.txt name)
+    H.select ~a:[H.a_name value] (List.map (fun (option, name) ->
+        match option,selected with
+          None, _ -> H.option (H.txt name)
+        | Some option, Some selected when String.equal option selected ->
+          H.option ~a:[H.a_value option; H.a_selected ()] (H.txt name)
+        | Some option, _ -> H.option ~a:[H.a_value option] (H.txt name)
       ) options)
   ]
 
@@ -68,8 +70,9 @@ let render_input_form_one_line ?(a_class=[]) ?(disabled=false)
   ]
 
 
-let render_input_form ?action elts =
+let render_input_form ?id ?action elts =
   H.form ~a:(List.concat [
       [H.a_class ["input-form"]];
-      (match action with None -> [] | Some action -> [H.a_action action; H.a_method `Post])
+      (match action with None -> [] | Some action -> [H.a_action action; H.a_method `Post]);
+      (match id with None -> [] | Some id -> [H.a_id id])
     ]) elts

@@ -117,7 +117,18 @@
 .elements-list a {
   text-align: center;
   color: var(--text-color);
-  text-decoration: none;;
+  text-decoration: none;
+}
+
+.elements-list input[type="submit"] {
+  color: var(--text-color);
+  border: none;
+  cursor: pointer;
+  display: inline;
+  background-color: transparent;
+  padding: unset;
+  font-family: inherit;
+  font-size: unset;
 }
 
 .elements-list p {

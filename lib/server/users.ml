@@ -69,11 +69,11 @@ let extract_user req (user: Database.LocalUser.t) =
   let+ current_user = current_user req in
   let actions = match current_user with
     | Some current_user when String.equal current_user.username user.username ->
-      View.Utils.[true, {url="/users/" ^ user.username ^ "/edit"; text="Edit"}]
+      View.Utils.[true, {url="/users/" ^ user.username ^ "/edit"; text="Edit"; form=None}]
     | _ ->
-      View.Utils.[true, {url="/users/" ^ user.username ^ "/follow"; text="Follow"};
-                  false, {url="/users/" ^ user.username ^ "/mute"; text="Mute"};
-                  false, {url="/users/" ^ user.username ^ "/block"; text="Block"}] in
+      View.Utils.[true, {url="/users/" ^ user.username ^ "/follow"; text="Follow"; form=None};
+                  false, {url="/users/" ^ user.username ^ "/mute"; text="Mute"; form=None};
+                  false, {url="/users/" ^ user.username ^ "/block"; text="Block"; form=None}] in
   View.Profile.{
     user=View.User.{
       display_name=Option.value ~default:user.username user.display_name;
@@ -265,9 +265,9 @@ let handle_actor_get_html req =
   let heading =
     let options =
       View.Utils.[
-        {url=Format.sprintf "/users/%s?state=posts" username; text="Posts"};
-        {url=Format.sprintf "/users/%s?state=followers" username; text="Followers"};
-        {url=Format.sprintf "/users/%s?state=following" username; text="Following"};
+        {url=Format.sprintf "/users/%s?state=posts" username; text="Posts"; form=None};
+        {url=Format.sprintf "/users/%s?state=followers" username; text="Followers"; form=None};
+        {url=Format.sprintf "/users/%s?state=following" username; text="Following"; form=None};
       ] in
     match contents with
     | `Posts _ ->
@@ -456,8 +456,8 @@ let render_users_page ?search_query:_ req user_type users =
     View.Components.render_heading
       ~icon:(match user_type with `Local -> "1" | _ -> "2")
       ~current:(show_user_types user_type) ~options:[
-        {text="Local Users"; url="/users?type=" ^ encode_user_types `Local};
-        {text="Remote Users"; url="/users?type=" ^ encode_user_types `Remote}
+        {text="Local Users"; url="/users?type=" ^ encode_user_types `Local; form=None};
+        {text="Remote Users"; url="/users?type=" ^ encode_user_types `Remote; form=None}
       ] ();
     View.User.render_users_search_box ();
     View.User.render_users_grid users;
@@ -521,7 +521,8 @@ let handle_local_users_get req =
                  then [View.Utils.{
                    text="Follow";
                    url=
-                     Configuration.Url.user_follow_path user.username
+                     Configuration.Url.user_follow_path user.username;
+                   form=None                       
                  }]
                  else [])
       } in
@@ -613,7 +614,7 @@ let handle_remote_users_get req =
         followers=no_followers;
         following=0;
         actions=[
-          View.Utils.{text="Follow";url=("/users/" ^ fqn ^ "/follow")}
+          View.Utils.{text="Follow";url=("/users/" ^ fqn ^ "/follow"); form=None}
         ]
       } in
       let user = View.User.{

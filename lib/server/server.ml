@@ -20,7 +20,7 @@ let with_current_time req f =
 let caqti path = Caqti_lwt.connect (Uri.of_string path)
                  |> Lwt.map Result.get_exn
 
-let from_static local_root path req =
+let from_static _local_root path _req =
   let mime_lookup filename =
     let content_type =
       match Magic_mime.lookup filename with
@@ -28,7 +28,6 @@ let from_static local_root path req =
       | content_type -> content_type
     in
     ["Content-Type", content_type] in
-  Dream.debug (fun f -> f ~request:req "request static %s %s" local_root path);
   match Static.read path with
   | Some contents ->
     Dream.respond

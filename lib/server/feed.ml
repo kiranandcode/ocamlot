@@ -183,7 +183,7 @@ let handle_feed_get req =
         ~current:(feed_type_to_string feed_ty)
         ~options:(List.map (fun ty ->
             View.Utils.{url=Format.sprintf "/feed?feed-ty=%s" (encode_feed ty);
-                        text=feed_type_to_string ty}
+                        text=feed_type_to_string ty; form=None}
           ) feed_navigation) ();
     ];
 

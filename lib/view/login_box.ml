@@ -8,11 +8,7 @@ let render_login_box ?action ?(fields=[]) () =
          Form.render_input_form_entry ~ty:`Password
            ~value:"password" ~name:"Password" ();
          Form.render_input_form_submit ~name:"Log in" ()];
-        List.map (fun (key, value) ->
-            H.input
-              ~a:[H.a_name key; H.a_input_type `Hidden;
-                  H.a_value value] ()
-          ) fields;
+        hidden_fields fields;
       ])
   ]
 
@@ -34,11 +30,7 @@ let render_register_box ?action ?(fields=[]) () =
           ~name:"About" ();
         Form.render_input_form_submit ~name:"Sign up" ();
       ];
-       List.map (fun (key, value) ->
-           H.input
-             ~a:[H.a_name key; H.a_input_type `Hidden;
-                 H.a_value value] ()
-         ) fields
-      ])
+     hidden_fields fields
+    ])
   ]
 

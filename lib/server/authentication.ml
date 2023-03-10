@@ -27,7 +27,7 @@ let handle_register_get ?(errors=[]) req =
       [View.Header.render_header ?action headers;
        View.Components.render_heading
          ~icon:"R" ~current:"Register" ~actions:[{
-             text="Log in"; url="/login"
+             text="Log in"; url="/login"; form=None
            }] ()];
       (match errors with
          [] -> []
@@ -75,7 +75,7 @@ let handle_login_get ?(errors=[]) req =
       [View.Header.render_header ?action headers;
        View.Components.render_heading
          ~icon:"L" ~current:"Log in" ~actions:[{
-             text="Register"; url="/register"
+             text="Register"; url="/register"; form=None
            }] ()];
       (match errors with
          [] -> []

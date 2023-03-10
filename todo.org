@@ -190,6 +190,10 @@ CLOSED: [2023-01-28 Sat 06:11]
 * Immediate todos
 ** DONE Add styling for header bar buttons to not look like buttons
 CLOSED: [2023-03-07 Tue 16:29]
-** TODO Update header to have login (as link) logout (as button)
+** DONE Update header to have login (as link) logout (as button)
+CLOSED: [2023-03-10 Fri 16:03]
+** TODO Fix write post page
+** TODO Fix profile page
+** TODO Fix likes
 
 

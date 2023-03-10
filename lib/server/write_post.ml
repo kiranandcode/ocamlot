@@ -5,12 +5,20 @@ let log = Logging.add_logger "web.write"
 
 let check_authenticated = Common.Middleware.enforce_present "user" ~else_:"/feed"
 
+let encode_content_type = function
+  | `Markdown -> "markdown" 
+  | `Text -> "text" 
+  | `Org -> "org" 
 let parse_content_type = function
   | "markdown" -> Ok (`Markdown)
   | "text" -> Ok (`Text)
   | "org" -> Ok (`Org)
   | ct -> Error (Format.sprintf "unsupported content type %s" ct)
 
+let encode_scope = function
+  | `Public -> "public" 
+  | `Followers -> "followers" 
+  | `DM -> "direct-message" 
 let parse_scope = function
   | "public" -> Ok (`Public)
   | "followers" -> Ok (`Followers)
@@ -18,7 +26,7 @@ let parse_scope = function
   | ct -> Error (Format.sprintf "unsupported scope type %s" ct)
 
 
-let handle_get_write ?errors:_ ?title:_ ?to_:_ ?content_type ?scope:_ ?contents req =
+let handle_get_write ?errors:_ ?title ?content_type ?visibility ?contents req =
   let _context = Dream.query req "context" in
   let* current_user = current_user req in
   let* user = match current_user with
@@ -27,7 +35,7 @@ let handle_get_write ?errors:_ ?title:_ ?to_:_ ?content_type ?scope:_ ?contents 
       let+ user = Users.extract_user req user in
       Some user in
   let* headers,action = Navigation.build_navigation_bar req in
-  let _token = Dream.csrf_token req in
+  let token = Dream.csrf_token req in
 
   let preview = match content_type, contents with
     | Some `Markdown, Some contents ->
@@ -36,13 +44,21 @@ let handle_get_write ?errors:_ ?title:_ ?to_:_ ?content_type ?scope:_ ?contents 
 
 
   tyxml @@ View.Page.render_page "Write a new post" (List.concat [
-    [View.Header.render_header ?action headers;
-    View.Components.render_heading
-      ~icon:"W" ~current:"Write a post" ~actions:[
-      { text="Preview"; url="/rendered/preview" };
-      { text="Submit"; url="/rendered/submit" }
-    ] ();
-    View.Write_post_box.render_write_post_box ()];
+    [
+      View.Header.render_header ?action headers;
+      View.Components.render_heading
+        ~icon:"W" ~current:"Write a post" ~actions:[
+        { text="Preview"; url="preview"; form=Some "write-post-form" };
+        { text="Submit"; url="submit"; form=Some "write-post-form" }
+      ] ();
+      View.Write_post_box.render_write_post_box
+        ~fields:["dream.csrf", token] ~action:"/write" ~id:"write-post-form"
+        ?title
+        ?content_type:(Option.map encode_content_type content_type)
+        ?visibility:(Option.map encode_scope visibility)
+        ?message:contents
+        ()
+    ];
     match preview,user with
     | Some preview, Some user -> [
         View.Components.render_heading
@@ -64,7 +80,6 @@ let handle_get_write ?errors:_ ?title:_ ?to_:_ ?content_type ?scope:_ ?contents 
 let handle_post_write req =
   let* data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
   log.info (fun f -> f ~request:req "got post to write with %s" ([%show: (string * string) list] data));
-
   let res =
     let open VResult in
     let title = form_data "title" data |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
@@ -82,13 +97,13 @@ let handle_post_write req =
   match res with
   | Error errors ->
     let title = form_data "title" data |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
-    let to_ = form_data "to" data |> Result.to_opt in
+    let _to_ = form_data "to" data |> Result.to_opt in
     let contents = form_data "contents" data |> Result.to_opt in
     let content_type = form_data "content-type" data |> Result.flat_map parse_content_type |> Result.to_opt in
-    handle_get_write ~errors ?title ?to_ ?content_type ?contents req
+    handle_get_write ~errors ?title ?content_type ?contents req
   (* if is a preview request, then just handle get write *)
-  | Ok (title, to_, content_type, scope, contents, true) ->
-    handle_get_write ?title ?to_ ~content_type ~scope ~contents req
+  | Ok (title, _to_, content_type, visibility, contents, true) ->
+    handle_get_write ?title ~content_type ~visibility ~contents req
   | Ok (title, post_to, content_type, scope, contents, false) ->
     log.info (fun f -> f "received get request %s"
                          ([%show: string option * string option *
@@ -110,5 +125,4 @@ let route =
   Dream.scope "/write" [check_authenticated] [
     Dream.get "" @@ Error_handling.handle_error_html @@ handle_get_write;
     Dream.post "" @@ Error_handling.handle_error_html @@ handle_post_write;
-
   ]

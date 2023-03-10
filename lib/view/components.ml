@@ -14,11 +14,11 @@ let render_pagination links =
 let render_pagination_numeric ?prev ?next ~start ~stop url () =
   let elements =
     List.init (stop - start)
-      (fun i -> {url=url (start + i); text=string_of_int (start + i)}) in
+      (fun i -> {url=url (start + i); text=string_of_int (start + i); form=None}) in
   let elements =
-    (Option.map (fun url -> {url; text="<-"}) prev |> Option.to_list) @
+    (Option.map (fun url -> {url; text="<-"; form=None}) prev |> Option.to_list) @
     elements @
-    (Option.map (fun url -> {url; text="->"}) next |> Option.to_list) in
+    (Option.map (fun url -> {url; text="->"; form=None}) next |> Option.to_list) in
   render_pagination elements
 
 let render_heading_options options =
@@ -39,7 +39,10 @@ let render_heading_actions = function
       spacer ();
       H.div ~a:[H.a_class ["header-action-panel"; "elements-list"]]
         (List.map (fun link ->
-             H.a ~a:[H.a_href link.url] [H.txt link.text]
+           match link.form with
+           | None -> H.a ~a:[H.a_href link.url] [H.txt link.text]
+           | Some form ->
+             H.input ~a:[H.a_form form; H.a_name link.url; H.a_value link.text; H.a_input_type `Submit] ()
            ) actions
          |> intersperse (fun () -> H.p [H.txt "|"]))
     ]
