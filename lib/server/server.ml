@@ -45,8 +45,12 @@ let enforce_domain: Dream.middleware =
 let run () =
   let () = Mirage_crypto_rng_lwt.initialize () in
   if Lazy.force Configuration.debug then begin
-    Dream.initialize_log ~level:`Info ~enable:true ();
+    if Lazy.force Configuration.debug_dream_info
+    then Dream.initialize_log ~level:`Info ~enable:true ()
+    else Dream.initialize_log ~level:`Error ~enable:true ();
+
     Dream.info (fun f -> f "Running OCamlot in debugging mode.");
+
     Logging.set_log_level `Debug;
   end;
 
@@ -82,6 +86,7 @@ let run () =
     Users.route;
     Write_post.route;
     Activity.route;
+    Follow_requests.route;
 
     Images.route;
     (* Dream.get "/home" @@ (handle_get_home config); *)

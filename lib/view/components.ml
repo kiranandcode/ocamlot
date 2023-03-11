@@ -10,7 +10,6 @@ let render_pagination links =
          ) links)
   ]
 
-
 let render_pagination_numeric ?prev ?next ~start ~stop url () =
   let elements =
     List.init (stop - start)

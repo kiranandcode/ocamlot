@@ -15,7 +15,7 @@ let build_navigation_bar req =
         [{text="Write"; url="/write"; form=None}];
         [{text="Feed"; url="/feed"; form=None}];
         [{text="Profile"; url="/users/" ^ user.Database.LocalUser.username; form=None}];
-        [{text="Follow Reqs."; url="/follow-requests" ^ user.Database.LocalUser.username; form=None}];
+        [{text="Follow Reqs."; url="/follow-requests"; form=None}];
         [{text="Users"; url="/users"; form=None}];
         if user.is_admin then [{text="Settings"; url="/settings"; form=None}] else []
       ],

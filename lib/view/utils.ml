@@ -17,11 +17,12 @@ let month_to_string = function
   | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr" | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug" | 9 -> "Sept" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec" | _ -> "Unk"
 
 let day_terminator = fun n ->
-  match (n mod 10) with
-  | 1 -> "st"
-  | 2 -> "nd"
-  | 3 -> "rd"
-  | _ -> "th"
+  if n > 10 && n < 20 then "th"
+  else match (n mod 10) with
+    | 1 -> "st"
+    | 2 -> "nd"
+    | 3 -> "rd"
+    | _ -> "th"
 
 let pp_date: Format.formatter -> Ptime.date -> unit =
   fun fmt (year, month, day) ->

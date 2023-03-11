@@ -60,7 +60,7 @@ let kill_process pid =
 
 let inotify = Inotify.create ()
 
-let watch = Inotify.add_watch inotify "./" [Inotify.S_Modify]
+(* let watch = Inotify.add_watch inotify "./" [Inotify.S_Modify] *)
 let bin_watch = Inotify.add_watch inotify "./bin" [Inotify.S_Modify; Inotify.S_Create]
 
 let js_watch = Inotify.add_watch inotify "./lib/activitypub" [Inotify.S_Modify; Inotify.S_Create]

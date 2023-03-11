@@ -29,73 +29,7 @@ let parse_calendar s =
   let* s = Float.of_string_opt s in
   Ptime.of_float_s s
 
-let sql req f = Dream.sql req f |> Lwt_result.map_error (fun err -> `DatabaseError (Caqti_error.show err))
-
 (* * Extracting data *)
-let extract_post req (post: Database.Posts.t) =
-  let* author = post.Database.Posts.author_id
-                |> fun p -> sql req (Database.Actor.resolve ~id:p) in
-  let* author_instance =
-    match author with
-    | `Local _ -> return_ok None
-    | `Remote r ->
-      let* r = sql req (Database.RemoteUser.resolve ~id:r) in
-      let* instance =
-        sql req
-          (Database.RemoteInstance.resolve
-             ~id:(r.Database.RemoteUser.instance_id)) in
-      return_ok (Some (instance.Database.RemoteInstance.url)) in
-
-  let post_contents =
-    let source = post.Database.Posts.post_source in
-    match post.Database.Posts.content_type with
-    | `Markdown ->
-      Markdown.markdown_to_html (Omd.of_string source)
-    | _ -> [ Tyxml.Html.txt source ] in
-
-  let* post_likes =
-    sql req (Database.Likes.count_for_post ~post:post.Database.Posts.id) in
-
-  let* self_link, name, username, image = match author with
-      `Local l ->
-      let* l = sql req (Database.LocalUser.resolve ~id:l) in
-      let username = l.Database.LocalUser.username in
-      let self_link = Configuration.Url.user_path username in
-      let name =
-        Option.value ~default:l.Database.LocalUser.username
-          l.Database.LocalUser.display_name in
-      let image = Option.map Configuration.Url.image_path
-          l.Database.LocalUser.profile_picture in
-      return_ok (self_link, name, username, image)
-    | `Remote l ->
-      let* l = sql req (Database.RemoteUser.resolve ~id:l) in
-      let username = l.Database.RemoteUser.username ^ "@" ^
-                     Option.value ~default:"" author_instance in
-      let self_link = l.Database.RemoteUser.url in
-      let name =
-        Option.value ~default:l.Database.RemoteUser.username
-          l.Database.RemoteUser.display_name in
-      let image = l.Database.RemoteUser.profile_picture in
-      return_ok (self_link, name, username, image) in
-  let author_obj =
-    View.User.{
-      display_name=name;
-      username;
-      profile_picture=Configuration.Url.user_profile_picture image;
-      self_link;
-    } in
-
-  return_ok @@
-  View.Post.{
-    headers=[];
-    content=post_contents;
-    posted_date=post.Database.Posts.published;
-    no_toasts=post_likes;
-    no_cheers=0;
-    has_been_toasted=false;
-    has_been_cheered=false;
-    author=author_obj
-  }
 
 (* let build_feed_navigation_panel options = *)
 (*   Html.Components.subnavigation_menu @@ *)
@@ -152,7 +86,7 @@ let handle_feed_get req =
   let title = feed_type_to_string feed_ty in
 
   let* posts =
-    Lwt_list.map_p (extract_post req) feed_elements
+    Lwt_list.map_p (Extract.extract_post req) feed_elements
     |> Lwt.map Result.flatten_l in
 
   let* headers,action = Navigation.build_navigation_bar req in

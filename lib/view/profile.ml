@@ -55,9 +55,9 @@ let render_profile (profile: t) =
   ]
 
 
-let render_update_profile_box ?(fields=[]) (profile: t) =
+let render_update_profile_box ?id ?action ?(fields=[]) (profile: t) =
   div "update-profile-box" [
-    Form.render_input_form (List.concat [
+    Form.render_input_form ?id ?action ~enc_type:"multipart/form-data" (List.concat [
       [Form.render_input_form_entry ~disabled:true ~initial_value:profile.user.username ~ty:`Text
           ~value:"username" ~name:"Username" ();
         Form.render_input_form_entry ~initial_value:profile.user.display_name ~ty:`Text
@@ -65,7 +65,11 @@ let render_update_profile_box ?(fields=[]) (profile: t) =
         Form.render_input_form_checkbox ~value:"manually-accepts-followers"
           ~name:"Manually accepts followers" ();
         Form.render_input_form_textarea ~value:"about" ~name:"About"
-          ~initial_value:(H.txt profile.details_source) ()];
+          ~initial_value:(H.txt profile.details_source) ();
+
+       Form.render_input_form_entry ~ty:`File ~value:"avatar" ~name:"Avatar" ();
+
+      ];
       List.map (fun (key, value) ->
         H.input
           ~a:[H.a_name key; H.a_input_type `Hidden;

@@ -169,6 +169,11 @@ let debug =
     ~documentation:"Determines whether the OCamlot server should be run in debug mode."
     ~flags:["D"; "debug"] ()
 
+let debug_dream_info =
+  flag ~name:"debug-dream-info"
+    ~documentation:"Determines whether the OCamlot server should run Dream with info logging."
+    ~flags:["debug-dream-info"] ()
+
 let force_migrations =
   flag ~name:"force_migrations"
     ~documentation:"Determines whether the OCamlot server should perform (potentially destructive) migrations."
@@ -220,6 +225,7 @@ let database_uri =
   lazy ("sqlite3://:" ^ (Lazy.force database_path))
 let port = port 
 let debug = debug 
+let debug_dream_info = debug_dream_info
 let user_image_path =
   lazy begin
     let path =

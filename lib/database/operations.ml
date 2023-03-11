@@ -367,25 +367,27 @@ module LocalUser = struct
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
-    Query.select
-      Expr.[
-        LocalUser.id;
-        LocalUser.username;
-        LocalUser.password;
-        nullable LocalUser.display_name;
-        nullable LocalUser.about;
-        nullable LocalUser.profile_picture;
-        LocalUser.manually_accept_follows;
-        LocalUser.is_admin;
-        LocalUser.pubkey;
-        LocalUser.privkey
-      ]
-      ~from:LocalUser.table
-    |> Query.where Expr.(like LocalUser.username ~pat:(s pattern) ||
-                         like LocalUser.display_name ~pat:(s pattern))
-    |> Query.order_by ~direction:`ASC LocalUser.username
-    |> Query.limit Expr.(i limit)
-    |> Query.offset Expr.(i offset)
+    let query =
+      Query.select
+        Expr.[
+          LocalUser.id;
+          LocalUser.username;
+          LocalUser.password;
+          nullable LocalUser.display_name;
+          nullable LocalUser.about;
+          nullable LocalUser.profile_picture;
+          LocalUser.manually_accept_follows;
+          LocalUser.is_admin;
+          LocalUser.pubkey;
+          LocalUser.privkey
+        ]
+        ~from:LocalUser.table
+      |> Query.where Expr.(like LocalUser.username ~pat:(s pattern) ||
+                           like LocalUser.display_name ~pat:(s pattern))
+      |> Query.order_by ~direction:`ASC LocalUser.username
+      |> Query.limit Expr.(i limit)
+      |> Query.offset Expr.(i offset) in
+    query
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map decode)
@@ -1316,7 +1318,11 @@ module Posts = struct
             Posts.PostCc.post_id = Posts.id &&
             (* where we are the actor *)
             Posts.PostCc.actor_id = i id)
-      end) 
+      end ||
+      (* or, if the post is not public and not follower public, but we are the author *)
+      (not Posts.is_public && not Posts.is_follower_public &&
+       Posts.author_id = i id)
+    ) 
 
   let is_within_time ?end_time ~start_time () =
     let open Petrol in
@@ -1431,8 +1437,7 @@ module Posts = struct
         nullable Posts.raw_data
       ] ~from:Posts.table
     |> Query.where
-      Expr.(is_within_time ~start_time () &&
-            is_direct_message ~id)
+      Expr.(is_within_time ~start_time () && is_direct_message ~id)
     |> Query.order_by Posts.published ~direction:`DESC
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
@@ -1824,6 +1829,28 @@ module Follows = struct
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map decode)
+
+  let target req conn =
+    let open Lwt_result.Syntax in
+    let* target = Actor.resolve ~id:req.target_id conn in
+    match target with
+    | `Local id ->
+      let+ user = LocalUser.resolve ~id conn in
+      `Local user
+    | `Remote id ->
+      let+ user = RemoteUser.resolve ~id conn in
+      `Remote user
+
+  let author req conn =
+    let open Lwt_result.Syntax in
+    let* target = Actor.resolve ~id:req.author_id conn in
+    match target with
+    | `Local id ->
+      let+ user = LocalUser.resolve ~id conn in
+      `Local user
+    | `Remote id ->
+      let+ user = RemoteUser.resolve ~id conn in
+      `Remote user
 
 end
 

@@ -30,6 +30,7 @@ let extract_error_details err =
         string_of_int size ^ ")"
       | `DatabaseError _ -> "Database error"
       | `FormError (title, _) -> "Form error - " ^ title
+      | `NotImplemented _ -> "Not Implemented"
       | _ -> "Unknown internal error" in
     let details =
       match err with
@@ -42,6 +43,7 @@ let extract_error_details err =
       | `UnsupportedFormat _ -> "No further details "
       | `DatabaseError msg -> "Error was:\n" ^ msg
       | `FormError (_, data) -> "Form data was:\n" ^ data
+      | `NotImplemented details -> details
       | `Msg m -> m
       | `InvalidSignature -> "Invalid signature"
       | `Internal (msg, err) -> msg ^ ": " ^ err

@@ -28,11 +28,40 @@ module VResult = struct
 
   let lift err = Result.map_err List.return err
 
+  let lift_pair_fst f (l,r) =
+    match f l with
+    | Ok l -> Ok (l,r)
+    | Error _ as err -> err
+  let lift_pair_snd f (l,r) =
+    match f r with
+    | Ok r -> Ok (l,r)
+    | Error _ as err -> err
+
+  let lift_result_check f = function
+      None -> Ok None
+    | Some data -> f data |> Result.map Option.some
+
   let (and*) x y = match x,y with
       Ok x, Ok y -> Ok (x,y)
     | Error l, Error r -> Error (l @ r)
     | Error e, _ | _, Error e -> Error e
+
+  let check_input_size field max_size data =
+    if String.length data > max_size
+    then Error (
+      `InputTooLarge (
+        field,
+        max_size,
+        "[" ^
+        string_of_int (String.length data) ^
+        "]" ^
+        String.take 100 data ^
+        "..."
+      ))
+    else Ok data
+
   let ensure msg cond = if cond then Ok () else Error [msg]
+
 end
 
 module Middleware = struct
@@ -56,6 +85,10 @@ module Middleware = struct
     | Some _ -> handler request
 
 end
+
+let sql req op =
+  Dream.sql req op
+  |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
 
 let current_user req =
   match Dream.session_field req "user" with
@@ -85,8 +118,6 @@ let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =
       | `Wrong_content_type -> Error (`FormError ("Wrong Content Type", "No further information"))
       | `Ok v -> Ok v
     ) res
-
-
 
 let mime_lookup filename =
   let content_type = Magic_mime.lookup filename in

@@ -192,9 +192,20 @@ CLOSED: [2023-01-28 Sat 06:11]
 CLOSED: [2023-03-07 Tue 16:29]
 ** DONE Update header to have login (as link) logout (as button)
 CLOSED: [2023-03-10 Fri 16:03]
-** TODO Fix write post page
-** TODO Fix profile page
-** TODO Fix write post targets 
+** DONE Fix write post page
+CLOSED: [2023-03-11 Sat 07:15]
+** DONE Fix profile page
+CLOSED: [2023-03-11 Sat 09:25]
+** DONE Fix edit profile with save field
+CLOSED: [2023-03-11 Sat 10:05]
+** DONE Fix following (update user grid to show follow option)
+CLOSED: [2023-03-11 Sat 11:46]
+** DONE Fix searching for local users
+CLOSED: [2023-03-11 Sat 12:18]
+** DONE Fix listing remote users
+CLOSED: [2023-03-11 Sat 12:19]
+** DONE Fix write post targets 
+CLOSED: [2023-03-11 Sat 12:41]
 *** Workflow
 **** On write preview to post, split text into segments with tagged users
 **** for each user, lookup user
@@ -202,5 +213,7 @@ CLOSED: [2023-03-10 Fri 16:03]
 ***** if present, replace text with link
 **** Submit write post to worker
 ** TODO Fix likes
-
+** TODO Allow following/unfollowing users from page
+** TODO Add support for user banners
+** TODO Modify user update to show errors
 

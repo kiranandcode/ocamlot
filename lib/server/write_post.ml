@@ -26,13 +26,13 @@ let parse_scope = function
   | ct -> Error (Format.sprintf "unsupported scope type %s" ct)
 
 
-let handle_get_write ?(errors=[]) ?title ?content_type ?visibility ?contents req =
+let handle_get_write ?(errors=[]) ?title ?to_ ?content_type ?visibility ?contents req =
   let _context = Dream.query req "context" in
   let* current_user = current_user req in
   let* user = match current_user with
     | None -> return_ok None
     | Some user ->
-      let+ user = Users.extract_user req user in
+      let+ user = Extract.extract_user_profile req user in
       Some user in
   let* headers,action = Navigation.build_navigation_bar req in
   let token = Dream.csrf_token req in
@@ -56,7 +56,7 @@ let handle_get_write ?(errors=[]) ?title ?content_type ?visibility ?contents req
       [
         View.Write_post_box.render_write_post_box
           ~fields:["dream.csrf", token] ~action:"/write" ~id:"write-post-form"
-          ?title
+          ?title ?to_:(Option.map (String.concat ", ") to_)
           ?content_type:(Option.map encode_content_type content_type)
           ?visibility:(Option.map encode_scope visibility)
           ?message:contents
@@ -87,6 +87,12 @@ let handle_post_write req =
   let res =
     let open VResult in
     let title = form_data "title" data |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
+    let to_ = form_data "to" data
+              |> Result.to_opt
+              |> Option.map (String.split_on_char ',')
+              |> Option.map (List.map String.trim)
+              |> Option.map (List.filter (Fun.negate String.is_empty))
+              |> Option.filter (Fun.negate List.is_empty)  in
     let* contents = lift (form_data "message" data) in
     let* content_type = lift (form_data "content-type" data) in
     let* content_type = lift (parse_content_type content_type) in
@@ -94,31 +100,31 @@ let handle_post_write req =
     let* visibility = lift (parse_scope visibility) in
     let* () = ensure "Post contents can not be empty" (not @@ String.is_empty contents) in
     let is_preview = form_data "preview" data |> Result.to_opt |> Option.is_some in
-    Ok (title, content_type, visibility, contents, is_preview) in
+    Ok (title, to_, content_type, visibility, contents, is_preview) in
 
   match res with
   | Error errors ->
     let title = form_data "title" data |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
+    let to_ = form_data "to" data |> Result.to_opt |> Option.map (String.split_on_char ',') in
     let contents = form_data "message" data |> Result.to_opt in
     let content_type = form_data "content-type" data |> Result.flat_map parse_content_type |> Result.to_opt in
-    handle_get_write ~errors ?title ?content_type ?contents req
+    handle_get_write ~errors ?title ?to_ ?content_type ?contents req
   (* if is a preview request, then just handle get write *)
-  | Ok (title, content_type, visibility, contents, true) ->
-    handle_get_write ?title ~content_type ~visibility ~contents req
-  | Ok (title, content_type, scope, contents, false) ->
+  | Ok (title, to_, content_type, visibility, contents, true) ->
+    handle_get_write ?title ?to_ ~content_type ~visibility ~contents req
+  | Ok (title, to_, content_type, scope, contents, false) ->
     log.info (fun f -> f "received get request %s"
-                         ([%show: string option * 
+                         ([%show: string option * string list option *
                                   [> `Markdown | `Org | `Text ] *
                                   [> `DM | `Followers | `Public ] * string]
-                            (title, content_type, scope, contents)));
+                            (title, to_, content_type, scope, contents)));
     let* Some user = current_user req in
     let () = Worker.send_task
                Worker.((LocalPost {
                  user=user;  title; scope; content_type;
-                 post_to=None; 
+                 post_to=to_; 
                  content=contents
                })) in
-
     redirect req "/feed"
 [@@warning "-8"]
 

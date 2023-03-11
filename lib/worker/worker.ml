@@ -136,6 +136,7 @@ open struct
 
     let post_to = Option.get_or ~default:[] post_to
                   |> List.filter (Fun.negate String.is_empty) in
+    log.debug (fun f -> f "posted to %a" (List.pp String.pp) post_to);
     let* _ =
       with_pool pool @@ 
       Ap_resolver.create_new_note scope user post_to [] title content content_type in

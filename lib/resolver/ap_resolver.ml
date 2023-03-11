@@ -124,7 +124,7 @@ let resolve_tagged_user user db =
                        |> map_err (fun err -> `WorkerFailure err) in
     return (Ok (`Remote remote_user))
   | Some group when Option.equal String.equal
-        (Some (Lazy.force Configuration.domain |> Uri.to_string))
+        (Some (Lazy.force Configuration.host))
         (Re.Group.get_opt group 2) ->
     (* local user *)
     let username = Re.Group.get group 1 in
@@ -436,6 +436,9 @@ let create_note_request scope author to_ cc summary content content_type db =
   Lwt.return_ok (Yojson.Safe.to_string data)
 
 let create_new_note scope author to_ cc summary content content_type db =
+  log.debug (fun f -> f "worker[create_new_note] ~author:%s ~to_:[%a] ~summary:%a ~content:%s"
+                        author.Database.LocalUser.username (List.pp String.pp) to_
+                        (Option.pp String.pp) summary content);
   let is_public, is_follower_public =
     match scope with
     | `DM -> false, false

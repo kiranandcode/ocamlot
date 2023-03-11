@@ -70,9 +70,10 @@ let render_input_form_one_line ?(a_class=[]) ?(disabled=false)
   ]
 
 
-let render_input_form ?id ?action elts =
+let render_input_form ?id ?action ?enc_type elts =
   H.form ~a:(List.concat [
       [H.a_class ["input-form"]];
       (match action with None -> [] | Some action -> [H.a_action action; H.a_method `Post]);
-      (match id with None -> [] | Some id -> [H.a_id id])
+      (match id with None -> [] | Some id -> [H.a_id id]);
+      (match enc_type with | None -> [] | Some enc_type -> [H.a_enctype enc_type])      
     ]) elts
