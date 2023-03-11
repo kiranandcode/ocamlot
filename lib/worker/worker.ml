@@ -79,6 +79,10 @@ type task =
     post_to: string list option;
     content: string;
   }
+  | LocalLike of {
+      user: Database.LocalUser.t;
+      post: Database.Posts.t;
+    }
 
 open struct
 
@@ -218,6 +222,19 @@ open struct
     log.debug (fun f -> f "worker added remote like");
     return_ok ()
 
+  let handle_local_like pool (author: Database.LocalUser.t) (target: Database.Posts.t) =
+    let* like =
+      let* author = with_pool pool (Database.Actor.create_local_user ~local_id:author.id) in
+      with_pool pool @@ Database.Likes.find_like_between ~post:target.id ~author in
+    match like with
+    | Some _ -> Lwt.return_ok ()
+    | None ->
+      log.debug (fun f -> f "working on local like by %s of %s" (author.Database.LocalUser.username) target.url);
+      let* _ = with_pool pool @@ Ap_resolver.create_new_like author target in
+      log.debug (fun f -> f "successfully sent local like by %s" author.Database.LocalUser.username);
+      Lwt.return_ok ()
+
+
   let handle_undo_follow pool follow_id =
     let* follow =
       with_pool pool @@ fun db ->
@@ -309,6 +326,8 @@ open struct
                handle_follow_remote_user pool user username domain
              | CreateRemoteNote { author; direct_message; note } ->
                handle_create_remote_note pool author direct_message note
+             | LocalLike {user; post} ->
+               handle_local_like pool user post
            end |> handle_error |> Lwt.map ignore
          with
          | exn ->

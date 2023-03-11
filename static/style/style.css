@@ -61,6 +61,12 @@ header a {
   max-width: 20ch;
 }
 
+.post-date a {
+  color: unset;
+  text-decoration: none;
+}
+
+
 .post-social a {
     font-weight: bolder;
 }
@@ -68,9 +74,29 @@ header a {
   margin-right: 0.5em;
 }
 
+.post-social form {
+    display: inline;
+}
+.post-social form:nth-child(1) {
+    margin-right: 0.5em;
+}
+
+.post-social input[type="submit"] {
+  color: var(--text-color);
+  border: none;
+  cursor: pointer;
+  display: inline;
+  background-color: transparent;
+  padding: unset;
+  font-family: inherit;
+  font-size: unset;
+  font-weight: bolder;
+}
+
 .post-text a {
   color: var(--primary-accent);
 }
+
 
 /* ** Post Feed */
 

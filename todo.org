@@ -68,11 +68,13 @@ CLOSED: [2022-09-25 Sun 03:31]
 :PROPERTIES:
 :Effort:   0:10
 :END:
-** TODO Implement support for //posts/<post-id>//
+** DONE Implement support for //posts/<post-id>//
+CLOSED: [2023-03-11 Sat 14:37]
 :PROPERTIES:
 :Effort:   2:00
 :END:
-*** TODO Update posts to include links to posts
+*** DONE Update posts to include links to posts
+CLOSED: [2023-03-11 Sat 14:37]
 ** DONE Add support for likes
 CLOSED: [2023-01-28 Sat 05:06]
 :PROPERTIES:
@@ -120,10 +122,14 @@ CLOSED: [2023-01-28 Sat 05:03]
 :Effort:   2:00
 :END:
 *** TODO Work out why toasts fail to validate - announce objects
-** TODO Implement user profiles
-*** TODO Properly display user
-*** TODO Add option to edit, if is current user == profile user
-*** TODO Implement support for uploading files
+** DONE Implement user profiles
+CLOSED: [2023-03-11 Sat 14:09]
+*** DONE Properly display user
+CLOSED: [2023-03-11 Sat 14:09]
+*** DONE Add option to edit, if is current user == profile user
+CLOSED: [2023-03-11 Sat 14:09]
+*** DONE Implement support for uploading files
+CLOSED: [2023-03-11 Sat 14:09]
 ** TODO Handle post deletion
 *** TODO Handle deleted posts requests from remote 
 *** TODO Allow deleting posts from remote
@@ -212,8 +218,12 @@ CLOSED: [2023-03-11 Sat 12:41]
 ***** if not present, leave text as is, but ask resolver to lookup
 ***** if present, replace text with link
 **** Submit write post to worker
-** TODO Fix likes
-** TODO Allow following/unfollowing users from page
-** TODO Add support for user banners
-** TODO Modify user update to show errors
+** DONE Fix likes
+CLOSED: [2023-03-11 Sat 15:56]
+*** DONE Fix extract post to include likes
+CLOSED: [2023-03-11 Sat 14:37]
+** TODO Allow unfollowing users from page
+
+
+
 

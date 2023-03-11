@@ -1,6 +1,7 @@
 open Utils
 
 type t = {
+  self_link: string option;
   headers: (string * User.t) list;
   content: Html_types.div_content_fun H.elt list;
   posted_date: Ptime.t;
@@ -45,23 +46,33 @@ let render_post_headers = function
             ]
          ) headers)]
 
-let render ?a_class post =
+let render ?redirect_url ?a_class post =
   H.div ~a:[H.a_class (Option.to_list a_class @ ["post-box"; "padding-all"])]
     (List.concat [
-        render_post_headers post.headers;
-        [
-          H.div ~a:[H.a_class ["post-text"; "text-justify"]] (post.content);
-          H.div ~a:[H.a_class ["post-details"; "font-small"; "flex"]] [
-            H.div ~a:[H.a_class ["post-stats"; "justify-space-around"; "flex-column"]] [
-              H.div ~a:[H.a_class ["post-date"]] [
-                H.i [ H.txt (Format.asprintf "Posted on %a" pp_date
-                               (Ptime.to_date post.posted_date))]
-              ];
-              H.div ~a:[H.a_class ["post-social"]] [
-                H.a [ H.txt (print_stat "toasts" post.no_toasts post.has_been_toasted)];
-                H.a [ H.txt (print_stat "cheers" post.no_cheers post.has_been_cheered)];
-              ]
-            ];
-            render_post_author post.author
-          ]
-        ]])
+       render_post_headers post.headers;
+       [
+         H.div ~a:[H.a_class ["post-text"; "text-justify"]] (post.content);
+         H.div ~a:[H.a_class ["post-details"; "font-small"; "flex"]] [
+           H.div ~a:[H.a_class ["post-stats"; "justify-space-around"; "flex-column"]] [
+             H.div ~a:[H.a_class ["post-date"]] [
+               let posted_date =
+                 H.i [ H.txt (Format.asprintf "Posted on %a" pp_date (Ptime.to_date post.posted_date))] in
+               (match post.self_link with None -> posted_date | Some link -> H.a ~a:[H.a_href link] [posted_date])
+             ];
+             H.div ~a:[H.a_class ["post-social"]] (match post.self_link with
+               | None -> [
+                   H.a [ H.txt (print_stat "toasts" post.no_toasts post.has_been_toasted)];
+                   H.a [ H.txt (print_stat "cheers" post.no_cheers post.has_been_cheered)];
+                 ]
+               | Some url -> [
+                   H.form ~a:[
+                     H.a_action (url ^ "/toast" ^ (match redirect_url with None -> "" | Some url -> "?redirect=" ^ url));
+                     H.a_method `Post
+                   ] [H.input ~a:[H.a_input_type `Submit; H.a_value (print_stat "toasts" post.no_toasts post.has_been_cheered)] ()];
+                   H.a [ H.txt (print_stat "cheers" post.no_cheers post.has_been_cheered)];
+                 ]
+             )
+           ];
+           render_post_author post.author
+         ]
+       ]])

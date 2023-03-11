@@ -1938,6 +1938,24 @@ module Likes = struct
     let* result = lookup_by_url ~url conn in
     Lwt_result.return (Option.get result)
 
+  let find_like_between ~post ~author conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Likes.id;
+      nullable Likes.public_id;
+      Likes.url;
+      nullable Likes.raw_data;
+      Likes.published;
+      Likes.post_id;
+      Likes.actor_id;
+    ] ~from:Likes.table
+    |> Query.where Expr.(Likes.post_id = i post && Likes.actor_id = i author)
+    |> Request.make_zero_or_one
+    |> Petrol.find_opt conn
+    |> Lwt_result.map (Option.map decode)
+
   let count_for_post ~post conn =
     let open Lwt_result.Syntax in
     let open Petrol in

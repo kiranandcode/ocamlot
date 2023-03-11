@@ -86,6 +86,7 @@ let run () =
     Users.route;
     Write_post.route;
     Activity.route;
+    Post.route;
     Follow_requests.route;
 
     Images.route;

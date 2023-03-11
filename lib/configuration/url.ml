@@ -74,6 +74,8 @@ let activity_base_endpoint = lazy begin
   |> Fun.flip Uri.with_path ("/activity")
 end
 
+let post_path id = ("/post/" ^ id)
+let post id = Lazy.force Params.domain |> Fun.flip Uri.with_path (post_path id)
 
 let activity_endpoint id =
   Lazy.force Params.domain

@@ -105,6 +105,7 @@ let extract_user_socials req author : (View.User.socials, _) Lwt_result.t =
 let extract_post req (post: Database.Posts.t) =
   let* author = post.Database.Posts.author_id
                 |> fun p -> sql req (Database.Actor.resolve ~id:p) in
+  let* current_user = current_user_link req in
 
   let post_contents =
     let source = post.Database.Posts.post_source in
@@ -115,18 +116,30 @@ let extract_post req (post: Database.Posts.t) =
 
   let* post_likes =
     sql req (Database.Likes.count_for_post ~post:post.Database.Posts.id) in
-
   let* author_obj = extract_user req author in
+  let* has_been_toasted =
+    match current_user with
+    | None -> return_ok false
+    | Some author ->
+      let+ like = sql req (Database.Likes.find_like_between ~post:post.id ~author) in
+      Option.is_some like in
+
+  let self_link =
+    match post.public_id with
+    | None -> post.url
+    | Some id -> Configuration.Url.post_path id in
 
   return_ok @@
   View.Post.{
+    self_link=Some self_link;
     headers=[];
     content=post_contents;
     posted_date=post.Database.Posts.published;
-    no_toasts=post_likes;
-    no_cheers=0;
-    has_been_toasted=false;
-    has_been_cheered=false;
+
+    no_toasts=post_likes; has_been_toasted;
+
+    has_been_cheered=false; no_cheers=0;
+
     author=author_obj
   }
 
