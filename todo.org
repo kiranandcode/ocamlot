@@ -194,6 +194,13 @@ CLOSED: [2023-03-07 Tue 16:29]
 CLOSED: [2023-03-10 Fri 16:03]
 ** TODO Fix write post page
 ** TODO Fix profile page
+** TODO Fix write post targets 
+*** Workflow
+**** On write preview to post, split text into segments with tagged users
+**** for each user, lookup user
+***** if not present, leave text as is, but ask resolver to lookup
+***** if present, replace text with link
+**** Submit write post to worker
 ** TODO Fix likes
 
 

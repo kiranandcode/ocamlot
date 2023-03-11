@@ -26,7 +26,7 @@ let parse_scope = function
   | ct -> Error (Format.sprintf "unsupported scope type %s" ct)
 
 
-let handle_get_write ?errors:_ ?title ?content_type ?visibility ?contents req =
+let handle_get_write ?(errors=[]) ?title ?content_type ?visibility ?contents req =
   let _context = Dream.query req "context" in
   let* current_user = current_user req in
   let* user = match current_user with
@@ -44,77 +44,78 @@ let handle_get_write ?errors:_ ?title ?content_type ?visibility ?contents req =
 
 
   tyxml @@ View.Page.render_page "Write a new post" (List.concat [
-    [
-      View.Header.render_header ?action headers;
-      View.Components.render_heading
-        ~icon:"W" ~current:"Write a post" ~actions:[
-        { text="Preview"; url="preview"; form=Some "write-post-form" };
-        { text="Submit"; url="submit"; form=Some "write-post-form" }
-      ] ();
-      View.Write_post_box.render_write_post_box
-        ~fields:["dream.csrf", token] ~action:"/write" ~id:"write-post-form"
-        ?title
-        ?content_type:(Option.map encode_content_type content_type)
-        ?visibility:(Option.map encode_scope visibility)
-        ?message:contents
-        ()
-    ];
-    match preview,user with
-    | Some preview, Some user -> [
+      [
+        View.Header.render_header ?action headers;
         View.Components.render_heading
-          ~icon:"P" ~current:"Preview" ();
-        View.Write_post_box.render_write_post_preview
-          View.Post.{
-            headers=[];
-            content=preview;
-            posted_date=Ptime_clock.now ();
-            no_toasts=10;
-            no_cheers=5;
-            has_been_cheered=false; has_been_toasted=false;
-            author=user.user
-          };
-      ]
-    | _ -> []
-  ])
+          ~icon:"W" ~current:"Write a post" ~actions:[
+          { text="Preview"; url="preview"; form=Some "write-post-form" };
+          { text="Submit"; url="submit"; form=Some "write-post-form" }
+        ] ()
+      ];
+      (match errors with [] -> [] | errors -> [View.Error.render_error_list errors]);
+      [
+        View.Write_post_box.render_write_post_box
+          ~fields:["dream.csrf", token] ~action:"/write" ~id:"write-post-form"
+          ?title
+          ?content_type:(Option.map encode_content_type content_type)
+          ?visibility:(Option.map encode_scope visibility)
+          ?message:contents
+          ()
+      ];
+      match preview,user with
+      | Some preview, Some user -> [
+          View.Components.render_heading
+            ~icon:"P" ~current:"Preview" ();
+          View.Write_post_box.render_write_post_preview
+            View.Post.{
+              headers=[];
+              content=preview;
+              posted_date=Ptime_clock.now ();
+              no_toasts=10;
+              no_cheers=5;
+              has_been_cheered=false; has_been_toasted=false;
+              author=user.user
+            };
+        ]
+      | _ -> []
+    ])
 
 let handle_post_write req =
   let* data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
-  log.info (fun f -> f ~request:req "got post to write with %s" ([%show: (string * string) list] data));
+  log.info (fun f -> f ~request:req "got post to write with %s"
+               ([%show: (string * string) list] data));
   let res =
     let open VResult in
     let title = form_data "title" data |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
-    let post_to = form_data "to" data |> Result.to_opt in
-
-    let* contents = lift (form_data "contents" data) in
+    let* contents = lift (form_data "message" data) in
     let* content_type = lift (form_data "content-type" data) in
     let* content_type = lift (parse_content_type content_type) in
-    let* scope = lift (form_data "scope" data) in
-    let* scope = lift (parse_scope scope) in
+    let* visibility = lift (form_data "visibility" data) in
+    let* visibility = lift (parse_scope visibility) in
     let* () = ensure "Post contents can not be empty" (not @@ String.is_empty contents) in
-    let is_preview = form_data "preview-button" data |> Result.to_opt |> Option.is_some in
-    Ok (title, post_to, content_type, scope, contents, is_preview) in
+    let is_preview = form_data "preview" data |> Result.to_opt |> Option.is_some in
+    Ok (title, content_type, visibility, contents, is_preview) in
 
   match res with
   | Error errors ->
     let title = form_data "title" data |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
-    let _to_ = form_data "to" data |> Result.to_opt in
-    let contents = form_data "contents" data |> Result.to_opt in
+    let contents = form_data "message" data |> Result.to_opt in
     let content_type = form_data "content-type" data |> Result.flat_map parse_content_type |> Result.to_opt in
     handle_get_write ~errors ?title ?content_type ?contents req
   (* if is a preview request, then just handle get write *)
-  | Ok (title, _to_, content_type, visibility, contents, true) ->
+  | Ok (title, content_type, visibility, contents, true) ->
     handle_get_write ?title ~content_type ~visibility ~contents req
-  | Ok (title, post_to, content_type, scope, contents, false) ->
+  | Ok (title, content_type, scope, contents, false) ->
     log.info (fun f -> f "received get request %s"
-                         ([%show: string option * string option *
+                         ([%show: string option * 
                                   [> `Markdown | `Org | `Text ] *
                                   [> `DM | `Followers | `Public ] * string]
-                            (title, post_to, content_type, scope, contents)));
+                            (title, content_type, scope, contents)));
     let* Some user = current_user req in
     let () = Worker.send_task
                Worker.((LocalPost {
                  user=user;  title; scope; content_type;
-                 post_to=post_to |> Option.map (String.split_on_char ',' ); 
+                 post_to=None; 
                  content=contents
                })) in
 
