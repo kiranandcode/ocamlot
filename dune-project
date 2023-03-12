@@ -49,5 +49,7 @@
 
    (omd (= 2.0.0~alpha2))
    crunch ppx_blob
+
+   inotify
    
 ) )
