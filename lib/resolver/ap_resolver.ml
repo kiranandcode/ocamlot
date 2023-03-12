@@ -34,6 +34,7 @@ let decode_body ?ty ~into:decoder body =
 let resolve_public_key url =
   (* NOTE: Not obvious, but you need to specify accept headers, else
      pleroma will return html *)
+  log.debug (fun f -> f "resolve_public_key %s" url);
   let* (_resp, body) = Requests.activity_req (Uri.of_string url) in
   let* actor = decode_body ~into:Activitypub.Decode.person body in
   let pub_key =
@@ -45,11 +46,15 @@ let resolve_public_key url =
 
 let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
   : (Database.RemoteUser.t, string) Lwt_result.t =
+  log.debug (fun f -> f "resolving remote user with webfinger url \"%a\"" Uri.pp webfinger_uri);
   let* domain = Uri.host webfinger_uri |> Result.of_opt |> Lwt.return in
   let* result = local_lookup db in
   match result with
-  | Some v -> Lwt.return_ok v
+  | Some v ->
+    log.debug (fun f -> f "remote user found in cache");
+    Lwt.return_ok v
   | None ->
+    log.debug (fun f -> f "resolving remote user with webfinger");
     (* remote user not found *)
     (* webfinger to find user url *)
     let* remote_user_url =
@@ -59,11 +64,13 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
           ~into:Activitypub.Decode.Webfinger.query_result in
       get_opt (Activitypub.Types.Webfinger.self_link query_res)
         ~else_:(fun () -> "could not retrieve self link.") in
+    log.debug (fun f -> f "remote user self url was %a" Uri.pp remote_user_url);
     (* retrieve json *)
     let* (_, body) = Requests.activity_req remote_user_url in
     let* person_res =
       decode_body ~ty:"remote-user" body
         ~into:Activitypub.Decode.person in
+    log.debug (fun f -> f "was able to sucessfully resolve user at %a!" Uri.pp remote_user_url);
     let* remote_instance = Database.RemoteInstance.create_instance ~url:domain db |> sanitize in
     let* () =
       Database.RemoteInstance.unset_instance_last_unreachable
@@ -75,6 +82,7 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
     let* url =
       get_opt person_res.url
         ~else_:(fun () -> "could not retrieve user url.") in
+    log.debug (fun f -> f "creating remote user in database");
     Database.RemoteUser.create_remote_user
       ?display_name:person_res.name
       ~inbox:person_res.inbox

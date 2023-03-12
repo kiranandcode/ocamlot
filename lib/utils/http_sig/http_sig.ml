@@ -1,6 +1,8 @@
 open Containers
 
 module StringMap = Map.Make(String)
+let log = Logging.add_logger "utils.http-sig"
+
 
 (* from IRC  *)
 let encrypt (privkey: X509.Private_key.t) str =
@@ -67,6 +69,7 @@ let verify_request ~resolve_public_key (req: Dream.request) =
   let (let+) x f = match x with None -> Lwt.return (Ok false) | Some v -> f v in
   let (let*) x f = Lwt_result.bind x f in
   let (let@) x f = Lwt.bind x f in
+  log.debug (fun f -> f "call to verify_request");
   let meth = Dream.method_ req |> Dream.method_to_string |> String.lowercase_ascii in
   let path = Dream.target req in
   let headers =
@@ -75,7 +78,7 @@ let verify_request ~resolve_public_key (req: Dream.request) =
     |> StringMap.of_list in
   let+ signature = Dream.header req "Signature" in
   let signed_headers = parse_signature signature in
-
+  log.debug (fun f -> f "reached verify_request:%d" __LINE__);
   (* 1. build signed string *)
   let@ body = Dream.body req in
   let body_digest = body_digest body in
@@ -85,14 +88,15 @@ let verify_request ~resolve_public_key (req: Dream.request) =
   let signed_string =
     build_signed_string ~signed_headers:headers_in_signed_string
       ~meth ~path ~headers ~body_digest in
-
+  log.debug (fun f -> f "reached verify_request:%d" __LINE__);
   (* 2. retrieve signature *)
   let+ signature = StringMap.find_opt "signature" signed_headers in
   let+ signature = Base64.decode signature |> Result.to_opt in
+  log.debug (fun f -> f "reached verify_request:%d" __LINE__);
   (* 3. retrieve public key *)
   let+ key_id = StringMap.find_opt "keyId" signed_headers in
   let* public_key = resolve_public_key key_id in
-
+  log.debug (fun f -> f "reached verify_request:%d" __LINE__);
   (* verify signature against signed string with public key *)
   Lwt_result.return @@ verify ~signed_string ~signature public_key
 

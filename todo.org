@@ -222,8 +222,19 @@ CLOSED: [2023-03-11 Sat 12:41]
 CLOSED: [2023-03-11 Sat 15:56]
 *** DONE Fix extract post to include likes
 CLOSED: [2023-03-11 Sat 14:37]
-
-
-
-
+** TODO Implement reboosts
+*** TODO Find how reboosts look
+*** TODO Add table to database/tables for reboosts (it will look like likes)
+*** TODO Add operation to database/operations for reboosts
+*** TODO Update feed query to include cheered
+*** TODO Add operation to collect relevant reboosts for post 
+*** TODO Update worker with local reboost task + AP resolver
+** TODO Implement outbox endpoint
+*** TODO Find out how outbox endpoint looks
+*** TODO Add endpoint to users
+** TODO Handle post deletion
+*** TODO Find out how post deletion request looks like
+*** TODO Add task to worker + AP resolver
+** TODO Implement reply to posts
+*** TODO Find out how reply looks
 

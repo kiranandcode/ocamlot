@@ -1,11 +1,11 @@
 (library (name http_sig)
  (libraries
-   containers
+   containers 
    uri
    base64
    cstruct mirage-crypto x509
    lwt cohttp cohttp-lwt
    dream
    ptime calendar
-   http_date))
+   http_date logging))
 

@@ -10,6 +10,7 @@ let req_post ~headers url body =
     Lwt.return (Result.of_exn exn)
 
 let req ~headers url =
+  Cohttp_lwt_unix.Debug.activate_debug ();
   try
     Cohttp_lwt_unix.Client.get
       ~headers:(Cohttp.Header.of_list headers)
