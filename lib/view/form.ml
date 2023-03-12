@@ -55,19 +55,22 @@ let render_input_form_checkbox ?(disabled=false) ?initial_value ~value ~name () 
     ]
   ]
 
-let render_input_form_one_line ?(a_class=[]) ?(disabled=false)
+let render_input_form_one_line ?(fields=[]) ?(a_class=[]) ?(disabled=false)
     ?initial_value ~ty ~value ~name ~submit_name () =
   H.div ~a:[
     H.a_class ("input-form-entry" :: "input-form-entry-one-line" :: a_class)
-  ] [
-    H.label ~a:[H.a_label_for value] [H.txt (name ^ ":")];
-    H.input ~a:(List.flatten [
-        [H.a_input_type ty; H.a_name value];
-        optional H.a_value initial_value;
-        optional H.a_disabled (if disabled then Some () else None)
-      ]) ();
-    H.input ~a:[H.a_input_type `Submit; H.a_value submit_name] ()
-  ]
+  ] (List.concat [
+      [
+        H.label ~a:[H.a_label_for value] [H.txt (name ^ ":")];
+        H.input ~a:(List.flatten [
+            [H.a_input_type ty; H.a_name value];
+            optional H.a_value initial_value;
+            optional H.a_disabled (if disabled then Some () else None)
+          ]) ();
+        H.input ~a:[H.a_input_type `Submit; H.a_value submit_name] ()
+      ];
+      List.map (fun (k,v) -> H.input ~a:[H.a_input_type `Hidden; H.a_name k; H.a_value v] ()) fields
+    ])
 
 
 let render_input_form ?id ?action ?enc_type elts =

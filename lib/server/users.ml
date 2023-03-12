@@ -386,7 +386,7 @@ let classify_query s =
     | _ -> `SearchLike [s]
   end
 
-let render_users_page ?search_query req user_type users =
+let render_users_page ?ty ?search_query req user_type users =
   let* headers, action = Navigation.build_navigation_bar req in
   tyxml (View.Page.render_page (show_user_types user_type) [
     View.Header.render_header ?action headers;
@@ -396,7 +396,9 @@ let render_users_page ?search_query req user_type users =
         {text="Local Users"; url="/users?type=" ^ encode_user_types `Local; form=None};
         {text="Remote Users"; url="/users?type=" ^ encode_user_types `Remote; form=None}
       ] ();
-    View.User.render_users_search_box ?initial_value:search_query ();
+    View.User.render_users_search_box
+      ?fields:(Option.map (fun ty -> ["type", encode_user_types ty]) ty)
+      ?initial_value:search_query ();
     View.User.render_users_grid users;
   ])
 
@@ -433,7 +435,7 @@ let handle_local_users_get req =
       return_ok (user, socials)
     ) users
     >> Result.flatten_l in
-  render_users_page ?search_query req `Local users_w_stats
+  render_users_page ~ty:`Local ?search_query req `Local users_w_stats
 
 (* ** Remote users (get) *)
 let handle_remote_users_get req =
@@ -488,7 +490,7 @@ let handle_remote_users_get req =
       return_ok (user, socials)
     ) users
     >> Result.flatten_l in
-  render_users_page ?search_query req `Remote users_w_stats
+  render_users_page ~ty:`Remote ?search_query req `Remote users_w_stats
 
 (* ** Users (get) *)
 let handle_users_get req =

@@ -54,10 +54,10 @@ let render_users_grid users =
       ) users
   )
 
-let render_users_search_box ?initial_value () =
+let render_users_search_box ?fields ?initial_value () =
   div "users-search-box" [
     Form.render_input_form [
-      Form.render_input_form_one_line ~a_class:["users-search-box"]
+      Form.render_input_form_one_line ?fields ~a_class:["users-search-box"]
         ~ty:`Text ~value:"search" ~name:"Search" ?initial_value ~submit_name:"Go" ()
     ]
   ]
