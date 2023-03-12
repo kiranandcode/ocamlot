@@ -1,0 +1,27 @@
+{
+    "aliases": [
+        "https://pleroma.ocamlot.xyz/users/gopiandcode"
+    ],
+    "links": [
+        {
+            "href": "https://pleroma.ocamlot.xyz/users/gopiandcode",
+            "rel": "http://webfinger.net/rel/profile-page",
+            "type": "text/html"
+        },
+        {
+            "href": "https://pleroma.ocamlot.xyz/users/gopiandcode",
+            "rel": "self",
+            "type": "application/activity+json"
+        },
+        {
+            "href": "https://pleroma.ocamlot.xyz/users/gopiandcode",
+            "rel": "self",
+            "type": "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
+        },
+        {
+            "rel": "http://ostatus.org/schema/1.0/subscribe",
+            "template": "https://pleroma.ocamlot.xyz/ostatus_subscribe?acct={uri}"
+        }
+    ],
+    "subject": "acct:gopiandcode@pleroma.ocamlot.xyz"
+}

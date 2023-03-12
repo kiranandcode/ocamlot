@@ -117,11 +117,13 @@ raw = {
 CLOSED: [2023-01-28 Sat 05:03]
 *** DONE Update feed post viewer to display link on toasts option
 CLOSED: [2023-01-28 Sat 05:03]
-** TODO Add support for toasts
+** DONE Add support for toasts
+CLOSED: [2023-03-12 Sun 16:06]
 :PROPERTIES:
 :Effort:   2:00
 :END:
-*** TODO Work out why toasts fail to validate - announce objects
+*** DONE Work out why toasts fail to validate - announce objects
+CLOSED: [2023-03-12 Sun 16:06]
 ** DONE Implement user profiles
 CLOSED: [2023-03-11 Sat 14:09]
 *** DONE Properly display user
@@ -237,13 +239,18 @@ CLOSED: [2023-03-12 Sun 14:11]
 *** DONE Update worker with local reboost task + AP resolver
 CLOSED: [2023-03-12 Sun 14:14]
 ** TODO Implement outbox endpoint
-*** TODO Find out how outbox endpoint looks
+*** DONE Find out how outbox endpoint looks
+CLOSED: [2023-03-12 Sun 16:06]
 *** TODO Add endpoint to users
 ** TODO Handle post deletion
 *** TODO Find out how post deletion request looks like
 *** TODO Add task to worker + AP resolver
 ** TODO Implement reply to posts
-*** TODO Find out how reply looks
+*** DONE Find out how reply looks
+CLOSED: [2023-03-12 Sun 16:13]
+*** TODO Add field to table to track conversation
+*** TODO On click on post, show all posts with same conversation
+*** TODO When click on post
 ** TODO Only show/allow registration box if registration allowed 
 *** TODO Add table for settings -- key, value (TEXT) fields
 *** TODO Add field for registrations allowed

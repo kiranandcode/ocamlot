@@ -1,0 +1,12 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://pleroma.ocamlot.xyz/schemas/litepub-0.1.jsonld",
+        {
+            "@language": "und"
+        }
+    ],
+    "first": "https://pleroma.ocamlot.xyz/users/gopiandcode/outbox?page=true",
+    "id": "https://pleroma.ocamlot.xyz/users/gopiandcode/outbox",
+    "type": "OrderedCollection"
+}
