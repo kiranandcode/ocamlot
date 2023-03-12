@@ -598,29 +598,29 @@ let handle_inbox_post req =
   let* data =
     (Activitypub.Decode.(decode_string obj) body_text)
     |> (function
-      | Ok _ as data -> data
-      | Error err ->
-        if Lazy.force Configuration.debug then
-          IO.with_out ~flags:[Open_append; Open_creat] "ocamlot-failed-events.json" (Fun.flip IO.write_line (body_text ^ "\n"));
-        Error err)
+        | Ok _ as data -> data
+        | Error err ->
+          if Lazy.force Configuration.debug then
+            IO.with_out ~flags:[Open_append; Open_creat] "ocamlot-failed-events.json" (Fun.flip IO.write_line (body_text ^ "\n"));
+          Error err)
     |> return
     |> map_err (fun err -> `InvalidActivitypubObject err) in
 
   log.debug (fun f ->
-    f "received activitypub object %a"
-      Activitypub.Types.pp_obj data
-  );
+      f "received activitypub object %a"
+        Activitypub.Types.pp_obj data
+    );
   log.debug (fun f ->
-    f "headers were %s"
-      ([%show: (string * string) list] (Dream.all_headers req))
-  );
+      f "headers were %s"
+        ([%show: (string * string) list] (Dream.all_headers req))
+    );
 
   let* _ =
     match[@warning "-27"] data with
     | `Accept { obj=`Follow { id=follow_id; _ }; id=accept_activity_id; raw=accept_obj; actor; _ } ->
       Worker.send_task Worker.(
-        HandleAcceptFollow { follow_id }
-      );
+          HandleAcceptFollow { follow_id }
+        );
       return_ok ()
     | `Follow { id; actor; cc; to_; object_; state; raw } ->
       let lazy user_re = Configuration.Regex.local_user_id_format in
@@ -633,23 +633,19 @@ let handle_inbox_post req =
       let* target = lift_opt ~else_:(fun _ -> `UserNotFound object_) target
                     |> return in
       Worker.send_task Worker.(
-        HandleRemoteFollow { id; actor; target; raw }
-      );
+          HandleRemoteFollow { id; actor; target; raw }
+        );
       return_ok ()
     | `Undo { obj=`Follow { id=follow_id; _ }; _ } ->
       Worker.send_task Worker.(
-        HandleUndoFollow { follow_id }
-      );
+          HandleUndoFollow { follow_id }
+        );
       return_ok ()
     | `Create { obj=`Note note; actor; published; direct_message; _ } ->
       log.debug (fun f -> f "creating post");
       Worker.send_task Worker.(
-        CreateRemoteNote { author=actor; direct_message; note }
-      );
-      return_ok ()
-    | `Reboost { id; actor; published; obj; raw } ->
-      log.debug (fun f -> f "received reboost of %s by %s (at %a)"
-                    obj actor (Option.pp(Ptime.pp_rfc3339 ())) published);
+          CreateRemoteNote { author=actor; direct_message; note }
+        );
       return_ok ()
     | `Accept _
     | `Announce _
@@ -659,32 +655,61 @@ let handle_inbox_post req =
     | `Undo _
     | `Delete _
     | `Create _ -> return_ok ()
+    | `Reboost ({ id; actor; published; obj; raw } as reboost) ->
+      log.debug (fun f -> f "received reboost of %s by %s (at %a)"
+                    obj actor (Option.pp(Ptime.pp_rfc3339 ())) published);
+      let public_id = Configuration.extract_activity_id_from_url obj in
+      let* public_id =
+        lift_opt public_id
+          ~else_:(fun _ ->
+              `InvalidData "received reboost addressed to a post not from this instance.")
+        |> return in
+      let* post =
+        Dream.sql req (Database.Posts.lookup_by_public_id ~public_id)
+        |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      let* post =
+        lift_opt post
+          ~else_:(fun _ ->
+              `ActivityNotFound "Received reboost for activity that is \
+                                 not present on this instance.")
+        |> return in
+      let published = Option.get_lazy Ptime_clock.now published in
+      Worker.send_task Worker.(
+          HandleRemoteReboost {
+            id; author=actor; target=post; published; raw_data=raw
+          }
+        );
+      log.debug (fun f ->
+          f "received reboost %a"
+            Activitypub.Types.pp_reboost reboost);
+      return_ok ()
     | `Like ({ id; published; actor; obj; raw; _ } as like) ->
       log.debug (fun f -> f "received like");
       let public_id = Configuration.extract_activity_id_from_url obj in
       let* public_id =
         lift_opt public_id
           ~else_:(fun _ ->
-            `InvalidData "received like addressed to a post not from this instance.")
+              `InvalidData "received like addressed to a post not from \
+                            this instance.")
         |> return in
       let* post = Dream.sql req (Database.Posts.lookup_by_public_id ~public_id)
                   |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
       let* post =
         lift_opt post
           ~else_:(fun _ ->
-            `ActivityNotFound "Received like for activity that is \
-                               not present on this instance.")
+              `ActivityNotFound "Received like for activity that is \
+                                 not present on this instance.")
         |> return in
       let published = Option.get_lazy Ptime_clock.now published in
       Worker.send_task Worker.(
-        HandleRemoteLike { id; author=actor; target=post; published; raw_data=raw }
-      );
+          HandleRemoteLike { id; author=actor; target=post; published; raw_data=raw }
+        );
       log.debug (fun f -> f "received like %a" Activitypub.Types.pp_like like);
       return_ok () in
 
   json (`Assoc [
-    "ok", `List []
-  ])
+      "ok", `List []
+    ])
 
 (* * Route *)
 let route = 

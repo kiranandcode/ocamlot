@@ -5,7 +5,7 @@ let version_0_0_2 = VersionedSchema.version [0;0;2]
 let version_0_0_3 = VersionedSchema.version [0;0;3]
 let version_0_0_4 = VersionedSchema.version [0;0;4]
 
-let db = VersionedSchema.init version_0_0_3 ~name:"ocamlot"
+let db = VersionedSchema.init version_0_0_4 ~name:"ocamlot"
 
 module DreamSession = struct
 
