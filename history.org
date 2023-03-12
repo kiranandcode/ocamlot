@@ -1,0 +1,265 @@
+* 2021
+** March (starting at 8359558c70)
+Initially OCamlot was based on the Sihl web framework --- I eventually
+switched away because it leant too much on the framework side of
+things, while I wanted a library.
+
+Here I was just experimenting around -- didn't actually set up anything.
+* 2022
+** February (starting at 9f764c41db)
+Here, I dropped Sihl for the aforementioned reasons, and implemented
+the first version of OCamlot from scratch using the Dream framework.
+
+This initial iteration only had a user endpoint (i.e inbox and
+outbox), both endpoints were not properly implemented, and most of my
+experimentation was working out how to use Mirage's crypto libraries
+to do the signing that I wanted.
+** Early March (starting at 783db07bc0)
+Had to vendor copy of parsing for HTTP date strings, because
+apparently there are no libraries in the OCaml ecosystem that expose
+functions to do this.
+
+Had alcotest based tests for database operations:
+
+#+begin_src ocaml
+T.add_test "user's password does not match" @@ with_db @@ fun db ->
+let* user = Database.User.create_user ~username:"example-user" ~password:"areallygoodpasswordhere121" db in
+check_string_neq ~expected:"areallygoodpasswordhere121" user.username
+check_string_neq ~expected:"areallygoodpasswordhere121"
+  (Database.User.username user)
+;;
+#+end_src
+
+These were very verbose, and the bane of my existence.
+
+Started looking through other implementations of activitypub servers
+(honk, rustodon) to see what fields should go in the user endpoint.
+
+Activitypub servers also require a particular style of signed http
+requests --- no libraries in the ecosystem provided such operations,
+so I had to implement my own. Luckily, while there are no libraries,
+OCaml does have a nice collection of crypto primitives, so
+implementing this wasn't too challenging.
+
+In commit =38774c25f0=, I got the easiest of the endpoints setup --- the
+activitypub .well-known/webfinger endpoint.
+
+Having set the webfinger endpoint up, I then sat down and began
+fleshing out the inbox endpoint.
+
+** Later March (starting at a2ccc330c1)
+Once I had an inbox endpoint up, I could get started with actually
+parsing activitypub messages.
+
+While the activitypub specification is "comprehensive" in describing
+the kinds of fields that a message may contain, it is somewhat useless
+for an implementer aiming at interoperability because the
+specification is too vague to translate easily to an implementation.
+
+More specifically, the generality of the specification means that
+reading the specification doesn't give a good idea of what kinds of
+messages you can expect to see from other servers.
+
+In other words, if you want to implement an inter-operable activitypub
+server, then you effectively *have* to look at the implementation and
+responses from other servers (somewhat defeating the point of having a
+specification in the first place).
+
+At this point, my process for doing this was quite laborious -- I had
+setup a pleroma server and my implementation on a Hetzinger VPS in
+finland and then would run both, and use the pleroma web UI to make
+the server send messages to my implementation which would then dump
+the received messages to a file.
+
+I would then collect these messages, inspect them, synthesize a
+specification and write a decoding function for each type of event.
+Effectively, the activitypub specification was not used at all during
+this process.
+
+** March (starting at 40d22f6509)
+At this point, I had managed to get to the point of writing an
+implementation that was able to successfully /accept/ a follow request -- this required:
+
+ 1. to have a proper webfinger endpoint so that the pleroma server
+    could work out what my inbox endpoint was
+ 2. have an inbox that would decode follow request activitypub jsons on post
+ 3. have a helper to create an accept object that told pleroma that my user was accepting the follow
+ 4. have a function to send a signed HTTP request to the pleroma
+    server so that it's http validation wouldn't reject the message
+
+The problem I ran into was that in the final step, I was attempting to
+accept the follow request before having completed the inbox post
+request -- this would cause pleroma to reject my accept.
+
+What I needed was some way of decoupling the "task" from the endpoint
+request.
+
+Suprisingly the dream framework doesn't have any easy way of doing
+this, so instead, I had to create a worker thread construction on top
+of Lwt, which endpoints could send tasks to be completed at a later
+time.
+
+** March (starting at 2d487a77d6)
+Having got follow requests working, I now got started on handling
+posts and displaying a feed.
+
+To do this, I had to sit down with =sqlitebrowser= and spend an
+afternoon writing out SQL queries to capture the particular logic I
+wanted with requests:
+
+#+begin_src sql
+-- select posts 
+SELECT P.id, P.public_id, P.url, P.author_id, P.is_public, P.summary, P.post_source, P.published, P.raw_data
+FROM Posts as P
+WHERE
+    -- we are not blocking/muting the author 
+    TRUE AND (
+    -- where, we (1) are the author
+    P.author_id = ? OR
+	-- or	we (1) are following the author of the post, and the post is public
+    (EXISTS (SELECT * FROM Follows AS F WHERE F.author_id = ? AND F.target_id = P.author_id) AND P.is_public) OR
+	-- or we (1) are the recipients (cc, to) of the post    
+    (EXISTS (SELECT * FROM PostTo as PT WHERE PT.post_id = P.id AND PT.actor_id = ?) OR
+	 EXISTS (SELECT * FROM PostCc as PC WHERE PC.post_id = P.id AND PC.actor_id = ?)))
+ORDER BY DATETIME(P.published) DESC
+#+end_src
+
+** March (starting at 7c7e6609ce)
+Continued working on implementing SQL queries for posts. Interacting
+with SQL was starting to drain on me.
+
+At this time, I was using pure Caqti as my interface with SQL, which
+meant that writing queries was an extremely error prone process:
+
+ 1. Because invalid SQL Caqti queries only show errors at runtime
+    (usually on a server that takes some effort to deploy and
+    observe), I had to prototype my queries first on sqlitebrowser
+ 2. Once prototyped, I had to coyp over to OCaml, and add an
+    appropriate type annotation, adding holes etc.
+ 3. Any typos in this process would only be caught much later.
+
+ Eventually this lead to my motivation fizzling out, and I put this
+ project on the sideburner for a while.
+
+** July (starting at 7f7925a785)
+After leaving this project for a while, I finally picked up my
+motivation and decided to work on it again.
+
+Fearing the issues I had run into with Caqti before, I decided to use
+my newfound motivation to tackle this problem directly first before it
+could derail my plans again.
+
+This time, I decided to go with a macro approach, and implemented an
+OCaml ppx that provides compile-type checking and processing of SQL
+queries.
+
+I spent a few weekends reading through the very nice sqlite
+documentation and wrote a parser using angstrom to automatically validate my queries at compile time:
+#+begin_src ocaml
+
+let ty =
+  choice [
+    (* If the declared type contains the string "INT" then it is assigned INTEGER affinity. *)
+    string_ci "integer" *> return INTEGER;
+    string_ci "int" *> return INTEGER;
+    (* If the declared type of the column contains any of the strings
+       "CHAR", "CLOB", or "TEXT" then that column has TEXT
+       affinity. Notice that the type VARCHAR contains the string
+       "CHAR" and is thus assigned TEXT affinity. *)
+    string_ci "char" *> return TEXT;
+    string_ci "varchar" *> return TEXT;
+    string_ci "text" *> return TEXT;
+    (* If the declared type for a column contains the string "BLOB" or if no type is specified then the column has affinity BLOB. *)
+    string_ci "blob" *> return BLOB;
+    (* If the declared type for a column contains any of the strings "REAL", "FLOA", or "DOUB" then the column has REAL affinity. *)
+    string_ci "real" *> return REAL;
+    string_ci "float" *> return REAL;
+    string_ci "double" *> return REAL;
+    (* Otherwise, the affinity is NUMERIC. *)
+    identifier >>= fun ty -> return (NUMERIC ty)
+  ]
+#+end_src
+
+The idea with this syntax approach was to use an external annotated
+=schema.sql= file as the source of truth for my macro -- the macro would
+parse the schema file and use its annotations (provided as comments)
+to automatically generate appropriate typing information for SQL queries:
+#+begin_src sql
+-- table for local users
+CREATE TABLE LocalUser (
+   id INTEGER PRIMARY KEY,
+   username TEXT UNIQUE NOT NULL,                        -- username
+   password TEXT NOT NULL /* password_hash: string */,   -- password hash + salt
+   display_name TEXT,                                    -- display name - if null then username
+   about TEXT,                                           -- about text for user
+   manually_accept_follows BOOLEAN NOT NULL,             -- whether the user is an admin
+   is_admin BOOLEAN NOT NULL,                            -- whether the user is an admin
+
+   pubkey TEXT NOT NULL /* X509.Public_key.t */,         -- public key for user
+   privkey TEXT NOT NULL /* X509.Private_key.t */        -- secret key for user
+);
+CREATE index idxLocalUser_username on LocalUser(username);
+#+end_src
+
+This required a lightweight type inference engine for SQL queries ---
+obviously as I only spent a few hours on this, the inference engine
+was wildly incomplete, but it turned out that it was more than
+sufficient for all of the queries used in the server.
+
+** August (starting at 243a2702eb)
+Here, empowered by the new SQL extension, I started developing the
+server at a faster pace, and implemented posts, and likes, and a
+proper feed.
+
+Around this time, I also incorporated =ocaml-crunch= to automatically
+include any static files the server was using into the binary itself
+to allow for a more portable executable.
+
+** September (starting at 10bca8dde0)
+Having finally gotten bored of having to upload my code to the cloud
+to test whether it interacts correctly with other servers, I finally
+got round to setting up a Docker compose setup for the integration tests.
+
+Using the docker compose file, a pleroma server and an instance of
+OCamlot are spawned on a virtual network with their DNS set up such
+that they can see each other via the domains =testing.ocamlot.xyz= and
+=pleroma.ocamlot.xyz=.
+
+A small problem in doing this was that activitypub servers require
+using https endpoints, but obviously my SSL certificates in the
+development docker build were not signed by any trusted certificate
+authority. Thus to actually make the whole thing work, I had to spend
+some time digging into the implementation of =pleroma= to make it
+disable validating SSL requests..
+
+* 2023
+** January (starting at 5817c579f8)
+At this point I was getting close to wanting to dogfood this project,
+but I realised a fatal flaw: the system had no support for migrating
+databases, which meant that if I wanted to update the server after
+releasing it into the wild, all my intermediate posts would be lost.
+
+Unfortunately, the macro approach that I had take so far doesn't
+really easily allow for migrations -- the schema file is a single file
+containing several table declarations, and wasn't designed with
+evolution in mind.
+
+Realising that I'd come to a dead end with this macro approach, I
+instead set about creating an embedded DSL for SQL queries, that
+eventually became the =petrol= library.
+
+In this month, I spent my free time refactoring the definitions and
+code to use the petrol library instead.
+
+I also came to discover cram tests during this time, which
+significantly cut down on the time spent writing tests, and now has
+become my go to technique for testing OCaml projects.
+** February (starting at c74b939d93)
+I became disillusioned with the styling that I had come up with for
+the website, and so took a step back and redesigned the UI for the
+webpage from scratch, coming up with a new unified theme, and
+replacing the ad-hoc monstrosity that I had accidentally grown in the
+meantime.
+** March (starting at 5fc25782e3)
+Mainly here I was reimplementing all the features I had implemented in
+the macro based approach but this time using petrol instead.
