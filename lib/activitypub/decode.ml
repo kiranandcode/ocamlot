@@ -96,6 +96,16 @@ let block =
   and* raw = value in
   succeed ({id;published;obj;actor;raw}: Types.block)
 
+let reboost =
+  let open D in
+  let* () = field "type" @@ constant ~msg:"expected Like (received %s)" "Announce"
+  and* id = field "id" string
+  and* actor = field "actor" id
+  and* published = field_opt "published" timestamp
+  and* obj = field "object" id
+  and* raw = value in
+  succeed ({id; actor; published; obj; raw}: Types.reboost)
+
 
 let accept obj =
   let open D in
@@ -230,6 +240,7 @@ let core_obj () =
   | "Note" -> note >|= fun v -> `Note v
   | "Block" -> block >|= fun v -> `Block v
   | "Like" -> like >|= fun v -> `Like v
+  | "Announce" -> reboost >|= fun v -> `Reboost v
   | _ -> fail "unsupported event"
 
 let obj = core_obj ()
@@ -240,7 +251,6 @@ let event (enc: Types.core_obj D.decoder) : Types.obj D.decoder =
   let* ty = field "type" string in
   match ty with
   | "Create" -> create enc >|= fun v -> `Create v
-  | "Announce" -> announce enc >|= fun v -> `Announce v
   | "Accept" -> accept enc >|= fun v -> `Accept v
   | "Undo" -> undo enc >|= fun v -> `Undo v
   | "Delete" -> delete enc >|= fun v -> `Delete v

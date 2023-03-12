@@ -159,12 +159,23 @@ type like = {
 }
 [@@deriving show, eq]
 
+type reboost = {
+  id: string;
+  actor: string;
+  published: Ptime.t option;
+  obj: string;
+  raw: yojson;
+}
+[@@deriving show, eq]
+
+
 type core_obj = [
     `Person of person
   | `Follow of follow
   | `Note of note
   | `Block of block
   | `Like of like
+  | `Reboost of reboost
 ] [@@deriving show, eq]
 
 type core_event = core_obj event
