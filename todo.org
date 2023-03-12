@@ -222,17 +222,20 @@ CLOSED: [2023-03-11 Sat 12:41]
 CLOSED: [2023-03-11 Sat 15:56]
 *** DONE Fix extract post to include likes
 CLOSED: [2023-03-11 Sat 14:37]
-** TODO Only show/allow registration box if registration allowed 
-*** TODO Add table for settings -- key, value (TEXT) fields
-*** TODO Add field for registrations allowed
-*** TODO Modify login/register page to only show register link on login
-** TODO Implement reboosts
-*** TODO Find how reboosts look
-*** TODO Add table to database/tables for reboosts (it will look like likes)
-*** TODO Add operation to database/operations for reboosts
-*** TODO Update feed query to include cheered
-*** TODO Add operation to collect relevant reboosts for post 
-*** TODO Update worker with local reboost task + AP resolver
+** DONE Implement reboosts
+CLOSED: [2023-03-12 Sun 14:14]
+*** DONE Find how reboosts look
+CLOSED: [2023-03-12 Sun 11:07]
+*** DONE Add table to database/tables for reboosts (it will look like likes)
+CLOSED: [2023-03-12 Sun 13:23]
+*** DONE Add operation to database/operations for reboosts
+CLOSED: [2023-03-12 Sun 13:24]
+*** DONE Update feed query to include cheered
+CLOSED: [2023-03-12 Sun 13:24]
+*** DONE Add operation to collect relevant reboosts for post 
+CLOSED: [2023-03-12 Sun 14:11]
+*** DONE Update worker with local reboost task + AP resolver
+CLOSED: [2023-03-12 Sun 14:14]
 ** TODO Implement outbox endpoint
 *** TODO Find out how outbox endpoint looks
 *** TODO Add endpoint to users
@@ -241,4 +244,7 @@ CLOSED: [2023-03-11 Sat 14:37]
 *** TODO Add task to worker + AP resolver
 ** TODO Implement reply to posts
 *** TODO Find out how reply looks
-
+** TODO Only show/allow registration box if registration allowed 
+*** TODO Add table for settings -- key, value (TEXT) fields
+*** TODO Add field for registrations allowed
+*** TODO Modify login/register page to only show register link on login
