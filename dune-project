@@ -47,7 +47,7 @@
    angstrom
    re
 
-   (omd (= 2.0.0~alpha2))
+   (omd (= 2.0.0~alpha3))
    crunch ppx_blob
 
    inotify
