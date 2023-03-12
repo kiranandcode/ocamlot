@@ -1,4 +1,4 @@
-(lang dune 2.9)
+(lang dune 3.0)
 (cram enable)
 (generate_opam_files true)
 (implicit_transitive_deps false)

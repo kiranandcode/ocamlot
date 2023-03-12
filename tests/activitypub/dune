@@ -1,0 +1,5 @@
+(executable (name decoder)
+ (libraries containers activitypub yojson decoders decoders-yojson ppx_deriving.runtime))
+
+
+(cram (deps ./decoder.exe (glob_files_rec resources/*.json)))
