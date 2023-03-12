@@ -1,7 +1,10 @@
 open Utils
 
 type t = {
-  self_link: string option;
+  self_link: Uri.t option;
+  toast_link: Uri.t option;
+  cheer_link: Uri.t option;
+
   headers: (string * User.t) list;
   content: Html_types.div_content_fun H.elt list;
   posted_date: Ptime.t;
@@ -57,19 +60,35 @@ let render ?redirect_url ?a_class post =
              H.div ~a:[H.a_class ["post-date"]] [
                let posted_date =
                  H.i [ H.txt (Format.asprintf "Posted on %a" pp_date (Ptime.to_date post.posted_date))] in
-               (match post.self_link with None -> posted_date | Some link -> H.a ~a:[H.a_href link] [posted_date])
+               (match post.self_link with
+                | None -> posted_date
+                | Some link -> H.a ~a:[H.a_href (Uri.to_string link)] [posted_date])
              ];
-             H.div ~a:[H.a_class ["post-social"]] (match post.self_link with
-               | None -> [
-                   H.a [ H.txt (print_stat "toasts" post.no_toasts post.has_been_toasted)];
-                   H.a [ H.txt (print_stat "cheers" post.no_cheers post.has_been_cheered)];
+             H.div ~a:[H.a_class ["post-social"]] (
+               let input_form url stat =
+                 H.form ~a:[ H.a_action url; H.a_method `Post] [
+                   H.input ~a:[ H.a_input_type `Submit; H.a_value stat] ()
+                 ] in
+               match post.toast_link, post.cheer_link with
+               | Some toast_link, Some _cheer_link -> [
+                   input_form
+                     (Uri.to_string 
+                        (match redirect_url with
+                           None -> toast_link
+                         | Some url ->
+                           Uri.add_query_param toast_link ("redirect", [url])))
+                     (print_stat "toasts" post.no_toasts post.has_been_toasted);
+                   H.a [
+                     H.txt (print_stat "cheers" post.no_cheers post.has_been_cheered)
+                   ];
                  ]
-               | Some url -> [
-                   H.form ~a:[
-                     H.a_action (url ^ "/toast" ^ (match redirect_url with None -> "" | Some url -> "?redirect=" ^ url));
-                     H.a_method `Post
-                   ] [H.input ~a:[H.a_input_type `Submit; H.a_value (print_stat "toasts" post.no_toasts post.has_been_cheered)] ()];
-                   H.a [ H.txt (print_stat "cheers" post.no_cheers post.has_been_cheered)];
+               | _ -> [
+                   H.a [
+                     H.txt (print_stat "toasts" post.no_toasts post.has_been_toasted)
+                   ];
+                   H.a [
+                     H.txt (print_stat "cheers" post.no_cheers post.has_been_cheered)
+                   ];
                  ]
              )
            ];

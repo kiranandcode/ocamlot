@@ -68,7 +68,7 @@ let handle_get_write ?(errors=[]) ?title ?to_ ?content_type ?visibility ?content
             ~icon:"P" ~current:"Preview" ();
           View.Write_post_box.render_write_post_preview
             View.Post.{
-              self_link=None;
+              self_link=None; toast_link=None; cheer_link=None;
               headers=[];
               content=preview;
               posted_date=Ptime_clock.now ();

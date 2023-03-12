@@ -126,12 +126,22 @@ let extract_post req (post: Database.Posts.t) =
 
   let self_link =
     match post.public_id with
-    | None -> post.url
-    | Some id -> Configuration.Url.post_path id in
+    | None -> Configuration.Url.remote_post_path post.url
+    | Some id -> Uri.of_string (Configuration.Url.post_path id) in
+
+  let toast_link =
+    match post.public_id with
+    | None -> Configuration.Url.remote_post_toast post.url
+    | Some id -> Uri.of_string (Configuration.Url.post_path id ^ "/toast") in
+
+  let cheer_link =
+    match post.public_id with
+    | None -> Configuration.Url.remote_post_cheer post.url
+    | Some id -> Uri.of_string (Configuration.Url.post_path id ^ "/cheer") in
 
   return_ok @@
   View.Post.{
-    self_link=Some self_link;
+    self_link=Some self_link; toast_link=Some toast_link; cheer_link=Some cheer_link;
     headers=[];
     content=post_contents;
     posted_date=post.Database.Posts.published;

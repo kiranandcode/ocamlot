@@ -1,6 +1,8 @@
 open Containers
 open Common
 
+let log = Logging.add_logger "web.post"
+
 let sql req f = Dream.sql req f |> Lwt_result.map_error (fun err -> `DatabaseError (Caqti_error.show err))
 
 (* * Extracting data *)
@@ -56,9 +58,28 @@ let handle_post_toast req =
       |> Option.value ~default:("/post/" ^ public_id) in
     redirect req url
 
+let handle_post_remote req =
+  let* current_user = current_user req in
+  let url = Dream.query req "url" in
+  let action = Dream.query req "action" in
+  match current_user, url, action with
+  | Some user, Some url, Some action when String.equal action "toast" || String.equal action "cheer"  ->
+    log.debug (fun f -> f "received %s of remote post %s" action url);
+    let* post = sql req (Database.Posts.lookup_by_url ~url) in
+    let* post = post
+                |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
+                |> return in
+    Worker.send_task Worker.(LocalLike {user;post});
+    let url =
+      Dream.query req "redirect"
+      |> Option.value ~default:("/feed/") in
+    redirect req url
+  | _ -> redirect req "/feed"
+
 let route =
   Dream.scope "/post" [] [
     Dream.get "/:postid" @@ Error_handling.handle_error_html @@ handle_post_get;
-    Dream.post "/:postid/toast" @@ Error_handling.handle_error_html @@ handle_post_toast
+    Dream.post "/:postid/toast" @@ Error_handling.handle_error_html @@ handle_post_toast;
+    Dream.post "/remote" @@ Error_handling.handle_error_html @@ handle_post_remote;
   ]
 

@@ -77,6 +77,18 @@ end
 let post_path id = ("/post/" ^ id)
 let post id = Lazy.force Params.domain |> Fun.flip Uri.with_path (post_path id)
 
+let remote_post_path url =
+  Uri.add_query_param
+    (Uri.with_path Uri.empty "/post/remote")
+    ("url", [url])
+let remote_post_toast url =
+  Uri.add_query_param (remote_post_path url)
+    ("action", ["toast"])
+let remote_post_cheer url =
+  Uri.add_query_param (remote_post_path url)
+    ("action", ["cheer"])
+
+
 let activity_endpoint id =
   Lazy.force Params.domain
   |> Fun.flip Uri.with_path (activity_path id)
