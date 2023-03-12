@@ -64,6 +64,13 @@ type task =
       author: string;
       raw_data: Yojson.Safe.t;
     }
+  | HandleRemoteReboost of {
+      id: string;
+      published: Ptime.t;
+      target: Database.Posts.t;
+      author: string;
+      raw_data: Yojson.Safe.t;
+    }
 
   | SearchRemoteUser of {
     username: string;
@@ -80,6 +87,10 @@ type task =
     content: string;
   }
   | LocalLike of {
+      user: Database.LocalUser.t;
+      post: Database.Posts.t;
+    }
+  | LocalReboost of {
       user: Database.LocalUser.t;
       post: Database.Posts.t;
     }
@@ -222,6 +233,22 @@ open struct
     log.debug (fun f -> f "worker added remote like");
     return_ok ()
 
+  let handle_remote_reboost pool id published target author raw_data =
+    log.debug (fun f -> f "worker handling remote reboost");
+    let* author =
+      with_pool pool @@ fun db ->
+      Ap_resolver.resolve_remote_user_by_url (Uri.of_string author) db
+      |> lift_resolver_error in
+    let* reboost = 
+      with_pool pool @@ fun db ->
+      Database.Reboosts.create
+        ~raw_data ~url:id
+        ~post:target.Database.Posts.id ~published
+        ~actor:author.Database.RemoteUser.id db
+      |> lift_database_error in
+    log.debug (fun f -> f "worker added remote reboost");
+    return_ok ()
+
   let handle_local_like pool (author: Database.LocalUser.t) (target: Database.Posts.t) =
     let* like =
       let* author = with_pool pool (Database.Actor.create_local_user ~local_id:author.id) in
@@ -234,6 +261,19 @@ open struct
       log.debug (fun f -> f "successfully sent local like by %s" author.Database.LocalUser.username);
       Lwt.return_ok ()
 
+  let handle_local_reboost pool (author: Database.LocalUser.t) (target: Database.Posts.t) =
+    let* reboost =
+      let* author = with_pool pool (Database.Actor.create_local_user ~local_id:author.id) in
+      with_pool pool @@ Database.Reboosts.find_reboost_between ~post:target.id ~author in
+    match reboost with
+    | Some _ -> Lwt.return_ok ()
+    | None ->
+      log.debug (fun f -> f "working on local reboost by %s of %s"
+                    (author.Database.LocalUser.username) target.url);
+      let* _ = with_pool pool @@ Ap_resolver.create_new_reboost author target in
+      log.debug (fun f -> f "successfully sent local reboost by %s"
+                    author.Database.LocalUser.username);
+      Lwt.return_ok ()
 
   let handle_undo_follow pool follow_id =
     let* follow =
@@ -318,6 +358,9 @@ open struct
                handle_accept_follow pool follow_id
              | HandleRemoteLike { id; published; target; author; raw_data } -> 
                handle_remote_like pool id published target author raw_data
+             | HandleRemoteReboost { id; published; target; author; raw_data } -> 
+               handle_remote_reboost pool id published target author raw_data
+
              | SearchRemoteUser {username; domain} ->
                handle_search_user pool username domain
              | LocalPost {user; title; content; content_type; scope; post_to;} -> 
@@ -328,6 +371,8 @@ open struct
                handle_create_remote_note pool author direct_message note
              | LocalLike {user; post} ->
                handle_local_like pool user post
+             | LocalReboost {user; post} ->
+               handle_local_reboost pool user post
            end |> handle_error |> Lwt.map ignore
          with
          | exn ->

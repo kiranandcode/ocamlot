@@ -70,7 +70,7 @@ let render ?redirect_url ?a_class post =
                    H.input ~a:[ H.a_input_type `Submit; H.a_value stat] ()
                  ] in
                match post.toast_link, post.cheer_link with
-               | Some toast_link, Some _cheer_link -> [
+               | Some toast_link, Some cheer_link -> [
                    input_form
                      (Uri.to_string 
                         (match redirect_url with
@@ -78,9 +78,13 @@ let render ?redirect_url ?a_class post =
                          | Some url ->
                            Uri.add_query_param toast_link ("redirect", [url])))
                      (print_stat "toasts" post.no_toasts post.has_been_toasted);
-                   H.a [
-                     H.txt (print_stat "cheers" post.no_cheers post.has_been_cheered)
-                   ];
+                   input_form
+                     (Uri.to_string 
+                        (match redirect_url with
+                           None -> cheer_link
+                         | Some url ->
+                           Uri.add_query_param toast_link ("redirect", [url])))
+                     (print_stat "cheers" post.no_cheers post.has_been_cheered);
                  ]
                | _ -> [
                    H.a [

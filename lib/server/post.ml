@@ -58,6 +58,25 @@ let handle_post_toast req =
       |> Option.value ~default:("/post/" ^ public_id) in
     redirect req url
 
+let handle_post_cheer req =
+  let public_id = Dream.param req "postid" in
+  let* current_user = current_user req in
+  match current_user with
+  | None -> redirect req "/feed"
+  | Some user ->
+    let* post =
+      sql req (Database.Posts.lookup_by_public_id ~public_id) in
+    let* post =
+      post
+      |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
+      |> return in
+    Worker.send_task Worker.(LocalReboost {user;post});
+    let url =
+      Dream.query req "redirect"
+      |> Option.value ~default:("/post/" ^ public_id) in
+    redirect req url
+
+
 let handle_post_remote req =
   let* current_user = current_user req in
   let url = Dream.query req "url" in
@@ -69,7 +88,10 @@ let handle_post_remote req =
     let* post = post
                 |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
                 |> return in
-    Worker.send_task Worker.(LocalLike {user;post});
+    begin match[@warning "-8"] action with
+      | "toast" -> Worker.send_task Worker.(LocalLike {user;post})
+      | "cheer" ->  Worker.send_task Worker.(LocalReboost {user;post})
+    end;
     let url =
       Dream.query req "redirect"
       |> Option.value ~default:("/feed/") in
@@ -80,6 +102,7 @@ let route =
   Dream.scope "/post" [] [
     Dream.get "/:postid" @@ Error_handling.handle_error_html @@ handle_post_get;
     Dream.post "/:postid/toast" @@ Error_handling.handle_error_html @@ handle_post_toast;
+    Dream.post "/:postid/cheer" @@ Error_handling.handle_error_html @@ handle_post_cheer;
     Dream.post "/remote" @@ Error_handling.handle_error_html @@ handle_post_remote;
   ]
 

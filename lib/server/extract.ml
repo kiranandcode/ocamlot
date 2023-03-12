@@ -114,9 +114,10 @@ let extract_post req (post: Database.Posts.t) =
       Markdown.markdown_to_html (Omd.of_string source)
     | _ -> [ Tyxml.Html.txt source ] in
 
+  let* author_obj = extract_user req author in
+
   let* post_likes =
     sql req (Database.Likes.count_for_post ~post:post.Database.Posts.id) in
-  let* author_obj = extract_user req author in
   let* has_been_toasted =
     match current_user with
     | None -> return_ok false
@@ -124,10 +125,34 @@ let extract_post req (post: Database.Posts.t) =
       let+ like = sql req (Database.Likes.find_like_between ~post:post.id ~author) in
       Option.is_some like in
 
+  let* post_cheers =
+    sql req (Database.Reboosts.count_for_post ~post:post.Database.Posts.id) in
+  let* has_been_cheered =
+    match current_user with
+    | None -> return_ok false
+    | Some author ->
+      let+ reboost = sql req (Database.Reboosts.find_reboost_between ~post:post.id ~author) in
+      Option.is_some reboost in
+
+
   let self_link =
     match post.public_id with
     | None -> Configuration.Url.remote_post_path post.url
     | Some id -> Uri.of_string (Configuration.Url.post_path id) in
+
+  let* headers =
+    match current_user with
+    | None -> return_ok []
+    | Some user ->
+      let* reboosts =
+        sql req (Database.Reboosts.collect_relevant_for_user ~post:post.id ~user) in
+      let* headers =
+        Lwt_list.map_s (fun reboost ->
+            let* user = sql req (Database.Actor.resolve ~id:reboost.Database.Reboosts.actor_id) in
+            let+ user = extract_user req user in
+            ("Toasted", user)
+          ) reboosts >> Result.flatten_l in
+      return_ok headers in
 
   let toast_link =
     match post.public_id with
@@ -142,13 +167,12 @@ let extract_post req (post: Database.Posts.t) =
   return_ok @@
   View.Post.{
     self_link=Some self_link; toast_link=Some toast_link; cheer_link=Some cheer_link;
-    headers=[];
+    headers;
     content=post_contents;
     posted_date=post.Database.Posts.published;
 
     no_toasts=post_likes; has_been_toasted;
-
-    has_been_cheered=false; no_cheers=0;
+    no_cheers=post_cheers; has_been_cheered;
 
     author=author_obj
   }

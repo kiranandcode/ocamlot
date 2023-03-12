@@ -234,6 +234,21 @@ let create_like_obj public_id post_url author published : Activitypub.Types.like
     raw=`Null
   }
 
+let create_reboost_obj public_id post_url author published : Activitypub.Types.reboost =
+  let id = public_id
+           |> Configuration.Url.activity_endpoint
+           |> Uri.to_string in
+  let actor = 
+    author.Database.LocalUser.username
+    |> Configuration.Url.user
+    |> Uri.to_string in
+  Activitypub.Types.{
+    id;
+    actor;
+    published;
+    obj=post_url;
+    raw=`Null
+  }
 
 let create_create_event_obj post_id author published scope to_ cc post =
   let is_public, is_follower_public =
@@ -428,6 +443,25 @@ let create_like_request (author: Database.LocalUser.t) (post: Database.Posts.t) 
   Lwt.return_ok (Yojson.Safe.to_string data)
 
 
+let create_reboost_request (author: Database.LocalUser.t) (post: Database.Posts.t) db =
+  let reboost_id = fresh_id () in
+  let published = Ptime_clock.now () in
+
+  let* _ =
+    let* author =
+      Database.Actor.create_local_user ~local_id:(author.Database.LocalUser.id) db in
+    Database.Reboosts.create
+      ~public_id:reboost_id
+      ~url:(Configuration.Url.activity_endpoint reboost_id |> Uri.to_string)
+      ~actor:author ~post:post.id ~published db
+    |> lift_database_error in
+
+  let reboost_obj = create_reboost_obj reboost_id post.url author (Some published) in
+
+  let data = Activitypub.Encode.(reboost) reboost_obj in
+  let* _ = lift_database_error (Database.Activity.create ~id:reboost_id ~data db) in
+  Lwt.return_ok (Yojson.Safe.to_string data)
+
 let create_note_request scope author to_ cc summary content content_type db =
   let post_id = fresh_id () in
   let is_public, is_follower_public =
@@ -509,6 +543,43 @@ let create_new_like (author: Database.LocalUser.t) (post: Database.Posts.t) db =
     | `OK ->
       let* _ = Cohttp_lwt.Body.drain_body body |> lift_pure in
       log.debug (fun f -> f "successfully sent like");
+      return_ok ()
+    | err ->
+      let* body = Cohttp_lwt.Body.to_string body |> lift_pure in
+      log.warning (fun f -> f "web post request failed with response %s; body %s"
+                              (Cohttp.Code.string_of_status err)
+                              body);
+      return_ok ()
+
+let create_new_reboost (author: Database.LocalUser.t) (post: Database.Posts.t) db =
+  let* post_author = lift_database_error (Database.Actor.resolve ~id:post.author_id db) in
+  let* target =
+    match post_author with
+    | `Local _ -> return_ok None
+    | `Remote id ->
+      let+ author = lift_database_error (Database.RemoteUser.resolve ~id db) in
+      Some author in
+  let* data = create_reboost_request author post db in
+  match target with
+  | None -> return_ok ()
+  | Some r ->
+    log.debug (fun f -> f "posting reboost to user %s" (r.Database.RemoteUser.username));
+    let key_id =
+      author.Database.LocalUser.username
+      |> Configuration.Url.user_key
+      |> Uri.to_string in
+    let priv_key = author.Database.LocalUser.privkey in
+    let* remote_user_inbox = 
+      Lwt.return (Option.to_result (`WorkerFailure "no remote inbox") r.Database.RemoteUser.inbox) in
+    log.debug (fun f -> f "inbox url %s" (remote_user_inbox));
+    let* (response, body) =
+      Requests.signed_post (key_id, priv_key)
+        (Uri.of_string remote_user_inbox) data
+      |> map_err (fun err -> `WorkerFailure err) in
+    match Cohttp.Response.status response with
+    | `OK ->
+      let* _ = Cohttp_lwt.Body.drain_body body |> lift_pure in
+      log.debug (fun f -> f "successfully sent reboost");
       return_ok ()
     | err ->
       let* body = Cohttp_lwt.Body.to_string body |> lift_pure in

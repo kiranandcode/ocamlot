@@ -3,6 +3,7 @@ open Petrol
 let version_0_0_1 = VersionedSchema.version [0;0;1]
 let version_0_0_2 = VersionedSchema.version [0;0;2]
 let version_0_0_3 = VersionedSchema.version [0;0;3]
+let version_0_0_4 = VersionedSchema.version [0;0;4]
 
 let db = VersionedSchema.init version_0_0_3 ~name:"ocamlot"
 
@@ -308,6 +309,40 @@ module Likes = struct
       ]
 
 end
+
+
+module Reboosts = struct
+
+  let table, Expr.[
+    id;
+    public_id;
+    url;
+    raw_data;
+    published;
+    post_id;
+    actor_id
+  ] =
+    VersionedSchema.declare_table db ~name:"reboosts"
+      Schema.[
+        field ~constraints:[primary_key ()] "reboost_id" ~ty:Type.int;
+        field "reboost_public_id" ~ty:Type.text;
+        field ~constraints:[not_null ()] "reboost_url" ~ty:Type.text;
+        field "reboost_raw_data" ~ty:Type.blob;
+        field ~constraints:[not_null ()] "reboost_published" ~ty:Type.text;
+        field ~constraints:[
+          not_null ();
+          foreign_key ~table:Posts.table ~columns:Expr.[Posts.id]
+            ~on_update:`RESTRICT ~on_delete:`RESTRICT ()
+        ] "reboost_post_id" ~ty:Type.int;
+        field ~constraints:[
+          not_null ();
+          foreign_key ~table:Actor.table ~columns:Expr.[Actor.id]
+            ~on_update:`RESTRICT ~on_delete:`RESTRICT ()
+        ] "reboost_actor_id" ~ty:Type.int;
+      ] ~since:version_0_0_4
+
+end
+
 
 module Follows = struct
 

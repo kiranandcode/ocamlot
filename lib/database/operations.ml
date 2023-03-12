@@ -1333,6 +1333,36 @@ module Posts = struct
     | Some end_time ->
       Expr.(Posts.published <= s start_time && s end_time <= Posts.published)
 
+  let is_reboosted_by_following ~id =
+    let open Petrol in
+    let open Tables in
+    let reboost_post,reboost_post_ref =
+      Expr.as_ Reboosts.post_id ~name:"rbp" in
+    let reboost_actor,reboost_actor_ref =
+      Expr.as_ Reboosts.actor_id ~name:"rba" in
+    let follow_author,follow_author_ref =
+      Expr.as_ Follows.author_id ~name:"fid" in
+    let follow_target,follow_target_ref =
+      Expr.as_ Follows.target_id ~name:"ftgt" in
+    let follow_pending,follow_pending_ref =
+      Expr.as_ Follows.pending ~name:"fpending" in
+    Expr.(
+      Expr.exists begin
+        Query.select Expr.[reboost_post; reboost_actor; follow_author_ref;
+                           follow_pending_ref]
+          ~from:Reboosts.table
+        |> Query.join ~on:Expr.(follow_target_ref = reboost_actor_ref)
+          ~op:Query.INNER begin
+          Query.select Expr.[follow_author; follow_target; follow_pending]
+            ~from:Follows.table
+        end
+        |> Query.where Expr.(follow_author_ref = i id &&
+                             reboost_post_ref = Posts.id &&
+                             not follow_pending_ref)
+        |> Query.order_by reboost_post_ref
+      end && Posts.is_public
+    )
+
   let is_feed_post ~id =
     let open Petrol in
     let open Tables in
@@ -1341,18 +1371,21 @@ module Posts = struct
         (* TODO: We are not blocking/muting the author *)
         (* (1) we are the author *)
         Posts.author_id = i id ||
-        (* we are following the author of the post && it is public *)
+        (* (2) we are following the author of the post && it is public *)
         (Expr.exists begin
-            Query.select Expr.[Follows.author_id; Follows.target_id]
+            Query.select Expr.[Follows.author_id; Follows.target_id; Follows.pending]
               ~from:Follows.table
             |> Query.where Expr.(
                 Follows.author_id = i id &&
-                Follows.target_id = Posts.author_id
+                Follows.target_id = Posts.author_id &&
+                not Follows.pending
               )
           end && (Posts.is_public || Posts.is_follower_public)
         ) ||
-        (* it is a direct message to us *)
-        is_direct_message ~id
+        (* (3) it is a direct message to us *)
+        is_direct_message ~id ||
+        (* (4) the post has been reboosted by someone we follow & is public *)
+        is_reboosted_by_following ~id
       )
     )
 
@@ -1852,6 +1885,175 @@ module Follows = struct
       let+ user = RemoteUser.resolve ~id conn in
       `Remote user
 
+end
+
+module Reboosts = struct
+
+  type t = {
+    id: int;
+    public_id: string option;
+    url: string;
+    raw_data: Yojson.Safe.t option;
+    published: Ptime.t;
+    post_id: int;
+    actor_id: int;
+  }
+  [@@deriving show]
+
+  let decode (id, (public_id, (url, (raw_data, (published, (post_id, (actor_id, ()))))))) =
+    let raw_data = Option.map Yojson.Safe.from_string raw_data in
+    let from_string s = Ptime.of_rfc3339 s |> Result.get_ok |> (fun (time, _, _) -> time) in
+    let published = from_string published in
+    {
+      id;
+      public_id;
+      url;
+      raw_data;
+      published;
+      post_id;
+      actor_id;
+    }
+
+  let resolve ~id conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+        Reboosts.id;
+        nullable Reboosts.public_id;
+        Reboosts.url;
+        nullable Reboosts.raw_data;
+        Reboosts.published;
+        Reboosts.post_id;
+        Reboosts.actor_id;
+      ] ~from:Reboosts.table
+    |> Query.where Expr.(Reboosts.id = i id)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map decode
+
+  let lookup_by_url ~url conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Reboosts.id;
+      nullable Reboosts.public_id;
+      Reboosts.url;
+      nullable Reboosts.raw_data;
+      Reboosts.published;
+      Reboosts.post_id;
+      Reboosts.actor_id;
+    ] ~from:Reboosts.table
+    |> Query.where Expr.(Reboosts.url = s url)
+    |> Request.make_zero_or_one
+    |> Petrol.find_opt conn
+    |> Lwt_result.map (Option.map decode)
+
+  let create ?public_id ?raw_data ~url ~post ~actor ~published conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let* () =
+      Query.insert ~table:Reboosts.table ~values:(
+        Expr.[
+          Reboosts.url := s url;
+          Reboosts.published := s (Ptime.to_rfc3339 published);
+          Reboosts.post_id := i post;
+          Reboosts.actor_id := i actor;
+        ] 
+        @ (Option.map Expr.(fun public_id ->
+            Reboosts.public_id := s public_id) public_id
+           |> Option.to_list)
+        @ (Option.map Expr.(fun raw_data ->
+            Reboosts.raw_data := s (Yojson.Safe.to_string raw_data)) raw_data
+           |> Option.to_list)
+      )
+      |> Query.on_err `IGNORE
+      |> Request.make_zero
+      |> Petrol.exec conn in
+    let* result = lookup_by_url ~url conn in
+    Lwt_result.return (Option.get result)
+
+  let find_reboost_between ~post ~author conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Reboosts.id;
+      nullable Reboosts.public_id;
+      Reboosts.url;
+      nullable Reboosts.raw_data;
+      Reboosts.published;
+      Reboosts.post_id;
+      Reboosts.actor_id;
+    ] ~from:Reboosts.table
+    |> Query.where Expr.(Reboosts.post_id = i post && Reboosts.actor_id = i author)
+    |> Request.make_zero_or_one
+    |> Petrol.find_opt conn
+    |> Lwt_result.map (Option.map decode)
+
+  let count_for_post ~post conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[ count_star ] ~from:Reboosts.table
+    |> Query.where Expr.(Reboosts.post_id = i post)
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (id, ()) -> id)
+
+  let collect_for_post ?(offset=0) ?(limit=10) ~post conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Reboosts.id;
+      nullable Reboosts.public_id;
+      Reboosts.url;
+      nullable Reboosts.raw_data;
+      Reboosts.published;
+      Reboosts.post_id;
+      Reboosts.actor_id;
+    ] ~from:Reboosts.table
+    |> Query.where Expr.(Reboosts.post_id = i post)
+    |> Query.order_by Reboosts.published ~direction:`DESC
+    |> Query.limit Expr.(i limit)
+    |> Query.offset Expr.(i offset)
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
+  
+  let collect_relevant_for_user ~post ~user conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.select Expr.[
+      Reboosts.id;
+      nullable Reboosts.public_id;
+      Reboosts.url;
+      nullable Reboosts.raw_data;
+      Reboosts.published;
+      Reboosts.post_id;
+      Reboosts.actor_id;
+    ] ~from:Reboosts.table
+    |> Query.where Expr.(
+        Reboosts.post_id = i post &&
+        Expr.exists begin
+          Query.select Expr.[Follows.author_id; Follows.target_id]
+            ~from:Follows.table
+          |> Query.where Expr.(
+              Follows.target_id = Reboosts.actor_id &&
+              Follows.author_id = i user &&
+              not Follows.pending
+            )
+      end
+      )
+    |> Query.order_by Reboosts.published ~direction:`DESC
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map decode)
+  
 end
 
 module Likes = struct
