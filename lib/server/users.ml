@@ -647,6 +647,10 @@ let handle_inbox_post req =
         CreateRemoteNote { author=actor; direct_message; note }
       );
       return_ok ()
+    | `Reboost { id; actor; published; obj; raw } ->
+      log.debug (fun f -> f "received reboost of %s by %s (at %a)"
+                    obj actor (Option.pp(Ptime.pp_rfc3339 ())) published);
+      return_ok ()
     | `Accept _
     | `Announce _
     | `Block _
