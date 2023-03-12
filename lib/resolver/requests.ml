@@ -15,7 +15,7 @@ let req ~headers url =
     Cohttp_lwt_unix.Client.get
       ~headers:(Cohttp.Header.of_list headers)
       url
-    >> Result.return 
+    >> Result.return
   with exn -> Lwt.return (Result.of_exn exn)
 
 let signed_req f (key_id, priv_key) uri body_str =

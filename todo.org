@@ -222,6 +222,10 @@ CLOSED: [2023-03-11 Sat 12:41]
 CLOSED: [2023-03-11 Sat 15:56]
 *** DONE Fix extract post to include likes
 CLOSED: [2023-03-11 Sat 14:37]
+** TODO Only show/allow registration box if registration allowed 
+*** TODO Add table for settings -- key, value (TEXT) fields
+*** TODO Add field for registrations allowed
+*** TODO Modify login/register page to only show register link on login
 ** TODO Implement reboosts
 *** TODO Find how reboosts look
 *** TODO Add table to database/tables for reboosts (it will look like likes)
