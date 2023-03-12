@@ -2,6 +2,8 @@
 open Containers
 open Common
 
+let log = Logging.add_logger "server"
+
 module Runner = Dream_runner
 
 let with_current_time req f =
@@ -95,7 +97,10 @@ let run () =
 
 
     Dream.get "/static/**" @@ Dream.static ~loader:from_static "static";
-    Dream.get "/**" @@ fun req -> Dream.redirect req "/feed"
+    Dream.get "/**" @@ fun req -> (
+      log.debug (fun f -> f "received request target:%s" (Dream.target req));
+      Dream.redirect req "/feed"
+    )
   ]
 
 
