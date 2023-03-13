@@ -52,7 +52,7 @@ let handle_post_toast req =
       post
       |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
       |> return in
-    Worker.send_task Worker.(LocalLike {user;post});
+    Worker.send_task (LocalLike {user;post});
     let url =
       Dream.query req "redirect"
       |> Option.value ~default:("/post/" ^ public_id) in
@@ -70,7 +70,7 @@ let handle_post_cheer req =
       post
       |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
       |> return in
-    Worker.send_task Worker.(LocalReboost {user;post});
+    Worker.send_task (LocalReboost {user;post});
     let url =
       Dream.query req "redirect"
       |> Option.value ~default:("/post/" ^ public_id) in
@@ -89,8 +89,8 @@ let handle_post_remote req =
                 |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
                 |> return in
     begin match[@warning "-8"] action with
-      | "toast" -> Worker.send_task Worker.(LocalLike {user;post})
-      | "cheer" ->  Worker.send_task Worker.(LocalReboost {user;post})
+      | "toast" -> Worker.send_task (LocalLike {user;post})
+      | "cheer" ->  Worker.send_task (LocalReboost {user;post})
     end;
     let url =
       Dream.query req "redirect"

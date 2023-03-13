@@ -4,8 +4,9 @@ let version_0_0_1 = VersionedSchema.version [0;0;1]
 let version_0_0_2 = VersionedSchema.version [0;0;2]
 let version_0_0_3 = VersionedSchema.version [0;0;3]
 let version_0_0_4 = VersionedSchema.version [0;0;4]
+let version_0_0_5 = VersionedSchema.version [0;0;5]
 
-let db = VersionedSchema.init version_0_0_4 ~name:"ocamlot"
+let db = VersionedSchema.init version_0_0_5 ~name:"ocamlot"
 
 module DreamSession = struct
 
@@ -175,7 +176,9 @@ module Posts = struct
       post_source;
 
       published;
-      raw_data
+      raw_data;
+
+      deleted;
     ] =
     VersionedSchema.declare_table db ~name:"posts"
       Schema.[
@@ -198,6 +201,12 @@ module Posts = struct
         field ~constraints:[not_null ()] "published" ~ty:Type.text;            (* date at which post was published (Ptime) *)
 
         field "raw_data" ~ty:Type.blob;                                        (* if by an external user, then keep json of the post (Yojson.Safe.t) *)
+        field "deleted" ~ty:Type.bool;
+      ]
+      ~migrations:[
+        version_0_0_5, [
+          Caqti_request.Infix.(Caqti_type.unit ->. Caqti_type.unit) {sql| ALTER TABLE posts ADD COLUMN deleted INTEGER |sql}
+        ];
       ]
 
   module PostTo = struct

@@ -96,17 +96,6 @@ let block =
   and* raw = value in
   succeed ({id;published;obj;actor;raw}: Types.block)
 
-let reboost =
-  let open D in
-  let* () = field "type" @@ constant ~msg:"expected Like (received %s)" "Announce"
-  and* id = field "id" string
-  and* actor = field "actor" id
-  and* published = field_opt "published" timestamp
-  and* obj = field "object" id
-  and* raw = value in
-  succeed ({id; actor; published; obj; raw}: Types.reboost)
-
-
 let accept obj =
   let open D in
   let* () = field "type" @@ constant ~msg:"expected Accept (received %s)" "Accept"
@@ -233,17 +222,16 @@ let create obj =
 
 let core_obj () =
   let open D in
-  let* ty = field "type" string in
+  let* ty = field_opt "type" string in
   match ty with
-  | "Person" -> person >|= fun v -> `Person v
-  | "Follow" -> follow >|= fun v -> `Follow v
-  | "Note" -> note >|= fun v -> `Note v
-  | "Block" -> block >|= fun v -> `Block v
-  | "Like" -> like >|= fun v -> `Like v
-  | "Announce" -> reboost >|= fun v -> `Reboost v
-  | _ -> fail "unsupported event"
+  | Some "Person" -> person >|= fun v -> `Person v
+  | Some "Follow" -> follow >|= fun v -> `Follow v
+  | Some "Note" -> note >|= fun v -> `Note v
+  | Some "Block" -> block >|= fun v -> `Block v
+  | Some "Like" -> like >|= fun v -> `Like v
+  | None -> string >|= fun v -> `Link v
+  | Some ev -> fail ("unsupported event" ^ ev)
 
-let obj = core_obj ()
 let core_obj = core_obj ()
 
 let event (enc: Types.core_obj D.decoder) : Types.obj D.decoder =
@@ -254,11 +242,12 @@ let event (enc: Types.core_obj D.decoder) : Types.obj D.decoder =
   | "Accept" -> accept enc >|= fun v -> `Accept v
   | "Undo" -> undo enc >|= fun v -> `Undo v
   | "Delete" -> delete enc >|= fun v -> `Delete v
+  | "Announce" -> announce enc >|= fun v -> `Announce v
   | _ -> fail "unsupported event"
 
 let obj : Types.obj D.decoder =
   D.one_of [
-    "core_obj", obj;
+    "core_obj", core_obj;
     "core_obj event", (event core_obj)
   ]
 

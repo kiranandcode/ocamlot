@@ -29,5 +29,6 @@ let () =
     decode_and_print file user
   | ["announce"; file] ->
     decode_and_print file obj
-
+  | ["obj"; file] ->
+    decode_and_print file obj
   | _ -> failwith ("unsupported parameters: " ^ (String.concat ", " args))

@@ -121,7 +121,7 @@ let handle_post_write req =
                             (title, to_, content_type, scope, contents)));
     let* Some user = current_user req in
     let () = Worker.send_task
-               Worker.((LocalPost {
+               ((LocalPost {
                  user=user;  title; scope; content_type;
                  post_to=to_; 
                  content=contents

@@ -164,7 +164,7 @@ let handle_actor_get_html req =
             ~since:timestamp ~offset:(offset * 10) ~limit:10 ~id:user db in
         let* follows =
           Lwt_list.map_s (fun follow ->
-            let target = follow.Database.Follows.target_id in
+            let target = follow.Database.Follows.author_id in
             let* target = Database.Actor.resolve ~id:target db in
             Lwt.return_ok (follow, target)) follows
           >> Result.flatten_l in
@@ -571,6 +571,28 @@ let handle_follow_local_user current_user username req =
       |> map_err (fun e -> `DatabaseError (Caqti_error.show e)) in
     redirect req "/users"
   | true ->
+    redirect req "/users"
+
+let handle_unfollow_local_user current_user username req =
+  let* current_user =
+    Dream.sql req (Database.Actor.create_local_user ~local_id:(current_user.Database.LocalUser.id))
+    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  let* target_user =
+    Dream.sql req
+      (Database.LocalUser.find_user ~username)
+    |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
+    >>= (fun v -> return (lift_opt ~else_:(fun () -> `UserNotFound username) v)) in
+  let* target_user =
+    Dream.sql req @@ Database.Actor.create_local_user ~local_id:(target_user.Database.LocalUser.id)
+    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  let* is_following =
+    Dream.sql req @@ fun db ->
+    Database.Follows.is_following ~author:current_user ~target:target_user db
+    |> map_err (fun e -> `DatabaseError (Caqti_error.show e)) in
+  match is_following with
+  | false ->
+    redirect req "/users"
+  | true ->
     let* follow =
       Dream.sql req @@
       Database.Follows.find_follow_between
@@ -595,6 +617,17 @@ let handle_follow_remote_user current_user username domain req =
   );
   redirect req "/users"
 
+let handle_unfollow_remote_user current_user username domain req =
+  Worker.send_task Worker.(
+    UnfollowRemoteUser {
+      user=current_user;
+      username;
+      domain
+    }
+  );
+  redirect req "/users"
+
+
 let handle_users_follow_post req =
   let username = Dream.param req "username" in
   log.debug (fun f -> f "got POST to follow with user %s" username);
@@ -609,6 +642,22 @@ let handle_users_follow_post req =
     handle_follow_remote_user current_user username domain req
   | _ ->
     handle_follow_local_user current_user username req
+
+let handle_users_unfollow_post req =
+  let username = Dream.param req "username" in
+  log.debug (fun f -> f "got POST to unfollow with user %s" username);
+  let* current_user =
+    let* current_user = current_user req in
+    lift_opt ~else_:(fun _ -> `InvalidPermissions ("Attempt to follow user while logged out"))
+      current_user
+    |> return in
+  match String.contains username '@', lazy (String.split_on_char '@' username) with
+  | true, lazy (username :: domain)  ->
+    let domain = String.concat "@" domain in
+    handle_unfollow_remote_user current_user username domain req
+  | _ ->
+    handle_unfollow_local_user current_user username req
+
 
 (* * Inbox (post) *)
 let handle_inbox_post req =
@@ -682,15 +731,7 @@ let handle_inbox_post req =
           CreateRemoteNote { author=actor; direct_message; note }
         );
       return_ok ()
-    | `Accept _
-    | `Announce _
-    | `Block _
-    | `Note _
-    | `Person _
-    | `Undo _
-    | `Delete _
-    | `Create _ -> return_ok ()
-    | `Reboost ({ id; actor; published; obj; raw } as reboost) ->
+    | `Announce ({ id; actor; published; obj=`Link obj; raw; _ } as reboost) ->
       log.debug (fun f -> f "received reboost of %s by %s (at %a)"
                     obj actor (Option.pp(Ptime.pp_rfc3339 ())) published);
       let public_id = Configuration.extract_activity_id_from_url obj in
@@ -716,7 +757,7 @@ let handle_inbox_post req =
         );
       log.debug (fun f ->
           f "received reboost %a"
-            Activitypub.Types.pp_reboost reboost);
+            (Activitypub.Types.pp_announce Activitypub.Types.pp_core_obj) reboost);
       return_ok ()
     | `Like ({ id; published; actor; obj; raw; _ } as like) ->
       log.debug (fun f -> f "received like");
@@ -740,7 +781,23 @@ let handle_inbox_post req =
           HandleRemoteLike { id; author=actor; target=post; published; raw_data=raw }
         );
       log.debug (fun f -> f "received like %a" Activitypub.Types.pp_like like);
-      return_ok () in
+      return_ok ()
+    | `Undo { id; actor; published; obj=`Link obj; raw; } ->
+      Worker.send_task Worker.(HandleUndo {author=actor; obj});
+      return_ok ()
+    | `Delete { id; actor; published; obj=`Link obj; raw } ->
+      Worker.send_task Worker.(HandleUndo {author=actor; obj});
+      return_ok ()
+    | `Undo _
+    | `Accept _
+    | `Block _
+    | `Note _
+    | `Person _
+    | `Delete _
+    | `Announce _
+    | `Link _
+    | `Create _ ->
+      return (Error (`NotImplemented (Format.sprintf "received unimplemented object %a" Activitypub.Types.pp_obj data))) in
 
   json (`Assoc [
       "ok", `List []
@@ -756,6 +813,9 @@ let route =
     Dream.post "/:username/edit" @@ Error_handling.handle_error_html (handle_actor_edit_post);
 
     Dream.post "/:username/follow" @@ Error_handling.handle_error_html (handle_users_follow_post);
+    Dream.post "/:username/unfollow" @@ Error_handling.handle_error_html (handle_users_unfollow_post);
+
+
     (* Dream.get "/:username/inbox" handle_inbox_get; *)
     Dream.post ":username/inbox" @@ Error_handling.handle_error_json (handle_inbox_post);
     Dream.get "/:username/outbox" @@ Error_handling.handle_error_json handle_outbox_get;

@@ -244,16 +244,20 @@ CLOSED: [2023-03-13 Mon 12:14]
 CLOSED: [2023-03-12 Sun 16:06]
 *** DONE Add endpoint to users
 CLOSED: [2023-03-13 Mon 12:14]
-** TODO Handle post deletion
-*** TODO Find out how post deletion request looks like
-*** TODO Add task to worker + AP resolver
+** DONE Handle post deletion
+CLOSED: [2023-03-13 Mon 14:35]
+*** DONE Find out how post deletion request looks like
+CLOSED: [2023-03-13 Mon 14:35]
+*** DONE Add task to worker + AP resolver
+CLOSED: [2023-03-13 Mon 14:35]
 ** TODO Implement reply to posts
 *** DONE Find out how reply looks
 CLOSED: [2023-03-12 Sun 16:13]
 *** TODO Add field to table to track conversation
 *** TODO On click on post, show all posts with same conversation
 *** TODO When click on post
-** TODO Only show/allow registration box if registration allowed 
-*** TODO Add table for settings -- key, value (TEXT) fields
-*** TODO Add field for registrations allowed
-*** TODO Modify login/register page to only show register link on login
+** TODO Fix Inbox
+*** TODO Only show/allow registration box if registration allowed 
+**** TODO Add table for settings -- key, value (TEXT) fields
+**** TODO Add field for registrations allowed
+**** TODO Modify login/register page to only show register link on login

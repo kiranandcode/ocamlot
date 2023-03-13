@@ -189,13 +189,6 @@ let like ({ id; actor; published; obj; raw=_ }: Types.like) =
     "published" @? published <: ptime;
   ]
 
-let reboost ({ id; actor; published; obj; raw=_ }: Types.reboost) =
-  ap_obj "Announce" [
-    "id" @ id <: E.string;
-    "actor" @ actor <: E.string;
-    "object" @ obj <: E.string;
-    "published" @? published <: ptime;
-  ]
 
 let core_obj : Types.core_obj E.encoder = function
   | `Follow f -> follow f
@@ -203,7 +196,7 @@ let core_obj : Types.core_obj E.encoder = function
   | `Note n -> note n
   | `Person p -> person p
   | `Like l -> like l
-  | `Reboost r -> reboost r
+  | `Link r -> E.string r
 
 let event enc : _ Types.event E.encoder = function
   | `Announce a -> announce enc a

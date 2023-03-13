@@ -244,7 +244,7 @@ let create_like_obj public_id post_url author published : Activitypub.Types.like
     raw=`Null
   }
 
-let create_reboost_obj public_id post_url author published : Activitypub.Types.reboost =
+let create_reboost_obj public_id post_url author published : Activitypub.Types.core_obj Activitypub.Types.announce =
   let id = public_id
            |> Configuration.Url.activity_endpoint
            |> Uri.to_string in
@@ -255,8 +255,10 @@ let create_reboost_obj public_id post_url author published : Activitypub.Types.r
   Activitypub.Types.{
     id;
     actor;
+    to_=[];
+    cc=[];
     published;
-    obj=post_url;
+    obj=`Link post_url;
     raw=`Null
   }
 
@@ -339,29 +341,92 @@ let build_follow_request local remote db =
   let* _ = Database.Activity.create ~id ~data db in
   Lwt_result.return (data |> Yojson.Safe.to_string)
 
-let follow_remote_user
+
+let unfollow_remote_user
       (local: Database.LocalUser.t)
       ~username ~domain db: (unit,string) Lwt_result.t =
   log.debug (fun f -> f "resolving remote user %s@%s" username domain);
   let* remote = resolve_remote_user ~username ~domain db in
   log.debug (fun f -> f "successfully resolved remote user %s@%s" username domain);
-  let* follow_request = build_follow_request local remote db |> sanitize in
-  log.debug (fun f -> f "built follow request %s" follow_request);
-  let* uri = Lwt_result.lift (Result.of_opt remote.Database.RemoteUser.inbox) in
-  let key_id =
-    local.Database.LocalUser.username
-    |> Configuration.Url.user_key
-    |> Uri.to_string in
-  let priv_key =
-    local.Database.LocalUser.privkey in
-  log.debug (fun f -> f "sending signed follow request");
-  let* resp, body  = Requests.signed_post (key_id, priv_key) (Uri.of_string uri) follow_request in
-  let* body = lift_pure (Cohttp_lwt.Body.to_string body) in
-  log.debug (fun f -> f "follow request response was (STATUS: %s) %s"
-                        (Cohttp.Code.string_of_status resp.status) body);
-  match resp.status with
-  | `OK -> Lwt_result.return ()
-  | _ -> Lwt_result.fail "request failed"
+  let* local_user = sanitize (Database.Actor.create_local_user ~local_id:local.id db) in
+  let* remote_user = sanitize (Database.Actor.create_remote_user ~remote_id:remote.id db) in
+  let* follow = 
+    sanitize (Database.Follows.find_follow_between ~author:local_user ~target:remote_user db) in
+  match follow with
+  | None -> return_ok ()
+  | Some follow ->
+    let* _ = Database.Follows.delete ~id:(follow.Database.Follows.id) db |> sanitize in
+    let id = fresh_id () in
+    let data =
+      Activitypub.Encode.(undo follow) {
+      id=id |> Configuration.Url.activity_endpoint |> Uri.to_string ;
+      published= Some (Ptime_clock.now ());
+      obj = {
+        id = follow.url;
+        actor = Configuration.Url.user local.username |> Uri.to_string;
+        cc=[];
+        to_=[remote.url];
+        object_=remote.url;
+        state=if follow.pending then Some `Pending else None;
+        raw =`Null
+      };
+      actor=Configuration.Url.user local.username |> Uri.to_string;
+      raw=`Null
+    } in
+    let* _ = Database.Activity.create ~id ~data:data db |> sanitize in
+    log.debug (fun f -> f "built follow unfollow %s" (Yojson.Safe.to_string data));
+
+
+    let* uri = Lwt_result.lift (Result.of_opt remote.Database.RemoteUser.inbox) in
+    let key_id =
+      local.Database.LocalUser.username
+      |> Configuration.Url.user_key
+      |> Uri.to_string in
+    let priv_key =
+      local.Database.LocalUser.privkey in
+    log.debug (fun f -> f "sending signed follow request");
+    let* resp, body  =
+      Requests.signed_post (key_id, priv_key) (Uri.of_string uri)
+        (Yojson.Safe.to_string data) in
+    let* body = lift_pure (Cohttp_lwt.Body.to_string body) in
+    log.debug (fun f -> f "unfollow request response was (STATUS: %s) %s"
+                          (Cohttp.Code.string_of_status resp.status) body);
+    match resp.status with
+    | `OK -> Lwt_result.return ()
+    | _ -> Lwt_result.fail "request failed"
+
+
+let follow_remote_user
+      (local: Database.LocalUser.t)
+      ~username ~domain db: (unit,string) Lwt_result.t =
+  log.debug (fun f -> f "resolving remote user %s@%s" username domain);
+  let* remote = resolve_remote_user ~username ~domain db in
+  let* local_user = sanitize (Database.Actor.create_local_user ~local_id:local.id db) in
+  let* remote_user = sanitize (Database.Actor.create_remote_user ~remote_id:remote.id db) in
+  let* follow = 
+    sanitize (Database.Follows.find_follow_between ~author:local_user ~target:remote_user db) in
+
+  match follow with
+  | Some _ -> return_ok ()
+  | None ->
+    log.debug (fun f -> f "successfully resolved remote user %s@%s" username domain);
+    let* follow_request = build_follow_request local remote db |> sanitize in
+    log.debug (fun f -> f "built follow request %s" follow_request);
+    let* uri = Lwt_result.lift (Result.of_opt remote.Database.RemoteUser.inbox) in
+    let key_id =
+      local.Database.LocalUser.username
+      |> Configuration.Url.user_key
+      |> Uri.to_string in
+    let priv_key =
+      local.Database.LocalUser.privkey in
+    log.debug (fun f -> f "sending signed follow request");
+    let* resp, body  = Requests.signed_post (key_id, priv_key) (Uri.of_string uri) follow_request in
+    let* body = lift_pure (Cohttp_lwt.Body.to_string body) in
+    log.debug (fun f -> f "follow request response was (STATUS: %s) %s"
+                          (Cohttp.Code.string_of_status resp.status) body);
+    match resp.status with
+    | `OK -> Lwt_result.return ()
+    | _ -> Lwt_result.fail "request failed"
 
 let accept_remote_follow  follow remote local db =
   let* accept_follow = create_accept_follow follow remote local db |> sanitize in
@@ -376,7 +441,9 @@ let accept_remote_follow  follow remote local db =
     f "sending accept follow request to %s\n\ndata is %s"
       uri (Yojson.Safe.pretty_to_string accept_follow)
   );
-
+  let* _ = Database.Follows.update_pending_status
+             ~id:(follow.Database.Follows.id) ~pending:false db
+           |> sanitize in
   let* resp, body  = Requests.signed_post (key_id, priv_key) (Uri.of_string uri)
                        (Yojson.Safe.to_string accept_follow) in
   let* body = Cohttp_lwt.Body.to_string body >> Result.return in
@@ -385,9 +452,8 @@ let accept_remote_follow  follow remote local db =
 
   match resp.status with
   | `OK ->
-    Database.Follows.update_pending_status
-      ~id:(follow.Database.Follows.id) ~pending:false db
-    |> sanitize
+    log.debug (fun f -> f "successfully updated pending status!");
+    return_ok ()
   | _ -> Lwt_result.fail "request failed"
 
 let accept_local_follow _config follow ~target:remote ~author:local db =
@@ -433,6 +499,55 @@ let follow_local_user follow_url remote_url local_user data db =
     else Lwt_result.return () in
   Lwt_result.return ()
 
+let undo_like (author: string) (like: Database.Likes.t) db =
+  log.debug (fun f -> f "deleting like by %s" author);
+  let* like_user = extract_user_url ~id:like.actor_id db in
+  if String.(like_user = author)
+  then Database.Likes.delete ~id:like.id db |> lift_database_error
+  else begin
+    log.debug (fun f -> f "received request to delete %s like by %s" like_user author);
+    return (Error (`InvalidData "attempt to delete someone else's event"))
+  end
+
+let undo_reboost (author: string) (reboost: Database.Reboosts.t) db =
+  log.debug (fun f -> f "deleting reboost by %s" author);
+  let* reboost_user = extract_user_url ~id:reboost.actor_id db in
+  if String.(reboost_user = author)
+  then Database.Reboosts.delete ~id:reboost.id db |> lift_database_error
+  else begin
+    log.debug (fun f -> f "received request to delete %s reboost by %s" reboost_user author);
+    return (Error (`InvalidData "attempt to delete someone else's event"))
+  end
+
+let undo_post (author: string) (post: Database.Posts.t) db =
+  log.debug (fun f -> f "deleting post by %s" author);
+  let* reboost_user = extract_user_url ~id:post.author_id db in
+  if String.(reboost_user = author)
+  then Database.Posts.delete ~id:post.id db |> lift_database_error
+  else begin
+    log.debug (fun f -> f "received request to delete %s post by %s" reboost_user author);
+    return (Error (`InvalidData "attempt to delete someone else's post"))
+  end
+
+let undo_object (author: string)  (obj: string) db =
+  let* like = Database.Likes.lookup_by_url ~url:obj db |> lift_database_error in
+  let* reboost =
+    (match like with
+      None -> Database.Reboosts.lookup_by_url ~url:obj db
+    | Some _ -> return_ok None) |> lift_database_error in
+  let* post =
+    (match like, reboost with
+      None, None -> Database.Posts.lookup_by_url ~url:obj db
+     | _ -> return_ok None) |> lift_database_error in
+  match like, reboost, post with
+  | Some like, _, _ -> undo_like author like db
+  | _, Some reboost, _ -> undo_reboost author reboost db
+  | _, _, Some post -> undo_post author post db
+  | _ ->
+    log.error (fun f -> f "received undo of event %s not present on the server" author);
+    return_ok ()
+  
+
 let create_like_request (author: Database.LocalUser.t) (post: Database.Posts.t) db =
   let like_id = fresh_id () in
   let published = Ptime_clock.now () in
@@ -468,7 +583,7 @@ let create_reboost_request (author: Database.LocalUser.t) (post: Database.Posts.
 
   let reboost_obj = create_reboost_obj reboost_id post.url author (Some published) in
 
-  let data = Activitypub.Encode.(reboost) reboost_obj in
+  let data = Activitypub.Encode.(announce core_obj) reboost_obj in
   let* _ = lift_database_error (Database.Activity.create ~id:reboost_id ~data db) in
   Lwt.return_ok (Yojson.Safe.to_string data)
 
