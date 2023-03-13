@@ -71,7 +71,7 @@ let enforce_markdown path =
   let* contents = OS.File.read path in
   Ok (Omd.of_string contents)
 
-let run () =
+let run promote_admin =
 
   let* () =
     enforce_database
@@ -89,8 +89,20 @@ let run () =
     let* path = enforce_directory (Lazy.force Configuration.user_image_dir) in
     Ok path in
 
-  Ok (Server.run ())
+  match promote_admin with
+  | Some username ->
+    Lwt_main.run (Caqti_lwt.with_connection (Uri.of_string ("sqlite3://:" ^ Lazy.force Configuration.database_path)) (fun db ->
+      Database.LocalUser.promote_user_to_admin ~username db
+    ) |> Lwt_result.map_error (fun err -> `Msg (Caqti_error.show err)))
+  | None -> Ok (Server.run ())
 
+
+open Cmdliner
+
+let promote_admin =
+  let info = Arg.info ~doc:"If provided, then rather than running the server, simply promote the requested user to an admin."
+               ["promote-to-admin"] in
+  Arg.value @@ Arg.opt Arg.(some string) None info
 
 
 let _ =
@@ -101,5 +113,5 @@ let _ =
       "OCamlot" in
   let cmd = Term.(term_result @@ (
     Configuration.(wrap (const run)) $
-    const ())) in
+    promote_admin)) in
   Cmd.eval (Cmd.v info cmd)

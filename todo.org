@@ -64,7 +64,8 @@ CLOSED: [2022-09-25 Sun 02:19]
 *** DONE Fix next and prev buttons on posts
 CLOSED: [2022-09-25 Sun 03:31]
 * Tasks for beta release
-** TODO Implement support for //user/<user-name/outbox// to view public posts (it's essentially followers)
+** DONE Implement support for //user/<user-name/outbox// to view public posts (it's essentially followers)
+CLOSED: [2023-03-13 Mon 16:40]
 :PROPERTIES:
 :Effort:   0:10
 :END:
@@ -132,12 +133,16 @@ CLOSED: [2023-03-11 Sat 14:09]
 CLOSED: [2023-03-11 Sat 14:09]
 *** DONE Implement support for uploading files
 CLOSED: [2023-03-11 Sat 14:09]
-** TODO Handle post deletion
-*** TODO Handle deleted posts requests from remote 
-*** TODO Allow deleting posts from remote
-** TODO Add support for replies
+** DONE Handle post deletion
+CLOSED: [2023-03-13 Mon 16:40]
+*** DONE Handle deleted posts requests from remote 
+CLOSED: [2023-03-13 Mon 16:40]
+*** DONE Allow deleting posts from remote
+CLOSED: [2023-03-13 Mon 16:40]
 ** DONE Handle updating user profiles
 CLOSED: [2023-01-28 Sat 05:11]
+** TODO Add support for replies
+
 * Tasks for alpha release
 ** TODO Add support for collecting user posts from remote instances (outbox?)
 *** TODO when adding a user for the first time, if not known to the system, queue a task to load in all their public posts 
@@ -250,14 +255,19 @@ CLOSED: [2023-03-13 Mon 14:35]
 CLOSED: [2023-03-13 Mon 14:35]
 *** DONE Add task to worker + AP resolver
 CLOSED: [2023-03-13 Mon 14:35]
+** DONE Fix Inbox
+CLOSED: [2023-03-13 Mon 16:40]
+*** DONE Only show/allow registration box if registration allowed 
+CLOSED: [2023-03-13 Mon 16:40]
+**** DONE Add table for settings -- key, value (TEXT) fields
+CLOSED: [2023-03-13 Mon 16:40]
+**** DONE Add field for registrations allowed
+CLOSED: [2023-03-13 Mon 16:40]
+**** DONE Modify login/register page to only show register link on login
+CLOSED: [2023-03-13 Mon 16:40]
 ** TODO Implement reply to posts
 *** DONE Find out how reply looks
 CLOSED: [2023-03-12 Sun 16:13]
 *** TODO Add field to table to track conversation
 *** TODO On click on post, show all posts with same conversation
 *** TODO When click on post
-** TODO Fix Inbox
-*** TODO Only show/allow registration box if registration allowed 
-**** TODO Add table for settings -- key, value (TEXT) fields
-**** TODO Add field for registrations allowed
-**** TODO Modify login/register page to only show register link on login

@@ -62,8 +62,8 @@ let render_update_profile_box ?id ?action ?(fields=[]) (profile: t) =
           ~value:"username" ~name:"Username" ();
         Form.render_input_form_entry ~initial_value:profile.user.display_name ~ty:`Text
           ~value:"display-name" ~name:"Display Name" ();
-        Form.render_input_form_checkbox ~value:"manually-accepts-followers"
-          ~name:"Manually accepts followers" ();
+        (* Form.render_input_form_checkbox ~value:"manually-accepts-followers" *)
+        (*   ~name:"Manually accepts followers" (); *)
         Form.render_input_form_textarea ~value:"about" ~name:"About"
           ~initial_value:(H.txt profile.details_source) ();
 

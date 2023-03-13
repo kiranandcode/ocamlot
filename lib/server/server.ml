@@ -90,6 +90,7 @@ let run () =
     Activity.route;
     Post.route;
     Follow_requests.route;
+    Settings.route;
     Images.route;
 
     (* Dream.get "/home" @@ (handle_get_home config); *)

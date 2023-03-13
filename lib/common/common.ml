@@ -19,6 +19,11 @@ let form_data key form =
   List.Assoc.get ~eq:String.equal key form
   |> Option.to_result (Format.sprintf "missing field %s" key)
 
+let form_data_present key form =
+  List.Assoc.get ~eq:String.equal key form
+  |> function None -> Ok false | Some _ -> Ok true
+
+
 let map_list f ls =
   Lwt.map Result.flatten_l (Lwt_list.map_s f ls)
 

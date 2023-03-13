@@ -43,13 +43,13 @@ let render_input_form_submit ?(disabled=false) ~name () =
       ]) ()
   ]
 
-let render_input_form_checkbox ?(disabled=false) ?initial_value ~value ~name () =
+let render_input_form_checkbox ?(disabled=false) ?(initial_value=false) ~value ~name () =
   div "input-form-entry" [
     H.label ~a:[H.a_label_for value] [H.txt (name ^ ":")];
     div "input-form-entry-checkbox" [
       H.input ~a:(List.flatten [
           [H.a_input_type `Checkbox; H.a_name value; ];
-          optional H.a_value initial_value;
+          if initial_value then [H.a_checked ()] else [];
           optional H.a_disabled (if disabled then Some () else None)
         ]) ()
     ]

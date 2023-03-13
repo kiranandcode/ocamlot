@@ -188,6 +188,14 @@ module LocalUser = struct
     |> Petrol.find_opt conn
     |> Lwt_result.map (Option.map decode)
 
+  let promote_user_to_admin ~username conn =
+    let open Petrol in
+    let open Tables in
+    Query.update ~table:LocalUser.table
+      ~set:Expr.[LocalUser.is_admin := true_]
+    |> Query.where Expr.(LocalUser.username = s username)
+    |> Request.make_zero
+    |> Petrol.exec conn
 
   let resolve ~id conn =
     let open Petrol in
@@ -2243,5 +2251,48 @@ module Likes = struct
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map decode)
+
+end
+
+
+module Admin = struct
+
+
+  let is_registration_allowed conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let* _ =
+      Query.insert ~table:Admin.table ~values:Expr.[
+        Admin.key := s_stat "is_registration_allowed";
+        Admin.value := s_stat "true"
+      ]
+      |> Query.on_err `IGNORE
+      |> Request.make_zero
+      |> exec conn in
+    Query.select Expr.[ Admin.value ] ~from:Admin.table
+    |> Query.where Expr.(Admin.key = Expr.s_stat "is_registration_allowed")
+    |> Request.make_one
+    |> find conn
+    |> Lwt_result.map (function[@warning "-8"] "true", _ -> true | "false", _ -> false)
+
+  let set_registration_allowed allowed conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let* _ =
+      Query.insert ~table:Admin.table ~values:Expr.[
+        Admin.key := s_stat "is_registration_allowed";
+        Admin.value := s_stat "true"
+      ]
+      |> Query.on_err `IGNORE
+      |> Request.make_zero
+      |> exec conn in
+    Query.update ~table:Admin.table ~set:Expr.[ Admin.value := s_stat (if allowed then  "true" else "false")]
+    |> Query.where Expr.(Admin.key = Expr.s_stat "is_registration_allowed")
+    |> Request.make_zero
+    |> exec conn
+
+
 
 end

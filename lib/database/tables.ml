@@ -5,6 +5,8 @@ let version_0_0_2 = VersionedSchema.version [0;0;2]
 let version_0_0_3 = VersionedSchema.version [0;0;3]
 let version_0_0_4 = VersionedSchema.version [0;0;4]
 let version_0_0_5 = VersionedSchema.version [0;0;5]
+let version_0_0_6 = VersionedSchema.version [0;0;6]
+
 
 let db = VersionedSchema.init version_0_0_5 ~name:"ocamlot"
 
@@ -22,6 +24,7 @@ module DreamSession = struct
 
 end
 
+
 module UserImage = struct
 
   let table, Expr.[path; hash] =
@@ -32,6 +35,20 @@ module UserImage = struct
       ] ~since:version_0_0_2
 
 end
+
+
+module Admin = struct
+
+  let table, Expr.[key; value] =
+    VersionedSchema.declare_table db ~name:"admin"
+      Schema.[
+        field ~constraints:[primary_key (); not_null (); unique ()] "key" ~ty:Type.text;
+        field ~constraints:[not_null ()] "value" ~ty:Type.blob;
+      ] ~since:version_0_0_6
+
+end
+
+
 
 module Activity = struct
 
