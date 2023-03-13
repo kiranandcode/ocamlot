@@ -238,10 +238,12 @@ CLOSED: [2023-03-12 Sun 13:24]
 CLOSED: [2023-03-12 Sun 14:11]
 *** DONE Update worker with local reboost task + AP resolver
 CLOSED: [2023-03-12 Sun 14:14]
-** TODO Implement outbox endpoint
+** DONE Implement outbox endpoint
+CLOSED: [2023-03-13 Mon 12:14]
 *** DONE Find out how outbox endpoint looks
 CLOSED: [2023-03-12 Sun 16:06]
-*** TODO Add endpoint to users
+*** DONE Add endpoint to users
+CLOSED: [2023-03-13 Mon 12:14]
 ** TODO Handle post deletion
 *** TODO Find out how post deletion request looks like
 *** TODO Add task to worker + AP resolver

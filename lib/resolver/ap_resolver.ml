@@ -21,6 +21,16 @@ let map_list f ls =
   ))
   |> lift_pure
 
+let extract_user_url ~id:to_ db =
+  let* user = Database.Actor.resolve ~id:to_ db in
+  match user with
+  | `Local id ->
+    let+ user = Database.LocalUser.resolve ~id db in
+    Configuration.Url.user user.username |> Uri.to_string
+  | `Remote id ->
+    let+ user = Database.RemoteUser.resolve ~id db in
+    user.url
+
 let decode_body ?ty ~into:decoder body =
   let* body = Cohttp_lwt.Body.to_string body >> Result.return in
   begin match ty with
@@ -808,4 +818,76 @@ let build_following_collection_page start_time offset user db =
     part_of=Some part_of;
     total_items=Some total_count;
   } : string Activitypub.Types.ordered_collection_page)
- 
+
+
+
+let build_outbox_collection_page start_time offset user db =
+  let* posts, total_count =
+    let* user =
+      lift_database_error
+        (Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db) in
+    let* posts =
+      lift_database_error
+        (Database.Posts.collect_posts_by_author
+           ~start_time:start_time ~limit:10 ~offset:(offset * 10) ~author:user db) in
+    let* total_count =
+      lift_database_error
+        (Database.Posts.count_posts_by_author ~author:user db) in
+    Lwt.return_ok (posts, total_count) in
+  let* posts =
+    map_list (fun (post: Database.Posts.t) ->
+      let* post_to =
+        lift_database_error (Database.Posts.post_to ~id:post.id db) in
+      let* post_cc =
+        lift_database_error (Database.Posts.post_cc ~id:post.id db) in
+      let* to_ = map_list (fun to_ -> extract_user_url ~id:to_ db) post_to in
+      let* cc = map_list (fun to_ -> extract_user_url ~id:to_ db) post_cc in
+      return_ok ({
+        id = post.url;
+        actor = Configuration.Url.user user.username |> Uri.to_string;
+        to_;
+        in_reply_to = None;     (* TODO: when conversations are added, update this field *)
+        cc;
+        content=post.post_source;
+        sensitive = not post.is_public;
+        source = Some post.post_source;
+        summary = post.summary;
+        published = Some post.published;
+        tags=[];
+        raw=`Null
+      }: Activitypub.Types.note)
+    ) posts
+    |> lift_database_error in
+  let* start_time =
+    (start_time
+     |> Ptime.to_rfc3339 ~tz_offset_s:0
+     |> Lwt.return_ok) in
+  let id =
+    Configuration.Url.user_following_page (user.Database.LocalUser.username)
+      ~start_time ~offset:(Int.to_string offset)
+    |> Uri.to_string in
+
+  let next =
+    Configuration.Url.user_following_page (user.Database.LocalUser.username)
+      ~start_time ~offset:(Int.to_string (offset + 1))
+    |> Uri.to_string in
+
+  let prev =
+    Configuration.Url.user_following_page (user.Database.LocalUser.username)
+      ~start_time ~offset:(Int.to_string (offset - 1))
+    |> Uri.to_string in
+
+  let part_of =
+    Configuration.Url.user_following (user.Database.LocalUser.username)
+    |> Uri.to_string in
+
+  Lwt.return_ok ({
+    id;
+    prev=if offset > 0 then Some prev else None;
+    next = if total_count < offset * 10 then None else Some next;
+    is_ordered = true;
+    items = posts;
+    part_of=Some part_of;
+    total_items=Some total_count;
+  } : Activitypub.Types.note Activitypub.Types.ordered_collection_page)
+

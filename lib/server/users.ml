@@ -269,7 +269,42 @@ let handle_actor_get req =
 (* ** Get  *)
 let handle_outbox_get req =
   Dream.log "GET %s/outbox" (Dream.param req "username");
-  Dream.respond ~status:`OK ""
+  let username = Dream.param req "username" in
+  let* user = Dream.sql req (Database.LocalUser.find_user ~username)
+              |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  let* user = return @@ lift_opt ~else_:(fun _ -> `UserNotFound username)
+                          user in
+  let offset =
+    let open Option in
+    let* page = Dream.query req "page"
+    and* start_time = Dream.query req "start" in
+    let* page = Int.of_string page 
+    and* start_time, _, _ = Ptime.of_rfc3339 start_time
+                            |> Result.to_opt in
+    return (page, start_time) in
+  let is_page = Option.is_some offset in
+  let offset, start_time = Option.value ~default:(0, Ptime_clock.now ())
+                             offset in
+  let* outbox_collection_page =
+    Dream.sql req
+      (Ap_resolver.build_outbox_collection_page
+         start_time offset user) in
+  let data =
+    if is_page
+    then Activitypub.Encode.ordered_collection_page Activitypub.Encode.note
+           outbox_collection_page
+    else Activitypub.Encode.ordered_collection Activitypub.Encode.note
+           ({
+             id = Some (
+               Configuration.Url.user_following (user.Database.LocalUser.username)
+               |> Uri.to_string
+             );
+             total_items=outbox_collection_page.total_items
+                         |> Option.get_exn_or "invalid assumption";
+             contents=`First outbox_collection_page; 
+           } : _ Activitypub.Types.ordered_collection) in
+  activity_json data
+
 
 (* ** Post *)
 (* let handle_outbox_post req =
@@ -723,7 +758,7 @@ let route =
     Dream.post "/:username/follow" @@ Error_handling.handle_error_html (handle_users_follow_post);
     (* Dream.get "/:username/inbox" handle_inbox_get; *)
     Dream.post ":username/inbox" @@ Error_handling.handle_error_json (handle_inbox_post);
-    Dream.get "/:username/outbox" handle_outbox_get;
+    Dream.get "/:username/outbox" @@ Error_handling.handle_error_json handle_outbox_get;
     (* Dream.post "/:username/outbox" handle_outbox_post; *)
 
     Dream.get "/:username/followers" @@ Error_handling.handle_error_json (handle_followers_get);
