@@ -6,7 +6,7 @@ open Utils
 module Task = Task
 
 
-let handle_local_post pool user scope post_to title content_type content =
+let handle_local_post pool user scope post_to title content_type content in_reply_to =
   log.debug (fun f ->
     f "working on local post by %s of %s"
       (user.Database.LocalUser.username) content);
@@ -16,7 +16,7 @@ let handle_local_post pool user scope post_to title content_type content =
   log.debug (fun f -> f "posted to %a" (List.pp String.pp) post_to);
   let* _ =
     with_pool pool @@ 
-    Ap_resolver.create_new_note scope user post_to [] title content content_type in
+    Ap_resolver.create_new_note scope user post_to [] title content content_type in_reply_to in
 
   Lwt.return_ok ()
 
@@ -169,58 +169,8 @@ let handle_undo_follow pool follow_id =
   return_ok ()
 
 let handle_create_remote_note pool author direct_message (note: Activitypub.Types.note) =
-  let* author =
-    with_pool pool @@ fun db ->
-    Ap_resolver.resolve_remote_user_by_url (Uri.of_string author) db
-    |>  lift_resolver_error in
-  log.debug (fun f -> f "creating remote note!");
-  let url = note.id in
-  let raw_data = note.raw in
-  let post_source = Option.get_or ~default:note.content note.source in
-  let published =
-    Option.get_lazy (Ptime_clock.now) (note.published) in
-  let summary = Option.filter (Fun.negate String.is_empty) note.summary in
-
-  let is_public, is_follower_public = ref false, ref false in
-  List.iter (fun to_ ->
-    if String.equal to_ Activitypub.Constants.ActivityStreams.public then
-      is_public := true;
-    if uri_ends_with_followers to_ then
-      is_follower_public := true          
-  ) (note.to_ @ note.cc);
-  let* to_ =
-    filter_map_list ~msg:"resolving target of post" (extract_local_target_link pool) note.to_ in
-  let* cc_ =
-    filter_map_list ~msg:"resolving ccd of post" (extract_local_target_link pool) note.cc in
-  let* author =
-    with_pool pool @@ fun db ->
-    Database.Actor.create_remote_user ~remote_id:(author.Database.RemoteUser.id) db
-    |> lift_database_error in
-  let* post =
-    with_pool pool @@ fun db -> 
-    Database.Posts.create
-      ?summary
-      ~raw_data
-      ~url
-      ~author
-      ~is_public:(!is_public && not direct_message)
-      ~is_follower_public:(!is_follower_public)
-      ~post_source
-      ~post_content:`Text
-      ~published db
-    |> lift_database_error in
+  let* _ = with_pool pool @@ fun db -> Ap_resolver.insert_remote_note ~direct_message ~author note db in
   log.debug (fun f -> f "created post");
-
-  let* _ =
-    with_pool pool @@ fun db ->
-    Database.Posts.add_post_tos ~id:(post.Database.Posts.id) ~tos:to_ db
-    |> lift_database_error  in
-  log.debug (fun f -> f "to_s added");
-  let* _ =
-    with_pool pool @@ fun db ->
-    Database.Posts.add_post_ccs ~id:(post.Database.Posts.id) ~ccs:cc_ db
-    |> lift_database_error in
-  log.debug (fun f -> f "ccs added");
   return_ok ()
 
 let handle_undo pool author obj =
@@ -245,8 +195,8 @@ let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) ta
            handle_remote_reboost pool id published target author raw_data
          | SearchRemoteUser {username; domain} ->
            handle_search_user pool username domain
-         | LocalPost {user; title; content; content_type; scope; post_to;} -> 
-           handle_local_post pool user scope post_to title content_type content
+         | LocalPost {user; title; content; content_type; scope; post_to; in_reply_to} -> 
+           handle_local_post pool user scope post_to title content_type content in_reply_to
          | FollowRemoteUser {user; username; domain} ->
            handle_follow_remote_user pool user username domain
          | CreateRemoteNote { author; direct_message; note } ->
@@ -266,7 +216,6 @@ let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) ta
          Lwt.return ()
     )
     task_in
-
 
 
 let send_task_internal = ref None

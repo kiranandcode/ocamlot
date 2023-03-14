@@ -64,6 +64,7 @@ type t =
     scope: [ `DM | `Followers | `Public ];
     post_to: string list option;
     content: string;
+    in_reply_to: string option;
   }
   | LocalLike of {
       user: Database.LocalUser.t;

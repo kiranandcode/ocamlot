@@ -4,6 +4,19 @@ open Common
 
 let log = Logging.add_logger "back.resolver"
 
+
+let filter_map_list ~msg f ls =
+  Lwt_list.map_s f ls
+  |> Lwt.map (List.filter_map (function
+    | Ok v -> v
+    | Error err ->
+      let _, header, details = Error_handling.extract_error_details err in
+      log.debug (fun f -> f "%s failed with %s: %s" msg header details);
+      None
+  ))
+  |> lift_pure
+
+
 let fresh_id () = Uuidm.v `V4 |> Uuidm.to_string
 let sanitize err =
   Lwt_result.map_error (fun err -> Caqti_error.show err) err
@@ -20,6 +33,33 @@ let map_list f ls =
       None
   ))
   |> lift_pure
+
+let extract_local_target_link to_ db =
+  let lazy local_user_regex =
+    Configuration.Regex.local_user_id_format in
+  if String.equal to_ Activitypub.Constants.ActivityStreams.public
+  then return_ok None
+  else match Re.exec_opt local_user_regex to_ with
+    | Some group ->
+      let username = Re.Group.get group 1 in
+      let* local_user =
+        lift_database_error (Database.LocalUser.find_user ~username db) in
+      begin match local_user with
+      | None -> return_ok None
+      | Some local_user ->
+        let* user =
+          lift_database_error
+            (Database.Actor.create_local_user
+               ~local_id:(local_user.Database.LocalUser.id) db) in
+        return_ok (Some user)
+      end
+    | None ->
+      return_ok None
+
+
+let uri_ends_with_followers to_ =
+  Uri.of_string to_ |> Uri.path |> String.split_on_char '/'
+  |> List.last_opt |> Option.exists (String.equal "followers")
 
 let extract_user_url ~id:to_ db =
   let* user = Database.Actor.resolve ~id:to_ db in
@@ -127,6 +167,91 @@ let resolve_remote_user_by_url url db =
       |> Fun.flip Uri.with_query' ["resource", url']
       |> Fun.flip Uri.with_scheme (Some "https")
     ) db
+
+let rec insert_remote_note ?(direct_message=false) ?author (note: Activitypub.Types.note) db =
+  let author = Option.value author ~default:note.actor in
+  let* author =
+    resolve_remote_user_by_url (Uri.of_string author) db
+    |> Lwt_result.map_error (fun err -> `ResolverError err) in
+  log.debug (fun f -> f "creating remote note!");
+  let url = note.id in
+  let raw_data = note.raw in
+  let post_source = Option.get_or ~default:note.content note.source in
+  let published =
+    Option.get_lazy (Ptime_clock.now) (note.published) in
+  let summary = Option.filter (Fun.negate String.is_empty) note.summary in
+
+  let is_public, is_follower_public = ref false, ref false in
+  List.iter (fun to_ ->
+    if String.equal to_ Activitypub.Constants.ActivityStreams.public then
+      is_public := true;
+    if uri_ends_with_followers to_ then
+      is_follower_public := true          
+  ) (note.to_ @ note.cc);
+  let* to_ =
+    filter_map_list ~msg:"resolving target of post" (fun vl -> extract_local_target_link vl db) note.to_ in
+  let* cc_ =
+    filter_map_list ~msg:"resolving ccd of post" (fun vl -> extract_local_target_link vl db) note.cc in
+  let* author =
+    Database.Actor.create_remote_user ~remote_id:(author.Database.RemoteUser.id) db
+    |> lift_database_error in
+  let* post =
+    Database.Posts.create
+      ?summary
+      ~raw_data
+      ~url
+      ~author
+      ~is_public:(!is_public && not direct_message)
+      ~is_follower_public:(!is_follower_public)
+      ~post_source
+      ~post_content:`Text
+      ~published db
+    |> lift_database_error in
+  log.debug (fun f -> f "created post");
+
+  let* _ =
+    Database.Posts.add_post_tos ~id:(post.Database.Posts.id) ~tos:to_ db
+    |> lift_database_error  in
+  log.debug (fun f -> f "to_s added");
+  let* _ =
+    Database.Posts.add_post_ccs ~id:(post.Database.Posts.id) ~ccs:cc_ db
+    |> lift_database_error in
+  log.debug (fun f -> f "ccs added");
+
+  let* _ = match note.in_reply_to with
+    | None -> return_ok ()
+    | Some url -> begin
+        let* n' = resolve_remote_note ~note_uri:url db in
+        lift_database_error (Database.Posts.record_reply_relation ~parent:n'.id ~child:post.id db)
+      end |> Lwt.map (fun _ -> Ok ()) in
+
+  return_ok post
+
+and resolve_remote_note ~note_uri db
+  : (Database.Posts.t, _) Lwt_result.t =
+  log.debug (fun f -> f "resolving remote note with url \"%s\"" note_uri);
+  let* result = Database.Posts.lookup_by_url ~url:note_uri db
+                |> lift_database_error in
+  match result with
+  | Some v ->
+    log.debug (fun f -> f "remote note found in cache");
+    Lwt.return_ok v
+  | None ->
+    log.debug (fun f -> f "resolving remote note by request");
+    (* remote note not found *)
+    log.debug (fun f -> f "remote user self url was %s" note_uri);
+    (* retrieve json *)
+    let* (_, body) = Requests.activity_req (Uri.of_string note_uri) |> Lwt_result.map_error (fun err -> `ResolverError err) in
+    let* note_res =
+      decode_body ~ty:"remote-note" body
+        ~into:Activitypub.Decode.note
+      |>  map_err (fun err -> `ResolverError err) in
+    log.debug (fun f -> f "was able to sucessfully resolve note at %s!" note_uri);
+    let* n = insert_remote_note note_res db in
+    return_ok n
+
+let resolve_remote_note_by_url url db =
+  resolve_remote_note ~note_uri:url db
 
 (** [resolve_tagged_user config username db] given a [username] in the
     form {<username>@<domain>} classifies the user a a local or remote
@@ -359,20 +484,20 @@ let unfollow_remote_user
     let id = fresh_id () in
     let data =
       Activitypub.Encode.(undo follow) {
-      id=id |> Configuration.Url.activity_endpoint |> Uri.to_string ;
-      published= Some (Ptime_clock.now ());
-      obj = {
-        id = follow.url;
-        actor = Configuration.Url.user local.username |> Uri.to_string;
-        cc=[];
-        to_=[remote.url];
-        object_=remote.url;
-        state=if follow.pending then Some `Pending else None;
-        raw =`Null
-      };
-      actor=Configuration.Url.user local.username |> Uri.to_string;
-      raw=`Null
-    } in
+        id=id |> Configuration.Url.activity_endpoint |> Uri.to_string ;
+        published= Some (Ptime_clock.now ());
+        obj = {
+          id = follow.url;
+          actor = Configuration.Url.user local.username |> Uri.to_string;
+          cc=[];
+          to_=[remote.url];
+          object_=remote.url;
+          state=if follow.pending then Some `Pending else None;
+          raw =`Null
+        };
+        actor=Configuration.Url.user local.username |> Uri.to_string;
+        raw=`Null
+      } in
     let* _ = Database.Activity.create ~id ~data:data db |> sanitize in
     log.debug (fun f -> f "built follow unfollow %s" (Yojson.Safe.to_string data));
 
@@ -533,11 +658,11 @@ let undo_object (author: string)  (obj: string) db =
   let* like = Database.Likes.lookup_by_url ~url:obj db |> lift_database_error in
   let* reboost =
     (match like with
-      None -> Database.Reboosts.lookup_by_url ~url:obj db
-    | Some _ -> return_ok None) |> lift_database_error in
+       None -> Database.Reboosts.lookup_by_url ~url:obj db
+     | Some _ -> return_ok None) |> lift_database_error in
   let* post =
     (match like, reboost with
-      None, None -> Database.Posts.lookup_by_url ~url:obj db
+       None, None -> Database.Posts.lookup_by_url ~url:obj db
      | _ -> return_ok None) |> lift_database_error in
   match like, reboost, post with
   | Some like, _, _ -> undo_like author like db
@@ -546,7 +671,7 @@ let undo_object (author: string)  (obj: string) db =
   | _ ->
     log.error (fun f -> f "received undo of event %s not present on the server" author);
     return_ok ()
-  
+
 
 let create_like_request (author: Database.LocalUser.t) (post: Database.Posts.t) db =
   let like_id = fresh_id () in
@@ -587,7 +712,7 @@ let create_reboost_request (author: Database.LocalUser.t) (post: Database.Posts.
   let* _ = lift_database_error (Database.Activity.create ~id:reboost_id ~data db) in
   Lwt.return_ok (Yojson.Safe.to_string data)
 
-let create_note_request scope author to_ cc summary content content_type db =
+let create_note_request scope author to_ cc summary content content_type in_reply_to db =
   let post_id = fresh_id () in
   let is_public, is_follower_public =
     match scope with
@@ -605,10 +730,18 @@ let create_note_request scope author to_ cc summary content content_type db =
               post_id
             |> Uri.to_string)
       ~author ~is_public  ~is_follower_public
-      ?summary
+      ?summary ?in_reply_to
       ~post_source:content ~post_content:content_type
       ~published db
     |> lift_database_error in
+
+  let* () = 
+    match in_reply_to with
+    | None -> return_ok ()
+    | Some url -> begin
+        let* n = resolve_remote_note_by_url url db in
+        lift_database_error (Database.Posts.record_reply_relation ~parent:n.id ~child:post.id db)
+      end |> Lwt.map (fun _ -> Ok ()) in
 
   let* () = lift_database_error
               (Database.Posts.add_post_tos ~id:post.Database.Posts.id ~tos:to_ db) in
@@ -713,10 +846,10 @@ let create_new_reboost (author: Database.LocalUser.t) (post: Database.Posts.t) d
                               body);
       return_ok ()
 
-let create_new_note scope author to_ cc summary content content_type db =
-  log.debug (fun f -> f "worker[create_new_note] ~author:%s ~to_:[%a] ~summary:%a ~content:%s"
+let create_new_note scope author to_ cc summary content content_type in_reply_to db =
+  log.debug (fun f -> f "worker[create_new_note] ~author:%s ~to_:[%a] ~summary:%a ~content:%s ~in_reply_to:%a"
                         author.Database.LocalUser.username (List.pp String.pp) to_
-                        (Option.pp String.pp) summary content);
+                        (Option.pp String.pp) summary content (Option.pp String.pp) in_reply_to);
   let is_public, is_follower_public =
     match scope with
     | `DM -> false, false
@@ -773,7 +906,7 @@ let create_new_note scope author to_ cc summary content content_type db =
       Lwt.return_ok remote_targets
     end in
   let* note_request =
-    create_note_request scope author to_ cc summary content content_type db in
+    create_note_request scope author to_ cc summary content content_type in_reply_to db in
   let remote_targets = to_remotes @ cc_remotes @ remote_followers_targets in
   let* _ =
     let key_id =

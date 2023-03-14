@@ -8,17 +8,6 @@ let lift_database_error res =
 let lift_resolver_error res =
   map_err (fun err -> `ResolverError err) res
 
-let filter_map_list ~msg f ls =
-  Lwt_list.map_s f ls
-  |> Lwt.map (List.filter_map (function
-    | Ok v -> v
-    | Error err ->
-      let _, header, details = Error_handling.extract_error_details err in
-      log.debug (fun f -> f "%s failed with %s: %s" msg header details);
-      None
-  ))
-  |> lift_pure
-
 let iter_list ~msg f ls =
   Lwt_list.map_s f ls
   |> Lwt.map (List.iter (function
@@ -34,9 +23,6 @@ let iter_list ~msg f ls =
 
 let with_pool pool f = Caqti_lwt.Pool.use f pool
 
-let uri_ends_with_followers to_ =
-  Uri.of_string to_ |> Uri.path |> String.split_on_char '/'
-  |> List.last_opt |> Option.exists (String.equal "followers")
 
 let extract_local_target_link pool to_ =
   let lazy local_user_regex =
