@@ -55,7 +55,7 @@ let () =
 (* ** resolve *)
   | [ "local-user"; "resolve"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_local_of_string id in
     let* res = Database.LocalUser.resolve ~id db in
     (fun s -> print_endline @@ Database.LocalUser.show s) res;
     Lwt_result.return ()
@@ -117,7 +117,7 @@ let () =
 (* ** update password *)
   | [ "local-user"; "update-password"; id; password ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_local_of_string id in
     let password = (fun x -> x) password in
     let* _ = Database.LocalUser.update_password ~id ~password db in
 (* pretty print result here? *)
@@ -125,7 +125,7 @@ let () =
 (* ** update display name *)
   | [ "local-user"; "update-display-name"; id; display_name ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_local_of_string id in
     let display_name = (fun x -> x) display_name in
     let* _ = Database.LocalUser.update_display_name ~id ~display_name db in
 (* pretty print result here? *)
@@ -133,7 +133,7 @@ let () =
 (* ** update about *)
   | [ "local-user"; "update-about"; id; about ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_local_of_string id in
     let about = (fun x -> x) about in
     let* _ = Database.LocalUser.update_about ~id ~about db in
 (* pretty print result here? *)
@@ -143,7 +143,7 @@ let () =
     "local-user"; "update-manually-accept-follows"; id; manually_accept_follows;
   ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_local_of_string id in
     let manually_accept_follows =
       (function
         | "true" -> true
@@ -160,7 +160,7 @@ let () =
 (* ** update is admin *)
   | [ "local-user"; "update-is-admin"; id; is_admin ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_local_of_string id in
     let is_admin =
       (function
         | "true" -> true
@@ -234,7 +234,7 @@ let () =
     "remote-instance"; "update-instance-last-unreachable"; id; last_unreachable;
   ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_remote_instance_of_string id in
     let last_unreachable =
       (fun s ->
          match Ptime.rfc3339_error_to_msg (Ptime.of_rfc3339 s) with
@@ -251,14 +251,14 @@ let () =
 (* ** unset instance last unreachable *)
   | [ "remote-instance"; "unset-instance-last-unreachable"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_remote_instance_of_string id in
     let* _ = Database.RemoteInstance.unset_instance_last_unreachable ~id db in
 (* pretty print result here? *)
     Lwt_result.return ()
 (* ** resolve *)
   | [ "remote-instance"; "resolve"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_remote_instance_of_string id in
     let* res = Database.RemoteInstance.resolve ~id db in
     (fun s -> print_endline @@ Database.RemoteInstance.show s) res;
     Lwt_result.return ()
@@ -323,7 +323,7 @@ let () =
 (* ** resolve *)
   | [ "remote-user"; "resolve"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_remote_of_string id in
     let* res = Database.RemoteUser.resolve ~id db in
     (fun s -> print_endline @@ Database.RemoteUser.show s) res;
     Lwt_result.return ()
@@ -355,7 +355,7 @@ let () =
       if String.equal summary "" then None else Some ((fun x -> x) summary)
     in
     let username = (fun x -> x) username in
-    let instance = int_of_string instance in
+    let instance = Database.Types.unsafe_remote_instance_of_string instance in
     let url = (fun x -> x) url in
     let public_key_pem = (fun x -> x) public_key_pem in
     let* res =
@@ -439,42 +439,42 @@ let () =
 (* ** lookup local user *)
   | [ "actor"; "lookup-local-user"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
-    let* res = Database.Actor.lookup_local_user ~id db in
-    (fun i -> print_endline (string_of_int i)) res;
+    let local_id = Database.Types.unsafe_local_of_string id in
+    let* res = Database.Actor.create_local_user ~local_id db in
+    (fun i -> print_endline (string_of_int i)) (res:>int);
     Lwt_result.return ()
 (* ** lookup remote user *)
   | [ "actor"; "lookup-remote-user"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
-    let* res = Database.Actor.lookup_remote_user ~id db in
-    (fun i -> print_endline (string_of_int i)) res;
+    let remote_id = Database.Types.unsafe_remote_of_string id in
+    let* res = Database.Actor.create_remote_user ~remote_id db in
+    (fun i -> print_endline (string_of_int i)) (res:>int);
     Lwt_result.return ()
 (* ** resolve *)
   | [ "actor"; "resolve"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_actor_of_string id in
     let* res = Database.Actor.resolve ~id db in
-    (fun ls ->
+    (fun (ls: [ `Local of Database.Types.local_user_id | `Remote of Database.Types.remote_user_id ]) ->
        print_endline
          (match ls with
-          | `Local i -> "local " ^ string_of_int i
-          | `Remote i -> "remote " ^ string_of_int i))
+          | `Local i -> "local " ^ string_of_int (i:>int)
+          | `Remote i -> "remote " ^ string_of_int (i:>int)))
       res;
     Lwt_result.return ()
 (* ** create local user *)
   | [ "actor"; "create-local-user"; local_id ] ->
 (* *** body *)
-    let local_id = int_of_string local_id in
+    let local_id = Database.Types.unsafe_local_of_string local_id in
     let* res = Database.Actor.create_local_user ~local_id db in
-    (fun i -> print_endline (string_of_int i)) res;
+    (fun i -> print_endline (string_of_int i)) (res:>int);
     Lwt_result.return ()
 (* ** create remote user *)
   | [ "actor"; "create-remote-user"; remote_id ] ->
 (* *** body *)
-    let remote_id = int_of_string remote_id in
+    let remote_id = Database.Types.unsafe_remote_of_string remote_id in
     let* res = Database.Actor.create_remote_user ~remote_id db in
-    (fun i -> print_endline (string_of_int i)) res;
+    (fun i -> print_endline (string_of_int i)) (res:>int);
     Lwt_result.return ()
 (* * Tag *)
 (* ** find by name *)
@@ -528,7 +528,7 @@ let () =
 (* ** resolve *)
   | [ "posts"; "resolve"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_post_of_string id in
     let* res = Database.Posts.resolve ~id db in
     (fun s -> print_endline @@ Database.Posts.show s) res;
     Lwt_result.return ()
@@ -570,7 +570,7 @@ let () =
              is_follower_public)
     in
     let url = (fun x -> x) url in
-    let author = int_of_string author in
+    let author = Database.Types.unsafe_actor_of_string author in
     let post_content =
       (function
         | "markdown" -> `Markdown
@@ -597,7 +597,7 @@ let () =
 (* ** count posts by author *)
   | [ "posts"; "count-posts-by-author"; author ] ->
 (* *** body *)
-    let author = int_of_string author in
+    let author = Database.Types.unsafe_actor_of_string author in
     let* res = Database.Posts.count_posts_by_author ~author db in
     (fun i -> print_endline (string_of_int i)) res;
     Lwt_result.return ()
@@ -617,7 +617,7 @@ let () =
          | Error (`Msg m) -> failwith m)
         start_time
     in
-    let author = int_of_string author in
+    let author = Database.Types.unsafe_actor_of_string author in
     let* res =
       Database.Posts.collect_posts_by_author ?offset ?limit ~start_time
         ~author db
@@ -634,9 +634,10 @@ let () =
     let limit =
       if String.equal limit "" then None else Some (int_of_string limit)
     in
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_post_of_string id in
     let* res = Database.Posts.post_to ?offset ?limit ~id db in
-    (fun ls -> List.iter (fun i -> print_endline (string_of_int i)) ls) res;
+    (fun (ls: Database.Types.actor_id list) ->
+       List.iter (fun (i : Database.Types.actor_id) -> print_endline (string_of_int (i:>int))) ls) res;
     Lwt_result.return ()
 (* ** post cc *)
   | [ "posts"; "post-cc"; offset; limit; id ] ->
@@ -647,9 +648,9 @@ let () =
     let limit =
       if String.equal limit "" then None else Some (int_of_string limit)
     in
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_post_of_string id in
     let* res = Database.Posts.post_cc ?offset ?limit ~id db in
-    (fun ls -> List.iter (fun i -> print_endline (string_of_int i)) ls) res;
+    (fun ls -> List.iter (fun (i: Database.Types.actor_id) -> print_endline (string_of_int (i:>int))) ls) res;
     Lwt_result.return ()
 (* ** post mentions *)
   | [ "posts"; "post-mentions"; offset; limit; id ] ->
@@ -660,9 +661,9 @@ let () =
     let limit =
       if String.equal limit "" then None else Some (int_of_string limit)
     in
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_post_of_string id in
     let* res = Database.Posts.post_mentions ?offset ?limit ~id db in
-    (fun ls -> List.iter (fun i -> print_endline (string_of_int i)) ls) res;
+    (fun ls -> List.iter (fun (i: Database.Types.actor_id) -> print_endline (string_of_int (i:>int))) ls) res;
     Lwt_result.return ()
 (* ** post tags *)
   | [ "posts"; "post-tags"; offset; limit; id ] ->
@@ -673,24 +674,24 @@ let () =
     let limit =
       if String.equal limit "" then None else Some (int_of_string limit)
     in
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_post_of_string id in
     let* res = Database.Posts.post_tags ?offset ?limit ~id db in
     (fun ls -> List.iter (fun i -> print_endline i) ls) res;
     Lwt_result.return ()
 (* ** add post to *)
   | [ "posts"; "add-post-to"; id; actor_id ] ->
 (* *** body *)
-    let id = int_of_string id in
-    let actor_id = int_of_string actor_id in
+    let id = Database.Types.unsafe_post_of_string id in
+    let actor_id = Database.Types.unsafe_actor_of_string actor_id in
     let* _ = Database.Posts.add_post_to ~id ~actor_id db in
 (* pretty print result here? *)
     Lwt_result.return ()
 (* ** add post tos *)
   | [ "posts"; "add-post-tos"; id; tos ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_post_of_string id in
     let tos =
-      (fun s -> String.split_on_char ',' s |> List.map int_of_string) tos
+      (fun s -> String.split_on_char ',' s |> List.map Database.Types.unsafe_actor_of_string) tos
     in
     let* _ = Database.Posts.add_post_tos ~id ~tos db in
 (* pretty print result here? *)
@@ -698,17 +699,17 @@ let () =
 (* ** add post cc *)
   | [ "posts"; "add-post-cc"; id; actor_id ] ->
 (* *** body *)
-    let id = int_of_string id in
-    let actor_id = int_of_string actor_id in
+    let id = Database.Types.unsafe_post_of_string id in
+    let actor_id = Database.Types.unsafe_actor_of_string actor_id in
     let* _ = Database.Posts.add_post_cc ~id ~actor_id db in
 (* pretty print result here? *)
     Lwt_result.return ()
 (* ** add post ccs *)
   | [ "posts"; "add-post-ccs"; id; ccs ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_post_of_string id in
     let ccs =
-      (fun s -> String.split_on_char ',' s |> List.map int_of_string) ccs
+      (fun s -> String.split_on_char ',' s |> List.map Database.Types.unsafe_actor_of_string) ccs
     in
     let* _ = Database.Posts.add_post_ccs ~id ~ccs db in
 (* pretty print result here? *)
@@ -716,17 +717,17 @@ let () =
 (* ** add post mention *)
   | [ "posts"; "add-post-mention"; id; actor_id ] ->
 (* *** body *)
-    let id = int_of_string id in
-    let actor_id = int_of_string actor_id in
+    let id = Database.Types.unsafe_post_of_string id in
+    let actor_id = Database.Types.unsafe_actor_of_string actor_id in
     let* _ = Database.Posts.add_post_mention ~id ~actor_id db in
 (* pretty print result here? *)
     Lwt_result.return ()
 (* ** add post mentions *)
   | [ "posts"; "add-post-mentions"; id; mentions ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_post_of_string id in
     let mentions =
-      (fun s -> String.split_on_char ',' s |> List.map int_of_string) mentions
+      (fun s -> String.split_on_char ',' s |> List.map Database.Types.unsafe_actor_of_string) mentions
     in
     let* _ = Database.Posts.add_post_mentions ~id ~mentions db in
 (* pretty print result here? *)
@@ -734,7 +735,7 @@ let () =
 (* ** add post tag *)
   | [ "posts"; "add-post-tag"; id; tag ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_post_of_string id in
     let tag = (fun x -> x) tag in
     let* _ = Database.Posts.add_post_tag ~id ~tag db in
 (* pretty print result here? *)
@@ -742,7 +743,7 @@ let () =
 (* ** add post tags *)
   | [ "posts"; "add-post-tags"; id; tags ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_post_of_string id in
     let tags = (fun s -> String.split_on_char ',' s) tags in
     let* _ = Database.Posts.add_post_tags ~id ~tags db in
 (* pretty print result here? *)
@@ -766,7 +767,7 @@ let () =
               | Error (`Msg m) -> failwith m)
              start_time)
     in
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_actor_of_string id in
     let* res =
       Database.Posts.collect_feed ?offset ?limit ?start_time ~id db
     in
@@ -786,7 +787,7 @@ let () =
               | Error (`Msg m) -> failwith m)
              start_time)
     in
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_actor_of_string id in
     let* res = Database.Posts.count_feed ?start_time ~id db in
     (fun i -> print_endline (string_of_int i)) res;
     Lwt_result.return ()
@@ -809,7 +810,7 @@ let () =
               | Error (`Msg m) -> failwith m)
              start_time)
     in
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_actor_of_string id in
     let* res =
       Database.Posts.collect_direct ?offset ?limit ?start_time ~id db
     in
@@ -819,7 +820,7 @@ let () =
 (* ** count direct *)
   | [ "posts"; "count-direct"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_actor_of_string id in
     let* res = Database.Posts.count_direct ~id db in
     (fun i -> print_endline (string_of_int i)) res;
     Lwt_result.return ()
@@ -940,8 +941,8 @@ let () =
              updated)
     in
     let url = (fun x -> x) url in
-    let author = int_of_string author in
-    let target = int_of_string target in
+    let author = Database.Types.unsafe_actor_of_string author in
+    let target = Database.Types.unsafe_actor_of_string target in
     let pending =
       (function
         | "true" -> true
@@ -1002,7 +1003,7 @@ let () =
               | Error (`Msg m) -> failwith m)
              since)
     in
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_actor_of_string id in
     let* res =
       Database.Follows.collect_follows_for_actor ?offset ?limit ?since ~id db
     in
@@ -1011,8 +1012,8 @@ let () =
 (* ** is following *)
   | [ "follows"; "is-following"; author; target ] ->
 (* *** body *)
-    let author = int_of_string author in
-    let target = int_of_string target in
+    let author = Database.Types.unsafe_actor_of_string author in
+    let target = Database.Types.unsafe_actor_of_string target in
     let* res = Database.Follows.is_following ~author ~target db in
     (function
       | true -> print_endline "true"
@@ -1022,8 +1023,8 @@ let () =
 (* ** find follow between *)
   | [ "follows"; "find-follow-between"; author; target ] ->
 (* *** body *)
-    let author = int_of_string author in
-    let target = int_of_string target in
+    let author = Database.Types.unsafe_actor_of_string author in
+    let target = Database.Types.unsafe_actor_of_string target in
     let* res = Database.Follows.find_follow_between ~author ~target db in
     (fun s ->
        print_endline
@@ -1036,7 +1037,7 @@ let () =
 (* ** count following *)
   | [ "follows"; "count-following"; author ] ->
 (* *** body *)
-    let author = int_of_string author in
+    let author = Database.Types.unsafe_actor_of_string author in
     let* res = Database.Follows.count_following ~author db in
     (fun i -> print_endline (string_of_int i)) res;
     Lwt_result.return ()
@@ -1059,7 +1060,7 @@ let () =
               | Error (`Msg m) -> failwith m)
              since)
     in
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_actor_of_string id in
     let* res =
       Database.Follows.collect_following_for_actor ?offset ?limit ?since ~id
         db
@@ -1071,7 +1072,7 @@ let () =
 (* ** count followers *)
   | [ "follows"; "count-followers"; target ] ->
 (* *** body *)
-    let target = int_of_string target in
+    let target = Database.Types.unsafe_actor_of_string target in
     let* res = Database.Follows.count_followers ~target db in
     (fun i -> print_endline (string_of_int i)) res;
     Lwt_result.return ()
@@ -1094,7 +1095,7 @@ let () =
               | Error (`Msg m) -> failwith m)
              since)
     in
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_actor_of_string id in
     let* res =
       Database.Follows.collect_followers_for_actor ?offset ?limit ?since ~id
         db
@@ -1136,8 +1137,8 @@ let () =
       else Some (Yojson.Safe.from_string raw_data)
     in
     let url = (fun x -> x) url in
-    let post = int_of_string post in
-    let actor = int_of_string actor in
+    let post = Database.Types.unsafe_post_of_string post in
+    let actor = Database.Types.unsafe_actor_of_string actor in
     let published =
       (fun s ->
          match Ptime.rfc3339_error_to_msg (Ptime.of_rfc3339 s) with
@@ -1160,7 +1161,7 @@ let () =
     let limit =
       if String.equal limit "" then None else Some (int_of_string limit)
     in
-    let post = int_of_string post in
+    let post = Database.Types.unsafe_post_of_string post in
     let* res = Database.Likes.collect_for_post ?offset ?limit ~post db in
     (fun ls -> List.iter (fun s -> print_endline @@ Database.Likes.show s) ls)
       res;
@@ -1174,7 +1175,7 @@ let () =
     let limit =
       if String.equal limit "" then None else Some (int_of_string limit)
     in
-    let actor = int_of_string actor in
+    let actor = Database.Types.unsafe_actor_of_string actor in
     let* res = Database.Likes.collect_by_actor ?offset ?limit ~actor db in
     (fun ls -> List.iter (fun s -> print_endline @@ Database.Likes.show s) ls)
       res;

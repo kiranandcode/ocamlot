@@ -23,7 +23,7 @@ let handle_post_get req =
         current_user
         |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
         |> return in
-      sql req (Database.Posts.is_visable_post ~by:current_user ~post:post.Database.Posts.id) in
+      sql req (Database.Posts.is_visible_post ~by:current_user ~post:post.Database.Posts.id) in
 
 
   if can_access_post

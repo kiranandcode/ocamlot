@@ -1,5 +1,84 @@
-[@@@warning "-33"]              (* like to open Lwt_result + Petrol + Tables *)
+[@@@warning "-33-32"]              (* like to open Lwt_result + Petrol + Tables *)
 
+open (struct
+module TypesInner : sig
+  type activity_id = private string
+  [@@deriving show]
+  external of_string : string -> activity_id = "%identity"
+
+  type local_user_id = private int
+  [@@deriving show]
+  external local_of_int : int -> local_user_id = "%identity"
+  val unsafe_local_of_string : string -> local_user_id
+
+  type remote_user_id = private int
+  [@@deriving show]
+  external remote_of_int : int -> remote_user_id = "%identity"
+  val unsafe_remote_of_string : string -> remote_user_id
+
+  type actor_id = private int
+  [@@deriving show]
+  external actor_of_int : int -> actor_id = "%identity"
+  val unsafe_actor_of_string : string -> actor_id
+
+  type remote_instance_id = private int
+  [@@deriving show]
+  external remote_instance_of_int : int -> remote_instance_id = "%identity"
+  val unsafe_remote_instance_of_string : string -> remote_instance_id
+
+  type post_id = private int
+  [@@deriving show]
+  external post_of_int : int -> post_id = "%identity"
+  val unsafe_post_of_string : string -> post_id
+
+end = struct
+  type activity_id = string
+  [@@deriving show]
+  external of_string : string -> activity_id = "%identity"
+
+  type local_user_id = int
+  [@@deriving show]
+  external local_of_int : int -> local_user_id = "%identity"
+  let unsafe_local_of_string s = int_of_string s
+
+  type remote_user_id = int
+  [@@deriving show]
+  external remote_of_int : int -> remote_user_id = "%identity"
+  let unsafe_remote_of_string s = int_of_string s
+
+  type actor_id = int
+  [@@deriving show]
+  external actor_of_int : int -> actor_id = "%identity"
+  let unsafe_actor_of_string s = int_of_string s
+
+  type remote_instance_id = int
+  [@@deriving show]
+  external remote_instance_of_int : int -> remote_instance_id = "%identity"
+  let unsafe_remote_instance_of_string s = int_of_string s
+
+
+  type post_id = int
+  [@@deriving show]
+  external post_of_int : int -> post_id = "%identity"
+  let unsafe_post_of_string s = int_of_string s
+end
+end)
+
+module Types = (TypesInner : sig
+                  type activity_id = TypesInner.activity_id [@@deriving show]
+                  type local_user_id = TypesInner.local_user_id [@@deriving show]
+                  type remote_user_id = TypesInner.remote_user_id [@@deriving show]
+                  type actor_id = TypesInner.actor_id [@@deriving show]
+                  type remote_instance_id = TypesInner.remote_instance_id [@@deriving show]
+                  type post_id = TypesInner.post_id [@@deriving show]
+
+
+                  val unsafe_local_of_string : string -> local_user_id
+                  val unsafe_remote_of_string : string -> remote_user_id
+                  val unsafe_actor_of_string : string -> actor_id
+                  val unsafe_remote_instance_of_string : string -> remote_instance_id
+                  val unsafe_post_of_string : string -> post_id
+                end)
 
 module Activity = struct
 
@@ -8,8 +87,8 @@ module Activity = struct
     raw_data: Yojson.Safe.t
   } [@@deriving show]
 
-  let decode (id, (raw_data, ())) = {
-    id;
+  let decode ((id: string), (raw_data, ())) = {
+    id= id;
     raw_data=Yojson.Safe.from_string raw_data
   }
 
@@ -19,9 +98,9 @@ module Activity = struct
     let open Tables in
     Query.insert ~table:Activity.table
       ~values:Expr.[
-          Activity.id := s id;
-          Activity.raw_data := s (Yojson.Safe.to_string data)
-        ]
+        Activity.id := s id;
+        Activity.raw_data := s (Yojson.Safe.to_string data)
+      ]
     |> Query.on_err `IGNORE
     |> Request.make_zero
     |> Petrol.exec conn
@@ -31,9 +110,9 @@ module Activity = struct
     let open Petrol in
     let open Tables in
     Query.select Expr.[
-        Activity.id;
-        Activity.raw_data
-      ] ~from:Activity.table
+      Activity.id;
+      Activity.raw_data
+    ] ~from:Activity.table
     |> Query.where Expr.(Activity.id = s id)
     |> Request.make_zero_or_one
     |> Petrol.find_opt conn
@@ -45,8 +124,8 @@ module Activity = struct
     let open Tables in
     Query.update ~table:Activity.table
       ~set:Expr.[
-          Activity.raw_data := s (Yojson.Safe.to_string raw_data)
-        ]
+        Activity.raw_data := s (Yojson.Safe.to_string raw_data)
+      ]
     |> Query.where Expr.(Activity.id = s id)
     |> Query.on_err `IGNORE
     |> Request.make_zero
@@ -57,72 +136,74 @@ end
 module Actor = struct
 
   type t = {
-    actor_id: int;
-    link_id: [`Local of int | `Remote of int]
+    actor_id: Types.actor_id;
+    link_id: [`Local of Types.local_user_id | `Remote of Types.remote_user_id]
   }
   [@@deriving show]
 
-  let lookup_local_user ~id conn =
-    let open Lwt_result.Syntax in
-    let open Petrol in
-    let open Tables in
-    Query.select [Actor.id]
-      ~from:Actor.table
-    |> Query.where Expr.(Actor.local_id = i id)
-    |> Request.make_one
-    |> Petrol.find conn
-    |> Lwt_result.map (fun (id, ()) -> id)
+  open (struct
+    let lookup_local_user ~(id: Types.local_user_id) conn =
+      let open Lwt_result.Syntax in
+      let open Petrol in
+      let open Tables in
+      Query.select [Actor.id]
+        ~from:Actor.table
+      |> Query.where Expr.(Actor.local_id = i (id :> int))
+      |> Request.make_one
+      |> Petrol.find conn
+      |> Lwt_result.map (fun (id, ()) -> TypesInner.actor_of_int id)
 
-  let lookup_remote_user ~id conn =
-    let open Lwt_result.Syntax in
-    let open Petrol in
-    let open Tables in
-    Query.select [Actor.id]
-      ~from:Actor.table
-    |> Query.where Expr.(Actor.remote_id = i id)
-    |> Request.make_one
-    |> Petrol.find conn
-    |> Lwt_result.map (fun (id, ()) -> id)
+    let lookup_remote_user ~(id: Types.remote_user_id) conn =
+      let open Lwt_result.Syntax in
+      let open Petrol in
+      let open Tables in
+      Query.select [Actor.id]
+        ~from:Actor.table
+      |> Query.where Expr.(Actor.remote_id = i (id :> int))
+      |> Request.make_one
+      |> Petrol.find conn
+      |> Lwt_result.map (fun (id, ()) -> TypesInner.actor_of_int id)
+  end)
 
-  let resolve ~id conn =
+  let resolve ~(id: Types.actor_id) conn : ([ `Local of Types.local_user_id | `Remote of Types.remote_user_id ], _) Lwt_result.t =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select Expr.[
-        nullable Actor.local_id;
-        nullable Actor.remote_id
-      ] ~from:Actor.table
-    |> Query.where Expr.(Actor.id = i id)
+      nullable Actor.local_id;
+      nullable Actor.remote_id
+    ] ~from:Actor.table
+    |> Query.where Expr.(Actor.id = i (id :> int))
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (function
-        | (Some local_id, (None, ())) -> `Local local_id
-        | (None, (Some remote_id, ())) -> `Remote remote_id
-        | (Some _, (Some _, ())) ->
-          invalid_arg "found actor id resolving to both local and remote"
-        | (None, (None, ())) ->
-          invalid_arg "found actor id resolving to neither local or remote"
-      )
+      | (Some local_id, (None, ())) -> `Local (TypesInner.local_of_int local_id)
+      | (None, (Some remote_id, ())) -> `Remote (TypesInner.remote_of_int remote_id)
+      | (Some _, (Some _, ())) ->
+        invalid_arg "found actor id resolving to both local and remote"
+      | (None, (None, ())) ->
+        invalid_arg "found actor id resolving to neither local or remote"
+    )
 
-  let create_local_user ~local_id conn =
+  let create_local_user ~(local_id: Types.local_user_id) conn : (Types.actor_id, _) Lwt_result.t =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     let* () =
       Query.insert ~table:Actor.table
-        ~values:Expr.[Actor.local_id := i local_id]
+        ~values:Expr.[Actor.local_id := i (local_id:> int)]
       |> Query.on_err `IGNORE
       |> Request.make_zero
       |> Petrol.exec conn in
-    lookup_local_user ~id:local_id conn
+    lookup_local_user ~id:(local_id) conn
 
-  let create_remote_user ~remote_id conn =
+  let create_remote_user ~(remote_id: Types.remote_user_id) conn  : (Types.actor_id, _) Lwt_result.t =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     let* () =
       Query.insert ~table:Actor.table
-        ~values:Expr.[Actor.remote_id := i remote_id]
+        ~values:Expr.[Actor.remote_id := i (remote_id :> int)]
       |> Query.on_err `IGNORE
       |> Request.make_zero
       |> Petrol.exec conn in
@@ -138,7 +219,7 @@ module LocalUser = struct
   let pp_public_key fmt _ = Format.fprintf fmt "<opaque>"
 
   type t = {
-    id: int;
+    id: Types.local_user_id;
     username: string;
     password: string;
     display_name: string option;
@@ -154,7 +235,7 @@ module LocalUser = struct
   let decode =
     fun (id, (username, (password, (display_name, (about, (profile_picture, (manually_accepts_follows, (is_admin, (pubkey, (privkey, ())))))))))) ->
     {
-      id;
+      id=TypesInner.local_of_int id;
       username;
       password;
       display_name;
@@ -197,7 +278,7 @@ module LocalUser = struct
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let resolve ~id conn =
+  let resolve ~(id: Types.local_user_id) conn =
     let open Petrol in
     let open Tables in
     Query.select
@@ -214,7 +295,7 @@ module LocalUser = struct
         LocalUser.privkey
       ]
       ~from:LocalUser.table
-    |> Query.where Expr.(LocalUser.id = i id)
+    |> Query.where Expr.(LocalUser.id = i (id :> int))
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map decode
@@ -263,7 +344,7 @@ module LocalUser = struct
          then Some user
          else None)
 
-  let update_password ~id ~password conn =
+  let update_password ~(id: Types.local_user_id) ~password conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -274,11 +355,11 @@ module LocalUser = struct
       ~set:Expr.[
         LocalUser.password := s password_hash
       ]
-    |> Query.where Expr.(LocalUser.id = i id)
+    |> Query.where Expr.(LocalUser.id = i (id :> int))
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let update_display_name ~id ~display_name conn =
+  let update_display_name ~(id: Types.local_user_id) ~display_name conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -286,11 +367,11 @@ module LocalUser = struct
       ~set:Expr.[
         LocalUser.display_name := s display_name
       ]
-    |> Query.where Expr.(LocalUser.id = i id)
+    |> Query.where Expr.(LocalUser.id = i (id :> int))
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let update_about ~id ~about conn =
+  let update_about ~(id: Types.local_user_id) ~about conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -298,11 +379,11 @@ module LocalUser = struct
       ~set:Expr.[
         LocalUser.about := s about
       ]
-    |> Query.where Expr.(LocalUser.id = i id)
+    |> Query.where Expr.(LocalUser.id = i (id :> int))
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let update_manually_accept_follows ~id ~manually_accept_follows conn =
+  let update_manually_accept_follows ~(id: Types.local_user_id) ~manually_accept_follows conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -310,11 +391,11 @@ module LocalUser = struct
       ~set:Expr.[
         LocalUser.manually_accept_follows := bl manually_accept_follows 
       ]
-    |> Query.where Expr.(LocalUser.id = i id)
+    |> Query.where Expr.(LocalUser.id = i (id :> int))
     |> Request.make_zero
     |> Petrol.exec conn  
 
-  let update_is_admin ~id ~is_admin conn =
+  let update_is_admin ~(id: Types.local_user_id) ~is_admin conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -322,11 +403,11 @@ module LocalUser = struct
       ~set:Expr.[
         LocalUser.is_admin := bl is_admin
       ]
-    |> Query.where Expr.(LocalUser.id = i id)
+    |> Query.where Expr.(LocalUser.id = i (id :> int))
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let update_profile_picture ~id ~image conn =
+  let update_profile_picture ~(id: Types.local_user_id) ~image conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -334,7 +415,7 @@ module LocalUser = struct
       ~set:Expr.[
         LocalUser.profile_picture := s image
       ]
-    |> Query.where Expr.(LocalUser.id = i id)
+    |> Query.where Expr.(LocalUser.id = i (id :> int))
     |> Request.make_zero
     |> Petrol.exec conn
 
@@ -418,7 +499,7 @@ end
 module RemoteInstance = struct
 
   type t = {
-    id: int;
+    id: Types.remote_instance_id;
     url: string;
     last_unreachable: Ptime.t option;
   }
@@ -427,12 +508,12 @@ module RemoteInstance = struct
   let decode (id, (url, (last_unreachable, ()))) =
     let last_unreachable =
       Option.map (fun s ->
-          Ptime.of_rfc3339 s
-          |> Result.get_ok
-          |> (fun (t, _, _) -> t)
-        ) last_unreachable in
+        Ptime.of_rfc3339 s
+        |> Result.get_ok
+        |> (fun (t, _, _) -> t)
+      ) last_unreachable in
     {
-      id;
+      id= TypesInner.remote_instance_of_int id;
       url;
       last_unreachable
     }
@@ -442,53 +523,53 @@ module RemoteInstance = struct
     let open Petrol in
     let open Tables in
     Query.select Expr.[
-        RemoteInstance.id;
-        RemoteInstance.url;
-        nullable RemoteInstance.last_unreachable
-      ] ~from:RemoteInstance.table
+      RemoteInstance.id;
+      RemoteInstance.url;
+      nullable RemoteInstance.last_unreachable
+    ] ~from:RemoteInstance.table
     |> Query.where Expr.(RemoteInstance.url = s url)
     |> Request.make_zero_or_one
     |> Petrol.find_opt conn
     |> Lwt_result.map (Option.map decode)
 
-  let update_instance_last_unreachable ~id ~last_unreachable conn =
+  let update_instance_last_unreachable ~(id: Types.remote_instance_id) ~last_unreachable conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.update ~table:RemoteInstance.table
       ~set:Expr.[
-          RemoteInstance.last_unreachable :=
-            s (Ptime.to_rfc3339 last_unreachable)
-        ]
+        RemoteInstance.last_unreachable :=
+          s (Ptime.to_rfc3339 last_unreachable)
+      ]
     |> Query.where
-      Expr.(RemoteInstance.id = i id)
+         Expr.(RemoteInstance.id = i (id :> int))
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let unset_instance_last_unreachable ~id conn =
+  let unset_instance_last_unreachable ~(id: Types.remote_instance_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.update ~table:RemoteInstance.table
       ~set:Expr.[
-          unset RemoteInstance.last_unreachable
-        ]
+        unset RemoteInstance.last_unreachable
+      ]
     |> Query.where
-      Expr.(RemoteInstance.id = i id)
+         Expr.(RemoteInstance.id = i (id :> int))
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let resolve ~id conn =
+  let resolve ~(id: Types.remote_instance_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select Expr.[
-        RemoteInstance.id;
-        RemoteInstance.url;
-        nullable RemoteInstance.last_unreachable
-      ] ~from:RemoteInstance.table
+      RemoteInstance.id;
+      RemoteInstance.url;
+      nullable RemoteInstance.last_unreachable
+    ] ~from:RemoteInstance.table
     |> Query.where
-      Expr.(RemoteInstance.id = i id)
+         Expr.(RemoteInstance.id = i (id :> int))
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map decode
@@ -500,8 +581,8 @@ module RemoteInstance = struct
     let* () = 
       Query.insert ~table:RemoteInstance.table
         ~values:Expr.[
-            RemoteInstance.url := s url
-          ]
+          RemoteInstance.url := s url
+        ]
       |> Query.on_err `IGNORE
       |> Request.make_zero
       |> Petrol.exec conn in
@@ -509,7 +590,7 @@ module RemoteInstance = struct
     Lwt_result.return (Option.get instance)
 
   let find_possible_remote_instances_to_query
-      ?(offset=0) ?(limit=10) pattern conn =
+        ?(offset=0) ?(limit=10) pattern conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -523,10 +604,10 @@ module RemoteInstance = struct
           Expr.[RemoteUser.id]
           ~from:RemoteUser.table
         |> Query.where Expr.(
-            RemoteUser.instance_id = RemoteInstance.id &&
-            (like RemoteUser.username ~pat:(s pattern) ||
-             like RemoteUser.display_name ~pat:(s pattern))
-          )
+          RemoteUser.instance_id = RemoteInstance.id &&
+          (like RemoteUser.username ~pat:(s pattern) ||
+           like RemoteUser.display_name ~pat:(s pattern))
+        )
       end
     )
     |> Query.order_by RemoteInstance.url ~direction:`DESC
@@ -604,9 +685,9 @@ end
 module RemoteUser = struct
 
   type t = {
-    id: int;
+    id: Types.remote_user_id;
     username: string;
-    instance_id: int;
+    instance_id: Types.remote_instance_id;
     display_name: string option;
     url: string;
     inbox: string option;
@@ -620,21 +701,21 @@ module RemoteUser = struct
   [@@deriving show]
 
   let decode
-      (id,
-       (username,
-        (instance_id,
-         (display_name,
-          (url,
-           (inbox,
-            (outbox,
-             (followers,
-              (following,
-               (summary,
-                (public_key_pem,
-                 (profile_picture, ())))))))))))) = {
-    id;
+        (id,
+         (username,
+          (instance_id,
+           (display_name,
+            (url,
+             (inbox,
+              (outbox,
+               (followers,
+                (following,
+                 (summary,
+                  (public_key_pem,
+                   (profile_picture, ())))))))))))) = {
+    id=TypesInner.remote_of_int id;
     username;
-    instance_id;
+    instance_id = TypesInner.remote_instance_of_int instance_id;
     display_name;
     url;
     inbox;
@@ -669,9 +750,9 @@ module RemoteUser = struct
       ]
       ~from:RemoteUser.table
     |> Query.join ~op:Query.INNER
-      ~on:Expr.(ri_id_ref = RemoteUser.instance_id)
-      (Query.select Expr.[ri_id; ri_url]
-         ~from:RemoteInstance.table)
+         ~on:Expr.(ri_id_ref = RemoteUser.instance_id)
+         (Query.select Expr.[ri_id; ri_url]
+            ~from:RemoteInstance.table)
     |> Query.where Expr.(ri_url_ref = s url &&
                          RemoteUser.username = s username)
     |> Request.make_zero_or_one
@@ -703,7 +784,7 @@ module RemoteUser = struct
     |> Petrol.find_opt conn
     |> Lwt_result.map (Option.map decode)
 
-  let resolve ~id conn =
+  let resolve ~(id: Types.remote_user_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -723,14 +804,14 @@ module RemoteUser = struct
         nullable RemoteUser.profile_picture;
       ]
       ~from:RemoteUser.table
-    |> Query.where Expr.(RemoteUser.id = i id)
+    |> Query.where Expr.(RemoteUser.id = i (id:>int))
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map decode
 
   let create_remote_user
-      ?display_name ?inbox ?outbox ?followers ?following ?summary ?profile_picture
-      ~username ~instance ~url ~public_key_pem conn =
+        ?display_name ?inbox ?outbox ?followers ?following ?summary ?profile_picture
+        ~username ~(instance:Types.remote_instance_id) ~url ~public_key_pem conn =
     let create_remote remote_id conn = Actor.create_remote_user ~remote_id conn in
     let open Lwt_result.Syntax in
     let open Petrol in
@@ -740,31 +821,31 @@ module RemoteUser = struct
         ~values:(
           Expr.[
             RemoteUser.username := s username;
-            RemoteUser.instance_id := i instance;
+            RemoteUser.instance_id := i (instance:>int);
           ] @
           (display_name |> Option.map Expr.(fun n ->
-               RemoteUser.display_name := s n
-             ) |> Option.to_list) @
+             RemoteUser.display_name := s n
+           ) |> Option.to_list) @
           Expr.[RemoteUser.url := s url] @
           (inbox |> Option.map Expr.(fun n ->
-               RemoteUser.inbox := s n
-             ) |> Option.to_list) @
+             RemoteUser.inbox := s n
+           ) |> Option.to_list) @
           (outbox |> Option.map Expr.(fun n ->
-               RemoteUser.outbox := s n
-             ) |> Option.to_list) @
+             RemoteUser.outbox := s n
+           ) |> Option.to_list) @
           (followers |> Option.map Expr.(fun n ->
-               RemoteUser.followers := s n
-             ) |> Option.to_list) @
+             RemoteUser.followers := s n
+           ) |> Option.to_list) @
           (following |> Option.map Expr.(fun n ->
-               RemoteUser.following := s n
-             ) |> Option.to_list) @
+             RemoteUser.following := s n
+           ) |> Option.to_list) @
           (summary |> Option.map Expr.(fun n ->
-               RemoteUser.summary := s n
-             ) |> Option.to_list) @
+             RemoteUser.summary := s n
+           ) |> Option.to_list) @
           Expr.[RemoteUser.public_key_pem := s public_key_pem] @
           (profile_picture |> Option.map Expr.(fun n ->
-               RemoteUser.profile_picture := s n
-             ) |> Option.to_list)
+             RemoteUser.profile_picture := s n
+           ) |> Option.to_list)
         )
       |> Request.make_zero
       |> Petrol.exec conn in
@@ -775,7 +856,7 @@ module RemoteUser = struct
     Lwt_result.return user 
 
   let get_known_remote_actors
-      ?(limit=10) ?(offset=0) conn = 
+        ?(limit=10) ?(offset=0) conn = 
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -789,17 +870,16 @@ module RemoteUser = struct
       ]
       ~from:RemoteUser.table
     |> Query.join
-      ~op:INNER ~on:Expr.(RemoteUser.instance_id = ri_id_ref)
-      (Query.select [ri_url; ri_id]
-         ~from:RemoteInstance.table)
+         ~op:INNER ~on:Expr.(RemoteUser.instance_id = ri_id_ref)
+         (Query.select [ri_url; ri_id]
+            ~from:RemoteInstance.table)
     |> Query.offset Expr.(i offset)
     |> Query.limit Expr.(i limit)
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map (fun (username, (i_url, (url, ()))) ->
-        (username, i_url, url)
-      ))
-
+      (username, i_url, url)
+    ))
 
   let collect_remote_users ?(offset=0) ?(limit=10) conn =
     let open Lwt_result.Syntax in
@@ -826,23 +906,23 @@ module RemoteUser = struct
       ]
       ~from:RemoteUser.table
     |> Query.join ~op:INNER
-      ~on:Expr.(ri_id_ref = RemoteUser.instance_id)
-      (Query.select Expr.[
-           ri_id;
-           ri_url
-         ] ~from:RemoteInstance.table)
+         ~on:Expr.(ri_id_ref = RemoteUser.instance_id)
+         (Query.select Expr.[
+            ri_id;
+            ri_url
+          ] ~from:RemoteInstance.table)
     |> Query.order_by_ ~direction:`DESC
-      Expr.[ru_dn_ref; ri_url_ref]
+         Expr.[ru_dn_ref; ri_url_ref]
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map (fun (url, user) ->
-        (url, decode user)
-      ))
+      (url, decode user)
+    ))
 
   let collect_remote_users_following
-      ?(offset=0) ?(limit=10) ~target:target_id conn =
+        ?(offset=0) ?(limit=10) ~target:target_id conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -864,17 +944,17 @@ module RemoteUser = struct
         nullable RemoteUser.profile_picture;
       ] ~from:RemoteUser.table
     |> Query.join ~op:INNER ~on:Expr.(a_rid_ref = RemoteUser.id)
-      (Query.select [a_id; a_rid] ~from:Actor.table)
+         (Query.select [a_id; a_rid] ~from:Actor.table)
     |> Query.where
-      (Expr.exists begin
-          Query.select [Follows.id;Follows.author_id;Follows.target_id]
-            ~from:Follows.table
-          |> Query.where Expr.(
+         (Expr.exists begin
+            Query.select [Follows.id;Follows.author_id;Follows.target_id]
+              ~from:Follows.table
+            |> Query.where Expr.(
               Follows.author_id = a_id_ref &&
               Follows.target_id = i target_id &&
               Follows.pending = false_
             )
-        end)
+          end)
     |> Query.order_by RemoteUser.id ~direction:`ASC
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
@@ -906,24 +986,24 @@ module RemoteUser = struct
       ]
       ~from:RemoteUser.table
     |> Query.join ~op:INNER
-      ~on:Expr.(ri_id_ref = RemoteUser.instance_id)
-      (Query.select Expr.[
-           ri_id;
-           ri_url
-         ] ~from:RemoteInstance.table)
+         ~on:Expr.(ri_id_ref = RemoteUser.instance_id)
+         (Query.select Expr.[
+            ri_id;
+            ri_url
+          ] ~from:RemoteInstance.table)
     |> Query.where Expr.(
-        like RemoteUser.username ~pat:(s pattern) ||
-        like RemoteUser.display_name ~pat:(s pattern)
-      )
+      like RemoteUser.username ~pat:(s pattern) ||
+      like RemoteUser.display_name ~pat:(s pattern)
+    )
     |> Query.order_by_ ~direction:`DESC
-      Expr.[RemoteUser.username; RemoteUser.display_name]
+         Expr.[RemoteUser.username; RemoteUser.display_name]
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map (fun (url, user) ->
-        (url, decode user)
-      ))
+      (url, decode user)
+    ))
 
 end
 
@@ -975,10 +1055,12 @@ end
 module Posts = struct
 
   type t = {
-    id: int;
+    id: Types.post_id;
     public_id: string option;
     url: string;
-    author_id: int;
+    author_id: Types.actor_id;
+
+    in_reply_to: string option;
 
     is_public: bool;
     is_follower_public: bool;
@@ -996,25 +1078,35 @@ module Posts = struct
   let content_type_to_int = function `Markdown -> 0 | `Org -> 1 | `Text -> 2
   let int_to_content_type = function 0 -> `Markdown | 1 -> `Org | _ -> `Text
 
-  let decode (id, (public_id, (url, (author_id, (is_public,
-                                                 (is_follower_public, (summary, (content_type, 
-                                                                                 (post_source, (published, (raw_data, ()))))))))))) =
+  let decode (id,
+              (public_id,
+               (url,
+                (author_id,
+                 (is_public,
+                  (is_follower_public,
+                   (summary,
+                    (content_type,
+                     (post_source,
+                      (published,
+                       (raw_data,
+                        (in_reply_to, ())))))))))))) =
     let published =
       Ptime.of_rfc3339 published
       |> Result.get_ok
       |> (fun (t, _, _) -> t) in
     let raw_data = Option.map Yojson.Safe.from_string raw_data in
     {
-      id;
+      id = TypesInner.post_of_int id;
       public_id;
       url;
-      author_id;
+      author_id = TypesInner.actor_of_int author_id;
       is_public; is_follower_public;
       summary;
       content_type=int_to_content_type content_type;
       post_source;
       published;
       raw_data;
+      in_reply_to;
     }
 
   let lookup_by_public_id ~public_id conn =
@@ -1033,6 +1125,7 @@ module Posts = struct
       Posts.post_source;
       Posts.published;
       nullable Posts.raw_data;
+      nullable Posts.in_reply_to;
     ] ~from:Posts.table
     |> Query.where Expr.(Posts.public_id = s public_id)
     |> Request.make_zero_or_one
@@ -1055,13 +1148,14 @@ module Posts = struct
       Posts.post_source;
       Posts.published;
       nullable Posts.raw_data;
+      nullable Posts.in_reply_to;
     ] ~from:Posts.table
     |> Query.where Expr.(Posts.url = s url)
     |> Request.make_zero_or_one
     |> Petrol.find_opt conn
     |> Lwt_result.map (Option.map decode)
 
-  let delete ~id conn =
+  let delete ~(id: Types.post_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -1073,11 +1167,11 @@ module Posts = struct
       Posts.published := s (Ptime.to_rfc3339 Ptime.epoch);
       Posts.deleted := true_;
     ]
-    |> Query.where Expr.(Posts.id = i id)
+    |> Query.where Expr.(Posts.id = i (id :> int))
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let resolve ~id conn =
+  let resolve ~(id: Types.post_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -1093,15 +1187,16 @@ module Posts = struct
       Posts.post_source;
       Posts.published;
       nullable Posts.raw_data;
+      nullable Posts.in_reply_to;
     ] ~from:Posts.table
-    |> Query.where Expr.(Posts.id = i id)
+    |> Query.where Expr.(Posts.id = i (id :> int))
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map decode
 
-  let create ?public_id ?summary ?raw_data 
+  let create ?public_id ?summary ?raw_data ?in_reply_to
         ?(is_public=true) ?(is_follower_public=true)
-        ~url ~author ~post_content
+        ~url ~(author: Types.actor_id) ~post_content
         ~post_source ~published conn =
     let open Lwt_result.Syntax in
     let open Petrol in
@@ -1114,7 +1209,7 @@ module Posts = struct
            |> Option.to_list) @
           Expr.[
             Posts.url := s url;
-            Posts.author_id := i author;
+            Posts.author_id := i (author:>int);
             Posts.is_public := bl is_public;
             Posts.is_follower_public := bl is_follower_public ] @
           (summary
@@ -1128,6 +1223,10 @@ module Posts = struct
           (raw_data
            |> Option.map Expr.(fun t ->
              Posts.raw_data := s (Yojson.Safe.to_string t))
+           |> Option.to_list) @
+          (in_reply_to
+           |> Option.map Expr.(fun url ->
+             Posts.in_reply_to := s url)
            |> Option.to_list)
         ) 
       |> Query.on_err `IGNORE
@@ -1136,19 +1235,19 @@ module Posts = struct
     let* data = lookup_by_url ~url conn in
     Lwt_result.return (Option.get data)
 
-  let count_posts_by_author ~author conn =
+  let count_posts_by_author ~(author:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select Expr.[count_star]
       ~from:Posts.table
-    |> Query.where Expr.(Posts.author_id = i author && ((not Posts.deleted) || is_null Posts.deleted))
+    |> Query.where Expr.(Posts.author_id = i (author :> int) && ((not Posts.deleted) || is_null Posts.deleted))
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (id, ()) -> id)
 
   let collect_posts_by_author
-        ?(offset=0) ?(limit=10) ~start_time ~author conn =
+        ?(offset=0) ?(limit=10) ~start_time ~(author: Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -1165,9 +1264,10 @@ module Posts = struct
       Posts.post_source;
       Posts.published;
       nullable Posts.raw_data;
+      nullable Posts.in_reply_to;
     ] ~from:Posts.table
     |> Query.where
-         Expr.(Posts.author_id = i author &&
+         Expr.(Posts.author_id = i (author :> int) &&
                Posts.published <= s start_time &&
                Posts.is_public = true_ && ((not Posts.deleted) || is_null Posts.deleted))
     |> Query.offset Expr.(i offset)
@@ -1177,46 +1277,46 @@ module Posts = struct
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map decode)
 
-  let post_to ?(offset=0) ?(limit=10) ~id conn =
+  let post_to ?(offset=0) ?(limit=10) ~(id: Types.post_id) conn : (Types.actor_id list, _) Lwt_result.t =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select [Posts.PostTo.actor_id]
       ~from:Posts.PostTo.table
-    |> Query.where Expr.(Posts.PostTo.post_id = i id)
+    |> Query.where Expr.(Posts.PostTo.post_id = i (id :> int))
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
     |> Request.make_many
     |> Petrol.collect_list conn
-    |> Lwt_result.map (List.map (fun (id, ()) -> id))
+    |> Lwt_result.map (List.map (fun (id, ()) -> TypesInner.actor_of_int id))
 
-  let post_cc ?(offset=0) ?(limit=10) ~id conn =
+  let post_cc ?(offset=0) ?(limit=10) ~(id: Types.post_id) conn : (Types.actor_id list, _) Lwt_result.t =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select [Posts.PostCc.actor_id]
       ~from:Posts.PostCc.table
-    |> Query.where Expr.(Posts.PostCc.post_id = i id)
+    |> Query.where Expr.(Posts.PostCc.post_id = i (id :> int))
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
     |> Request.make_many
     |> Petrol.collect_list conn
-    |> Lwt_result.map (List.map (fun (id, ()) -> id))
+    |> Lwt_result.map (List.map (fun (id, ()) -> TypesInner.actor_of_int id))
 
-  let post_mentions ?(offset=0) ?(limit=10) ~id conn =
+  let post_mentions ?(offset=0) ?(limit=10) ~(id: Types.post_id) conn : (Types.actor_id list, _) Lwt_result.t =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select [Posts.PostMentions.actor_id]
       ~from:Posts.PostMentions.table
-    |> Query.where Expr.(Posts.PostMentions.post_id = i id)
+    |> Query.where Expr.(Posts.PostMentions.post_id = i (id :> int))
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
     |> Request.make_many
     |> Petrol.collect_list conn
-    |> Lwt_result.map (List.map (fun (id, ()) -> id))
+    |> Lwt_result.map (List.map (fun (id, ()) -> TypesInner.actor_of_int id))
 
-  let post_tags ?(offset=0) ?(limit=10) ~id conn =
+  let post_tags ?(offset=0) ?(limit=10) ~(id: Types.post_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -1227,41 +1327,41 @@ module Posts = struct
     |> Query.join ~op:INNER (
       Query.select Expr.[tag_id; tag_name] ~from:Tag.table
     ) ~on:Expr.(tag_id_ref = Posts.PostTags.tag_id)
-    |> Query.where Expr.(Posts.PostTags.post_id = i id)
+    |> Query.where Expr.(Posts.PostTags.post_id = i (id:>int))
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map (fun (id, ()) -> id))
 
-  let add_post_to ~id ~actor_id conn =
+  let add_post_to ~(id: Types.post_id) ~(actor_id: Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.insert ~table:Posts.PostTo.table
       ~values:Expr.[
-        Posts.PostTo.post_id := i id;
-        Posts.PostTo.actor_id := i actor_id;
+        Posts.PostTo.post_id := i (id:>int);
+        Posts.PostTo.actor_id := i (actor_id:>int);
       ]
     |> Query.on_err `IGNORE
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let add_post_tos ~id ~tos conn =
-    Lwt_list.fold_left_s (fun acc actor_id -> match acc with
+  let add_post_tos ~(id: Types.post_id) ~tos conn =
+    Lwt_list.fold_left_s (fun acc (actor_id: Types.actor_id) -> match acc with
       | Ok () ->
         add_post_to ~id ~actor_id conn
       | Error _ -> Lwt.return acc
     ) (Ok ()) tos
 
-  let add_post_cc ~id ~actor_id conn =
+  let add_post_cc ~(id: Types.post_id) ~(actor_id: Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.insert ~table:Posts.PostCc.table
       ~values:Expr.[
-        Posts.PostCc.post_id := i id;
-        Posts.PostCc.actor_id := i actor_id;
+        Posts.PostCc.post_id := i (id:>int);
+        Posts.PostCc.actor_id := i (actor_id:>int);
       ]
     |> Query.on_err `IGNORE
     |> Request.make_zero
@@ -1274,14 +1374,14 @@ module Posts = struct
       | Error _ -> Lwt.return acc
     ) (Ok ()) ccs
 
-  let add_post_mention ~id ~actor_id conn =
+  let add_post_mention ~(id: Types.post_id) ~(actor_id: Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.insert ~table:Posts.PostMentions.table
       ~values:Expr.[
-        Posts.PostMentions.post_id := i id;
-        Posts.PostMentions.actor_id := i actor_id;
+        Posts.PostMentions.post_id := i (id:>int);
+        Posts.PostMentions.actor_id := i (actor_id:>int);
       ]
     |> Query.on_err `IGNORE
     |> Request.make_zero
@@ -1294,14 +1394,14 @@ module Posts = struct
       | Error _ -> Lwt.return acc
     ) (Ok ()) mentions
 
-  let add_post_tag ~id ~tag conn =
+  let add_post_tag ~(id: Types.post_id) ~tag conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let* tag = Tag.create ~name:tag conn in
     let open Tables in
     Query.insert ~table:Posts.PostTags.table
       ~values:Expr.[
-        Posts.PostTags.post_id := i id;
+        Posts.PostTags.post_id := i (id:>int);
         Posts.PostTags.tag_id := i tag.id;
       ]
     |> Query.on_err `IGNORE
@@ -1316,7 +1416,7 @@ module Posts = struct
     ) (Ok ()) tags
 
   (* a post is a direct message to actor(id) iff *)
-  let is_direct_message ~id =
+  let is_direct_message ~(id: Types.actor_id) =
     let open Petrol in
     let open Tables in
     Expr.(
@@ -1329,7 +1429,7 @@ module Posts = struct
                (* for the post *)
                Posts.PostTo.post_id = Posts.id &&
                (* where we are the actor *)
-               Posts.PostTo.actor_id = i id)
+               Posts.PostTo.actor_id = i (id:>int))
       end
       ||
       (* or, if there is an entry in the cc list *)
@@ -1341,11 +1441,11 @@ module Posts = struct
                (* for the post *)
                Posts.PostCc.post_id = Posts.id &&
                (* where we are the actor *)
-               Posts.PostCc.actor_id = i id)
+               Posts.PostCc.actor_id = i (id:>int))
       end ||
       (* or, if the post is not public and not follower public, but we are the author *)
       (not Posts.is_public && not Posts.is_follower_public &&
-       Posts.author_id = i id)
+       Posts.author_id = i (id:>int))
     ) 
 
   let is_within_time ?end_time ~start_time () =
@@ -1357,7 +1457,7 @@ module Posts = struct
     | Some end_time ->
       Expr.(Posts.published <= s start_time && s end_time <= Posts.published)
 
-  let is_reboosted_by_following ~id =
+  let is_reboosted_by_following ~(id: Types.actor_id) =
     let open Petrol in
     let open Tables in
     let reboost_post,reboost_post_ref =
@@ -1380,27 +1480,27 @@ module Posts = struct
              Query.select Expr.[follow_author; follow_target; follow_pending]
                ~from:Follows.table
            end
-        |> Query.where Expr.(follow_author_ref = i id &&
+        |> Query.where Expr.(follow_author_ref = i (id:>int) &&
                              reboost_post_ref = Posts.id &&
                              not follow_pending_ref)
         |> Query.order_by reboost_post_ref
       end && Posts.is_public
     )
 
-  let is_feed_post ~id =
+  let is_feed_post ~(id: Types.actor_id) =
     let open Petrol in
     let open Tables in
     Expr.(
       (
         (* TODO: We are not blocking/muting the author *)
         (* (1) we are the author *)
-        Posts.author_id = i id ||
+        Posts.author_id = i (id:>int) ||
         (* (2) we are following the author of the post && it is public *)
         (Expr.exists begin
            Query.select Expr.[Follows.author_id; Follows.target_id; Follows.pending]
              ~from:Follows.table
            |> Query.where Expr.(
-             Follows.author_id = i id &&
+             Follows.author_id = i (id:>int) &&
              Follows.target_id = Posts.author_id &&
              not Follows.pending
            )
@@ -1445,7 +1545,8 @@ module Posts = struct
         Posts.content_type;
         Posts.post_source;
         Posts.published;
-        nullable Posts.raw_data
+        nullable Posts.raw_data;
+        nullable Posts.in_reply_to;
       ] ~from:Posts.table
     |> Query.where Expr.(is_within_time ~start_time () && is_feed_post ~id && ((not Posts.deleted) || is_null Posts.deleted))
     |> Query.order_by Posts.published ~direction:`DESC
@@ -1491,7 +1592,8 @@ module Posts = struct
         Posts.content_type;
         Posts.post_source;
         Posts.published;
-        nullable Posts.raw_data
+        nullable Posts.raw_data;
+        nullable Posts.in_reply_to;
       ] ~from:Posts.table
     |> Query.where
          Expr.(is_within_time ~start_time () && is_direct_message ~id && ((not Posts.deleted) || is_null Posts.deleted))
@@ -1534,7 +1636,8 @@ module Posts = struct
         Posts.content_type;
         Posts.post_source;
         Posts.published;
-        nullable Posts.raw_data
+        nullable Posts.raw_data;
+        nullable Posts.in_reply_to;        
       ] ~from:Posts.table
     |> Query.where
          Expr.(is_within_time ~start_time () &&
@@ -1579,7 +1682,8 @@ module Posts = struct
         Posts.content_type;
         Posts.post_source;
         Posts.published;
-        nullable Posts.raw_data
+        nullable Posts.raw_data;
+        nullable Posts.in_reply_to;
       ] ~from:Posts.table
     |> Query.where Expr.(is_within_time ~start_time () &&
                          Posts.is_public &&
@@ -1603,16 +1707,153 @@ module Posts = struct
     |> Petrol.find conn
     |> Lwt_result.map (fun (count, ()) -> count)
 
-  let is_visable_post ~by:author_id ~post:post_id conn =
+  let is_visible_post ~by:author_id ~post:(post_id: Types.post_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select Expr.[ count_star ] ~from:Posts.table
-    |> Query.where Expr.(Posts.id = i post_id && is_feed_post ~id:author_id && ((not Posts.deleted) || is_null Posts.deleted))
+    |> Query.where Expr.(Posts.id = i (post_id:>int) && is_feed_post ~id:author_id && ((not Posts.deleted) || is_null Posts.deleted))
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (post_count, ()) -> post_count > 0)
 
+  let count_related_posts ?start_time ~user:(user_id: Types.actor_id) ~post:(post_id: Types.post_id) conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let start_time =
+      Option.value start_time
+        ~default:(Ptime_clock.now ())
+      |> Ptime.to_rfc3339 in
+    let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"pcp" Posts.PostContext.parent in
+    let post_context_child, post_context_child_ref = Expr.as_ ~name:"pcc" Posts.PostContext.child in
+    (* collect posts where *)
+    Query.select
+      Expr.[
+        count_star;
+      ] ~from:Posts.table
+    |> Query.join ~op:Query.INNER begin
+      Query.select Expr.[
+        post_context_parent;
+        post_context_child
+      ] ~from:Posts.PostContext.table
+    end ~on:Expr.(post_context_child_ref = Posts.id)
+    |> Query.where Expr.(is_within_time ~start_time () &&
+                         (is_feed_post ~id:user_id || Posts.is_public) &&
+                         ((not Posts.deleted) || is_null Posts.deleted) &&
+                         post_context_parent_ref = i (post_id:>int))
+    |> Query.order_by Posts.published ~direction:`DESC
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (count, _) -> count)
+
+  let collect_related_posts ?(offset=0) ?(limit=10) ?start_time ~user:user_id ~post:(post_id: Types.post_id) conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    let start_time =
+      Option.value start_time
+        ~default:(Ptime_clock.now ())
+      |> Ptime.to_rfc3339 in
+    let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"pcp" Posts.PostContext.parent in
+    let post_context_child, post_context_child_ref = Expr.as_ ~name:"pcc" Posts.PostContext.child in
+    (* collect posts where *)
+    Query.select
+      Expr.[
+        post_context_parent_ref;
+        Posts.id;
+        nullable Posts.public_id;
+        Posts.url;
+        Posts.author_id;
+        Posts.is_public;
+        Posts.is_follower_public;
+        nullable Posts.summary;
+        Posts.content_type;
+        Posts.post_source;
+        Posts.published;
+        nullable Posts.raw_data;
+        nullable Posts.in_reply_to;
+      ] ~from:Posts.table
+    |> Query.join ~op:Query.INNER begin
+      Query.select Expr.[
+        post_context_parent;
+        post_context_child
+      ] ~from:Posts.PostContext.table
+    end ~on:Expr.(post_context_child_ref = Posts.id)
+    |> Query.where Expr.(is_within_time ~start_time () &&
+                         (is_feed_post ~id:user_id || Posts.is_public) &&
+                         ((not Posts.deleted) || is_null Posts.deleted) &&
+                         post_context_parent_ref = i (post_id:>int))
+    |> Query.order_by Posts.published ~direction:`DESC
+    |> Query.limit Expr.(i limit)
+    |> Query.offset Expr.(i offset)
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map (fun (_, post) -> decode post))
+
+  open (struct
+    let collect_child_post_ids ~post:(post_id: Types.post_id) conn =
+      let open Lwt_result.Syntax in
+      let open Petrol in
+      let open Tables in
+      let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"pcp" Posts.PostContext.parent in
+      let post_context_child, post_context_child_ref = Expr.as_ ~name:"pcc" Posts.PostContext.child in
+      (* collect posts where *)
+      Query.select Expr.[ Posts.id; ] ~from:Posts.table
+      |> Query.join ~op:Query.INNER begin
+        Query.select Expr.[
+          post_context_parent;
+          post_context_child
+        ] ~from:Posts.PostContext.table
+      end ~on:Expr.(post_context_child_ref = Posts.id)
+      |> Query.where Expr.(((not Posts.deleted) || is_null Posts.deleted) &&
+                           post_context_parent_ref = i (post_id:>int))
+      |> Query.order_by Posts.published ~direction:`DESC
+      |> Request.make_many
+      |> Petrol.collect_list conn
+      |> Lwt_result.map (List.map (fun (id, _) -> id))
+
+    let collect_parent_post_ids ~post:(post_id: Types.post_id) conn =
+      let open Lwt_result.Syntax in
+      let open Petrol in
+      let open Tables in
+      let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"pcp" Posts.PostContext.parent in
+      let post_context_child, post_context_child_ref = Expr.as_ ~name:"pcc" Posts.PostContext.child in
+      (* collect posts where *)
+      Query.select Expr.[ Posts.id; ] ~from:Posts.table
+      |> Query.join ~op:Query.INNER begin
+        Query.select Expr.[
+          post_context_parent;
+          post_context_child
+        ] ~from:Posts.PostContext.table
+      end ~on:Expr.(post_context_parent_ref = Posts.id)
+      |> Query.where Expr.(((not Posts.deleted) || is_null Posts.deleted) &&
+                           post_context_child_ref = i (post_id:>int))
+      |> Query.order_by Posts.published ~direction:`DESC
+      |> Request.make_many
+      |> Petrol.collect_list conn
+      |> Lwt_result.map (List.map (fun (id, _) -> TypesInner.post_of_int id))
+  end)
+
+  let record_reply_relation ~parent:(parent_id: Types.post_id) ~child:(child_id: Types.post_id) conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.insert ~table:Posts.PostContext.table
+      ~values:Expr.[Posts.PostContext.parent := i (parent_id:>int); Posts.PostContext.child := i (child_id:>int)]
+    |> Query.on_err `IGNORE
+    |> Request.make_zero
+    |> Petrol.exec conn
+
+  let record_reply_relation ~parent:parent_id ~child:child_id conn =
+    let open Lwt_result.Syntax in
+    let* _ = record_reply_relation ~parent:parent_id ~child:child_id conn in
+    let* parents = collect_parent_post_ids ~post:parent_id conn in
+    Lwt_list.map_s (fun parent_id ->
+      record_reply_relation ~parent:parent_id ~child:child_id conn
+    ) parents
+    |> Lwt.map Containers.List.all_ok
+    |> Lwt_result.map ignore
 
 end
 
@@ -1626,8 +1867,8 @@ module Follows = struct
     pending: bool;
     created: Ptime.t;
     updated: Ptime.t option;
-    author_id: int;
-    target_id: int;
+    author_id: Types.actor_id;
+    target_id: Types.actor_id;
   } [@@deriving show]
 
   let decode (id, (public_id, (url, (raw_data, (pending, (created, (updated, (author_id, (target_id, ()))))))))) =
@@ -1643,8 +1884,8 @@ module Follows = struct
       pending;
       created;
       updated;
-      author_id;
-      target_id;
+      author_id = TypesInner.actor_of_int author_id;
+      target_id = TypesInner.actor_of_int target_id;
     }
 
   let lookup_by_public_id ~public_id conn =
@@ -1707,7 +1948,7 @@ module Follows = struct
     |> Petrol.find conn
     |> Lwt_result.map decode
 
-  let create ?public_id ?raw_data ?updated ~url ~author ~target ~pending ~created conn =
+  let create ?public_id ?raw_data ?updated ~url ~(author: Types.actor_id) ~(target:Types.actor_id) ~pending ~created conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -1717,8 +1958,8 @@ module Follows = struct
           Follows.url := s url;
           Follows.pending := bl pending;
           Follows.created := s (Ptime.to_rfc3339 created);
-          Follows.author_id := i author;
-          Follows.target_id := i target;
+          Follows.author_id := i (author :> int);
+          Follows.target_id := i (target :> int);
         ] 
         @ (Option.map Expr.(fun public_id -> Follows.public_id := s public_id) public_id |> Option.to_list)
         @ (Option.map Expr.(fun raw_data -> Follows.raw_data := s (Yojson.Safe.to_string raw_data)) raw_data |> Option.to_list)
@@ -1753,7 +1994,7 @@ module Follows = struct
     |> Request.make_zero
     |> Petrol.exec conn
 
-  let collect_follows_for_actor ?(offset=0) ?(limit=10) ?since ~id conn =
+  let collect_follows_for_actor ?(offset=0) ?(limit=10) ?since ~(id: Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -1770,7 +2011,7 @@ module Follows = struct
       Follows.target_id;
     ] ~from:Follows.table
     |> Query.where Expr.(
-      (Follows.target_id = i id || Follows.author_id = i id) &&
+      (Follows.target_id = i (id:>int) || Follows.author_id = i (id:>int)) &&
       (coalesce [Follows.updated; Follows.created]) <= s since &&
       Follows.pending = true_
     )
@@ -1781,17 +2022,17 @@ module Follows = struct
     |> Petrol.find conn
     |> Lwt_result.map decode
 
-  let is_following ~author ~target conn =
+  let is_following ~(author:Types.actor_id) ~(target:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select Expr.[count_star] ~from:Follows.table
-    |> Query.where Expr.(Follows.author_id = i author && Follows.target_id = i target && Follows.pending = false_)
+    |> Query.where Expr.(Follows.author_id = i (author:>int) && Follows.target_id = i (target:>int) && Follows.pending = false_)
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (c, ()) -> c > 0)
 
-  let find_follow_between ~author ~target conn =
+  let find_follow_between ~(author:Types.actor_id) ~(target:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -1806,22 +2047,22 @@ module Follows = struct
       Follows.author_id;
       Follows.target_id;
     ] ~from:Follows.table
-    |> Query.where Expr.(Follows.author_id = i author && Follows.target_id = i target)
+    |> Query.where Expr.(Follows.author_id = i (author:>int) && Follows.target_id = i (target:>int))
     |> Request.make_zero_or_one
     |> Petrol.find_opt conn
     |> Lwt_result.map (Option.map decode)
 
-  let count_following ~author conn =
+  let count_following ~(author:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select Expr.[count_star] ~from:Follows.table
-    |> Query.where Expr.(Follows.author_id = i author && Follows.pending = false_)
+    |> Query.where Expr.(Follows.author_id = i (author:>int) && Follows.pending = false_)
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (c, ()) -> c)
 
-  let collect_following_for_actor ?(offset=0) ?(limit=10) ?since ~id conn =
+  let collect_following_for_actor ?(offset=0) ?(limit=10) ?since ~(id:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -1838,7 +2079,7 @@ module Follows = struct
       Follows.target_id;
     ] ~from:Follows.table
     |> Query.where Expr.(
-      (Follows.author_id = i id) &&
+      (Follows.author_id = i (id:>int)) &&
       (coalesce [Follows.updated; Follows.created]) <= s since &&
       Follows.pending = false_
     )
@@ -1849,17 +2090,17 @@ module Follows = struct
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map decode)
 
-  let count_followers ~target conn =
+  let count_followers ~(target:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select Expr.[count_star] ~from:Follows.table
-    |> Query.where Expr.(Follows.target_id = i target && Follows.pending = false_)
+    |> Query.where Expr.(Follows.target_id = i (target:>int) && Follows.pending = false_)
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (c, ()) -> c)
 
-  let collect_followers_for_actor ?(offset=0) ?(limit=10) ?since ~id conn =
+  let collect_followers_for_actor ?(offset=0) ?(limit=10) ?since ~(id:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -1876,7 +2117,7 @@ module Follows = struct
       Follows.target_id;
     ] ~from:Follows.table
     |> Query.where Expr.(
-      (Follows.target_id = i id) &&
+      (Follows.target_id = i (id:>int)) &&
       (coalesce [Follows.updated; Follows.created]) <= s since &&
       Follows.pending = false_
     )
@@ -1919,8 +2160,8 @@ module Reboosts = struct
     url: string;
     raw_data: Yojson.Safe.t option;
     published: Ptime.t;
-    post_id: int;
-    actor_id: int;
+    post_id: Types.post_id;
+    actor_id: Types.actor_id;
   }
   [@@deriving show]
 
@@ -1934,8 +2175,8 @@ module Reboosts = struct
       url;
       raw_data;
       published;
-      post_id;
-      actor_id;
+      post_id=TypesInner.post_of_int post_id;
+      actor_id=TypesInner.actor_of_int actor_id;
     }
 
   let delete ~id conn =
@@ -1952,14 +2193,14 @@ module Reboosts = struct
     let open Petrol in
     let open Tables in
     Query.select Expr.[
-        Reboosts.id;
-        nullable Reboosts.public_id;
-        Reboosts.url;
-        nullable Reboosts.raw_data;
-        Reboosts.published;
-        Reboosts.post_id;
-        Reboosts.actor_id;
-      ] ~from:Reboosts.table
+      Reboosts.id;
+      nullable Reboosts.public_id;
+      Reboosts.url;
+      nullable Reboosts.raw_data;
+      Reboosts.published;
+      Reboosts.post_id;
+      Reboosts.actor_id;
+    ] ~from:Reboosts.table
     |> Query.where Expr.(Reboosts.id = i id)
     |> Request.make_one
     |> Petrol.find conn
@@ -1983,7 +2224,7 @@ module Reboosts = struct
     |> Petrol.find_opt conn
     |> Lwt_result.map (Option.map decode)
 
-  let create ?public_id ?raw_data ~url ~post ~actor ~published conn =
+  let create ?public_id ?raw_data ~url ~(post:Types.post_id) ~(actor:Types.actor_id) ~published conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -1992,14 +2233,14 @@ module Reboosts = struct
         Expr.[
           Reboosts.url := s url;
           Reboosts.published := s (Ptime.to_rfc3339 published);
-          Reboosts.post_id := i post;
-          Reboosts.actor_id := i actor;
+          Reboosts.post_id := i (post:>int);
+          Reboosts.actor_id := i (actor:>int);
         ] 
         @ (Option.map Expr.(fun public_id ->
-            Reboosts.public_id := s public_id) public_id
+          Reboosts.public_id := s public_id) public_id
            |> Option.to_list)
         @ (Option.map Expr.(fun raw_data ->
-            Reboosts.raw_data := s (Yojson.Safe.to_string raw_data)) raw_data
+          Reboosts.raw_data := s (Yojson.Safe.to_string raw_data)) raw_data
            |> Option.to_list)
       )
       |> Query.on_err `IGNORE
@@ -2008,7 +2249,7 @@ module Reboosts = struct
     let* result = lookup_by_url ~url conn in
     Lwt_result.return (Option.get result)
 
-  let find_reboost_between ~post ~author conn =
+  let find_reboost_between ~(post:Types.post_id) ~(author:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -2021,22 +2262,22 @@ module Reboosts = struct
       Reboosts.post_id;
       Reboosts.actor_id;
     ] ~from:Reboosts.table
-    |> Query.where Expr.(Reboosts.post_id = i post && Reboosts.actor_id = i author)
+    |> Query.where Expr.(Reboosts.post_id = i (post:>int) && Reboosts.actor_id = i (author:>int))
     |> Request.make_zero_or_one
     |> Petrol.find_opt conn
     |> Lwt_result.map (Option.map decode)
 
-  let count_for_post ~post conn =
+  let count_for_post ~(post:Types.post_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select Expr.[ count_star ] ~from:Reboosts.table
-    |> Query.where Expr.(Reboosts.post_id = i post)
+    |> Query.where Expr.(Reboosts.post_id = i (post:>int))
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (id, ()) -> id)
 
-  let collect_for_post ?(offset=0) ?(limit=10) ~post conn =
+  let collect_for_post ?(offset=0) ?(limit=10) ~(post:Types.post_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -2049,15 +2290,15 @@ module Reboosts = struct
       Reboosts.post_id;
       Reboosts.actor_id;
     ] ~from:Reboosts.table
-    |> Query.where Expr.(Reboosts.post_id = i post)
+    |> Query.where Expr.(Reboosts.post_id = i (post:>int))
     |> Query.order_by Reboosts.published ~direction:`DESC
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map decode)
-  
-  let collect_relevant_for_user ~post ~user conn =
+
+  let collect_relevant_for_user ~(post:Types.post_id) ~(user:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -2071,22 +2312,22 @@ module Reboosts = struct
       Reboosts.actor_id;
     ] ~from:Reboosts.table
     |> Query.where Expr.(
-        Reboosts.post_id = i post &&
-        Expr.exists begin
-          Query.select Expr.[Follows.author_id; Follows.target_id]
-            ~from:Follows.table
-          |> Query.where Expr.(
-              Follows.target_id = Reboosts.actor_id &&
-              Follows.author_id = i user &&
-              not Follows.pending
-            )
+      Reboosts.post_id = i (post:>int) &&
+      Expr.exists begin
+        Query.select Expr.[Follows.author_id; Follows.target_id]
+          ~from:Follows.table
+        |> Query.where Expr.(
+          Follows.target_id = Reboosts.actor_id &&
+          Follows.author_id = i (user:>int) &&
+          not Follows.pending
+        )
       end
-      )
+    )
     |> Query.order_by Reboosts.published ~direction:`DESC
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map decode)
-  
+
 end
 
 module Likes = struct
@@ -2097,8 +2338,8 @@ module Likes = struct
     url: string;
     raw_data: Yojson.Safe.t option;
     published: Ptime.t;
-    post_id: int;
-    actor_id: int;
+    post_id: Types.post_id;
+    actor_id: Types.actor_id;
   }
   [@@deriving show]
 
@@ -2112,8 +2353,8 @@ module Likes = struct
       url;
       raw_data;
       published;
-      post_id;
-      actor_id;
+      post_id=TypesInner.post_of_int post_id;
+      actor_id=TypesInner.actor_of_int actor_id;
     }
 
   let resolve ~id conn =
@@ -2161,7 +2402,7 @@ module Likes = struct
     |> Petrol.find_opt conn
     |> Lwt_result.map (Option.map decode)
 
-  let create ?public_id ?raw_data ~url ~post ~actor ~published conn =
+  let create ?public_id  ?raw_data ~url ~(post:Types.post_id) ~(actor:Types.actor_id) ~published conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -2170,8 +2411,8 @@ module Likes = struct
         Expr.[
           Likes.url := s url;
           Likes.published := s (Ptime.to_rfc3339 published);
-          Likes.post_id := i post;
-          Likes.actor_id := i actor;
+          Likes.post_id := i (post:>int);
+          Likes.actor_id := i (actor:>int);
         ] 
         @ (Option.map Expr.(fun public_id -> Likes.public_id := s public_id) public_id |> Option.to_list)
         @ (Option.map Expr.(fun raw_data -> Likes.raw_data := s (Yojson.Safe.to_string raw_data)) raw_data |> Option.to_list)
@@ -2182,7 +2423,7 @@ module Likes = struct
     let* result = lookup_by_url ~url conn in
     Lwt_result.return (Option.get result)
 
-  let find_like_between ~post ~author conn =
+  let find_like_between ~(post:Types.post_id) ~(author:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -2195,22 +2436,22 @@ module Likes = struct
       Likes.post_id;
       Likes.actor_id;
     ] ~from:Likes.table
-    |> Query.where Expr.(Likes.post_id = i post && Likes.actor_id = i author)
+    |> Query.where Expr.(Likes.post_id = i (post:>int) && Likes.actor_id = i (author:>int))
     |> Request.make_zero_or_one
     |> Petrol.find_opt conn
     |> Lwt_result.map (Option.map decode)
 
-  let count_for_post ~post conn =
+  let count_for_post ~(post:Types.post_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
     Query.select Expr.[ count_star ] ~from:Likes.table
-    |> Query.where Expr.(Likes.post_id = i post)
+    |> Query.where Expr.(Likes.post_id = i (post:>int))
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (id, ()) -> id)
 
-  let collect_for_post ?(offset=0) ?(limit=10) ~post conn =
+  let collect_for_post ?(offset=0) ?(limit=10) ~(post:Types.post_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -2223,7 +2464,7 @@ module Likes = struct
       Likes.post_id;
       Likes.actor_id;
     ] ~from:Likes.table
-    |> Query.where Expr.(Likes.post_id = i post)
+    |> Query.where Expr.(Likes.post_id = i (post:>int))
     |> Query.order_by Likes.published ~direction:`DESC
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
@@ -2231,7 +2472,7 @@ module Likes = struct
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map decode)
 
-  let collect_by_actor ?(offset=0) ?(limit=10) ~actor conn =
+  let collect_by_actor ?(offset=0) ?(limit=10) ~(actor:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Tables in
@@ -2244,7 +2485,7 @@ module Likes = struct
       Likes.post_id;
       Likes.actor_id;
     ] ~from:Likes.table
-    |> Query.where Expr.(Likes.actor_id = i actor)
+    |> Query.where Expr.(Likes.actor_id = i (actor:>int))
     |> Query.order_by Likes.published ~direction:`DESC
     |> Query.limit Expr.(i limit)
     |> Query.offset Expr.(i offset)
@@ -2296,3 +2537,4 @@ module Admin = struct
 
 
 end
+

@@ -108,7 +108,7 @@ let current_user_link req =
   match current_user with
   | None as opt -> return_ok opt
   | Some user ->
-    Dream.sql req (Database.Actor.lookup_local_user ~id:(user.Database.LocalUser.id))
+    Dream.sql req (Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id))
     |> map_err (fun err -> `Internal ("Lookup user failed", Caqti_error.show err))
     |> Lwt_result.map Option.some
 

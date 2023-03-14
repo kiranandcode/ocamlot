@@ -268,6 +268,7 @@ CLOSED: [2023-03-13 Mon 16:40]
 ** TODO Implement reply to posts
 *** DONE Find out how reply looks
 CLOSED: [2023-03-12 Sun 16:13]
-*** TODO Add field to table to track conversation
-*** TODO On click on post, show all posts with same conversation
-*** TODO When click on post
+*** TODO Add field to table to track inreply to
+*** TODO Add table to track context relationships
+*** TODO On click on post, show all posts with same context
+*** TODO When adding post, add post to all posts

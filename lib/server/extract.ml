@@ -80,7 +80,7 @@ let extract_user_socials req author : (View.User.socials, _) Lwt_result.t =
   let* current_user = current_user_link req in
   let* actions = match current_user with
     | None -> return_ok []
-    | Some current_user when current_user = author -> return_ok []
+    | Some current_user when (current_user:>int) = (author:>int) -> return_ok []
     | Some current_user ->
       let* follow = sql req (Database.Follows.find_follow_between
                                ~author:current_user ~target:author) in

@@ -6,9 +6,10 @@ let version_0_0_3 = VersionedSchema.version [0;0;3]
 let version_0_0_4 = VersionedSchema.version [0;0;4]
 let version_0_0_5 = VersionedSchema.version [0;0;5]
 let version_0_0_6 = VersionedSchema.version [0;0;6]
+let version_0_0_7 = VersionedSchema.version [0;0;7]
 
 
-let db = VersionedSchema.init version_0_0_5 ~name:"ocamlot"
+let db = VersionedSchema.init version_0_0_7 ~name:"ocamlot"
 
 module DreamSession = struct
 
@@ -47,7 +48,6 @@ module Admin = struct
       ] ~since:version_0_0_6
 
 end
-
 
 
 module Activity = struct
@@ -180,23 +180,24 @@ end
 module Posts = struct
 
   let table, Expr.[
-      id;
-      public_id;
-      url;
-      author_id;
+    id;
+    public_id;
+    url;
+    author_id;
 
-      is_public;
-      is_follower_public;
+    is_public;
+    is_follower_public;
 
-      summary;
-      content_type;
-      post_source;
+    summary;
+    content_type;
+    post_source;
 
-      published;
-      raw_data;
+    published;
+    raw_data;
 
-      deleted;
-    ] =
+    deleted;
+    in_reply_to;
+  ] =
     VersionedSchema.declare_table db ~name:"posts"
       Schema.[
         field ~constraints:[primary_key ()] "id" ~ty:Type.int;                 (* internal post id, not exposed *)
@@ -219,10 +220,15 @@ module Posts = struct
 
         field "raw_data" ~ty:Type.blob;                                        (* if by an external user, then keep json of the post (Yojson.Safe.t) *)
         field "deleted" ~ty:Type.bool;
+
+        field "in_reply_to" ~ty:Type.text;
       ]
       ~migrations:[
         version_0_0_5, [
           Caqti_request.Infix.(Caqti_type.unit ->. Caqti_type.unit) {sql| ALTER TABLE posts ADD COLUMN deleted INTEGER |sql}
+        ];
+        version_0_0_7, [
+          Caqti_request.Infix.(Caqti_type.unit ->. Caqti_type.unit) {sql| ALTER TABLE posts ADD COLUMN in_reply_to TEXT |sql}
         ];
       ]
 
@@ -241,8 +247,8 @@ module Posts = struct
               ~on_update:`RESTRICT ~on_delete:`RESTRICT ()
           ] "actor_id" ~ty:Type.int
         ] ~constraints:Schema.[
-            table_unique ["post_id"; "actor_id"]
-          ]
+          table_unique ["post_id"; "actor_id"]
+        ]
   end
 
   module PostCc = struct
@@ -260,8 +266,8 @@ module Posts = struct
               ~on_update:`RESTRICT ~on_delete:`RESTRICT ()
           ] "actor_id" ~ty:Type.int
         ] ~constraints:Schema.[
-            table_unique ["post_id"; "actor_id"]
-          ]
+          table_unique ["post_id"; "actor_id"]
+        ]
   end
 
   module PostMentions = struct
@@ -280,8 +286,8 @@ module Posts = struct
           ] "actor_id" ~ty:Type.int
         ]    
         ~constraints:Schema.[
-            table_unique ["post_id"; "actor_id"]
-          ]
+          table_unique ["post_id"; "actor_id"]
+        ]
   end
 
   module PostTags = struct
@@ -302,7 +308,22 @@ module Posts = struct
         ] ~constraints:Schema.[table_primary_key ["post_id"; "tag_id"]]
   end
 
+  module PostContext = struct
+
+    let table, Expr.[parent; child] =
+      VersionedSchema.declare_table db ~name:"post_context"
+        Schema.[
+          field ~constraints:[foreign_key ~table:table ~columns:Expr.[id] ()] "post_context_parent" ~ty:Type.int;
+          field ~constraints:[foreign_key ~table:table ~columns:Expr.[id] ()] "post_context_child" ~ty:Type.int;
+        ] ~since:version_0_0_7
+        ~constraints:Schema.[
+          table_unique ~on_conflict:`IGNORE ["post_context_parent"; "post_context_child"]
+        ]
+
+  end
+
 end
+
 
 module Likes = struct
 
