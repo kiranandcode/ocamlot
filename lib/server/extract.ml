@@ -166,7 +166,7 @@ let extract_post req (post: Database.Posts.t) =
 
   return_ok @@
   View.Post.{
-    self_link=Some self_link; toast_link=Some toast_link; cheer_link=Some cheer_link;
+    self_link=Some self_link; toast_link=Some toast_link; cheer_link=Some cheer_link; reply_link=None;
     headers;
     content=post_contents;
     posted_date=post.Database.Posts.published;

@@ -88,6 +88,10 @@ let remote_post_cheer url =
   Uri.add_query_param (remote_post_path url)
     ("action", ["cheer"])
 
+let write_post_path = Uri.with_path Uri.empty "/write"
+let write_reply_path url =
+  Uri.add_query_param write_post_path ("in-reply-to", [url])
+
 
 let activity_endpoint id =
   Lazy.force Params.domain

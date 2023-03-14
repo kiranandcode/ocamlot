@@ -870,6 +870,30 @@ let create_new_note scope author to_ cc summary content content_type in_reply_to
       let _, msg, details = Error_handling.extract_error_details err in
       log.debug (fun f -> f "extracting target failed with error %s: %s" msg details);
       None in
+  let* in_reply_to, extra_to, extra_cc =
+    match in_reply_to with
+    | None -> return_ok (None, [], [])
+    | Some in_reply_to ->
+      let* post = lift_database_error (Database.Posts.lookup_by_url ~url:in_reply_to db) in
+      match post with
+      | None -> return_ok (None, [], [])
+      | Some post ->
+        let* extra_to = lift_database_error (Database.Posts.post_to ~id:post.id db) in
+        let* extra_cc = lift_database_error (Database.Posts.post_cc ~id:post.id db) in
+        return_ok (Some in_reply_to, extra_to, extra_cc) in
+  let* extra_remote_targets =
+    Lwt_list.map_s (fun id ->
+        let* result = lift_database_error (Database.Actor.resolve ~id db) in
+        match result with
+        | `Local _ -> return_ok None
+        | `Remote id ->
+          let+ user = lift_database_error (Database.RemoteUser.resolve ~id db) in
+          Some user
+      ) (extra_to @ extra_cc)
+    >> List.filter_map suppress_errors
+    >> List.filter_map Fun.id
+    |> lift_pure in
+
   let* to_remotes, to_ =
     Lwt_list.map_s partition_user to_
     >> List.filter_map suppress_errors
@@ -905,9 +929,10 @@ let create_new_note scope author to_ cc summary content content_type in_reply_to
         >> List.all_ok in
       Lwt.return_ok remote_targets
     end in
+
   let* note_request =
     create_note_request scope author to_ cc summary content content_type in_reply_to db in
-  let remote_targets = to_remotes @ cc_remotes @ remote_followers_targets in
+  let remote_targets = to_remotes @ cc_remotes @ remote_followers_targets @ extra_remote_targets in
   let* _ =
     let key_id =
       author.Database.LocalUser.username

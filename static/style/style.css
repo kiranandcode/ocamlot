@@ -80,6 +80,9 @@ header a {
 .post-social form:nth-child(1) {
     margin-right: 0.5em;
 }
+.post-social form:nth-child(3) {
+  margin-left: 0.5em;
+}
 
 .post-social input[type="submit"] {
   color: var(--text-color);

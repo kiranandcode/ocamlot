@@ -4,6 +4,7 @@ type t = {
   self_link: Uri.t option;
   toast_link: Uri.t option;
   cheer_link: Uri.t option;
+  reply_link: Uri.t option;
 
   headers: (string * User.t) list;
   content: Html_types.div_content_fun H.elt list;
@@ -69,6 +70,11 @@ let render ?redirect_url ?a_class post =
                  H.form ~a:[ H.a_action url; H.a_method `Post] [
                    H.input ~a:[ H.a_input_type `Submit; H.a_value stat] ()
                  ] in
+               let reply_action =
+                 match post.reply_link with
+                 | None -> []
+                 | Some reply_link ->
+                   [H.a ~a:[H.a_href (Uri.to_string reply_link)] [H.txt "Reply"]] in
                match post.toast_link, post.cheer_link with
                | Some toast_link, Some cheer_link -> [
                    input_form
@@ -85,7 +91,7 @@ let render ?redirect_url ?a_class post =
                          | Some url ->
                            Uri.add_query_param toast_link ("redirect", [url])))
                      (print_stat "cheers" post.no_cheers post.has_been_cheered);
-                 ]
+                 ] @ reply_action
                | _ -> [
                    H.a [
                      H.txt (print_stat "toasts" post.no_toasts post.has_been_toasted)
