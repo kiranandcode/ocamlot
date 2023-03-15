@@ -141,13 +141,15 @@ CLOSED: [2023-03-13 Mon 16:40]
 CLOSED: [2023-03-13 Mon 16:40]
 ** DONE Handle updating user profiles
 CLOSED: [2023-01-28 Sat 05:11]
-** TODO Add support for replies
+** DONE Add support for replies
+CLOSED: [2023-03-15 Wed 01:35]
 
 * Tasks for alpha release
 ** TODO Add support for collecting user posts from remote instances (outbox?)
 *** TODO when adding a user for the first time, if not known to the system, queue a task to load in all their public posts 
 ** TODO Add admin page
-*** TODO Conditional registrations
+*** DONE Conditional registrations
+CLOSED: [2023-03-15 Wed 01:35]
 *** TODO Invite codes
 ** DONE Add support for database migration
 CLOSED: [2023-01-28 Sat 05:12]
@@ -186,20 +188,20 @@ CLOSED: [2023-01-28 Sat 03:54]
 CLOSED: [2023-01-28 Sat 03:54]
 *** DONE Update rendering of remote users in =server/users.ml= to include profile picture
 CLOSED: [2023-01-28 Sat 03:54]
-** TODO Support likes
+** DONE Support likes
+CLOSED: [2023-03-15 Wed 01:35]
 *** DONE Add like task to worker
 CLOSED: [2023-01-28 Sat 05:00]
 *** DONE On users/inbox like object, send like task to worker
 CLOSED: [2023-01-28 Sat 05:00]
 *** DONE Update html to show actual likes for posts
 CLOSED: [2023-01-28 Sat 06:11]
-*** TODO Add endpoint to create like by local users
-** TODO Support reboosts
-** TODO Support replying to posts
-** TODO Support posts with images
-*** TODO Collect json for post with image
-*** TODO Add table for post images?
-*** TODO Update html with image
+*** DONE Add endpoint to create like by local users
+CLOSED: [2023-03-15 Wed 01:35]
+** DONE Support reboosts
+CLOSED: [2023-03-15 Wed 01:35]
+** DONE Support replying to posts
+CLOSED: [2023-03-15 Wed 01:35]
 * Immediate todos
 ** DONE Add styling for header bar buttons to not look like buttons
 CLOSED: [2023-03-07 Tue 16:29]
@@ -265,10 +267,21 @@ CLOSED: [2023-03-13 Mon 16:40]
 CLOSED: [2023-03-13 Mon 16:40]
 **** DONE Modify login/register page to only show register link on login
 CLOSED: [2023-03-13 Mon 16:40]
-** TODO Implement reply to posts
+** DONE Implement reply to posts
+CLOSED: [2023-03-15 Wed 01:35]
 *** DONE Find out how reply looks
 CLOSED: [2023-03-12 Sun 16:13]
-*** TODO Add field to table to track inreply to
-*** TODO Add table to track context relationships
-*** TODO On click on post, show all posts with same context
-*** TODO When adding post, add post to all posts
+*** DONE Add field to table to track inreply to
+CLOSED: [2023-03-15 Wed 01:35]
+*** DONE Add table to track context relationships
+CLOSED: [2023-03-15 Wed 01:35]
+*** DONE On click on post, show all posts with same context
+CLOSED: [2023-03-15 Wed 01:35]
+*** DONE When adding post, add post to all posts
+CLOSED: [2023-03-15 Wed 01:35]
+** TODO Support posts with images
+*** TODO Collect json for post with image
+*** TODO Add table for post images?
+*** TODO Update html with image
+
+

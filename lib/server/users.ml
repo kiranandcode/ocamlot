@@ -694,10 +694,6 @@ let handle_inbox_post req =
       f "received activitypub object %a"
         Activitypub.Types.pp_obj data
     );
-  log.debug (fun f ->
-      f "headers were %s"
-        ([%show: (string * string) list] (Dream.all_headers req))
-    );
 
   let* _ =
     match[@warning "-27"] data with
