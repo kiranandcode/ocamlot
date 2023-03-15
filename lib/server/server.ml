@@ -49,15 +49,21 @@ let run () =
   if Lazy.force Configuration.debug then begin
     if Lazy.force Configuration.debug_dream_info
     then Dream.initialize_log ~level:`Info ~enable:true ()
-    else Dream.initialize_log ~level:`Error ~enable:true ();
+    else (
+      Dream.initialize_log ~level:`Error ~enable:true ();
+      List.iter (fun src ->
+        Logs.Src.set_level src (Some Logs.Error);
+      ) (Logs.Src.list ());
+    );
 
     Dream.info (fun f -> f "Running OCamlot in debugging mode.");
 
     Logging.set_log_level `Debug;
+
   end;
 
 
-  let worker = Worker.init () |> Lwt.map ignore in
+  let worker = Worker.init (Lazy.force Configuration.database_uri) |> Lwt.map ignore in
 
   if Lazy.force Configuration.is_tls_enabled then
     Dream.info (fun f -> f "Enabled HTTPS/TLS for OCamlot server");

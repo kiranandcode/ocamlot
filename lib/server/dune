@@ -5,7 +5,7 @@
    ap_resolver markdown logging static dream_runner
 
 
-   containers re lwt lwt.unix yojson omd tyxml tyxml.functor uri uuidm magic-mime
+   containers re lwt lwt.unix yojson omd tyxml tyxml.functor uri uuidm magic-mime logs
 
    decoders decoders-yojson
 
