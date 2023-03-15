@@ -73,15 +73,15 @@ let handle_image_get req =
   let* image = Dream.sql req (Database.UserImage.find_by_path ~path:image)
                |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   match image with
-  | None -> respond ~status:`Not_Found "Not found"
+  | None -> Web.respond ~status:`Not_Found "Not found"
   | Some image ->
     let local_root = Lazy.force Configuration.user_image_path in
-    file ~local_root image.path
+    Web.file ~local_root image.path
 
 
 let route =
   Dream.scope "/images" [] [
-    Dream.get "/:image" @@ Error_handling.handle_error_html @@ handle_image_get;
+    Dream.get "/:image" @@ Error_display.handle_error_html @@ handle_image_get;
   ]
 
 

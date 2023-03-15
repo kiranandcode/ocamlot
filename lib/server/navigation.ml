@@ -1,7 +1,7 @@
 open Common
 
 let build_navigation_bar req =
-  let* user = current_user req in
+  let* user = Web.current_user req in
   return_ok @@ match user with
   | None ->
     View.Utils.(

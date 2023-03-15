@@ -54,29 +54,29 @@ let handle_feed_get req =
     |> Option.value ~default:0 in
 
   log.debug (fun f -> f "get of feed");
-  let* current_user_link = current_user_link req in
+  let* current_user_link = Web.current_user_link req in
   log.debug (fun f -> f "worked out current user");
   let* feed_elements, feed_element_count =
     begin match feed_ty, current_user_link with
     | `Direct, Some user ->
       let* posts =
-        sql req (Database.Posts.collect_direct ~offset ~limit ~start_time ~id:user) in
+        Web.sql req (Database.Posts.collect_direct ~offset ~limit ~start_time ~id:user) in
       let* total_posts =
-        sql req (Database.Posts.count_direct ~id:user) in
+        Web.sql req (Database.Posts.count_direct ~id:user) in
       return_ok (posts, total_posts)
     | `Feed, Some user ->
       let* posts =
-        sql req (Database.Posts.collect_feed ~offset ~limit ~start_time ~id:user) in
+        Web.sql req (Database.Posts.collect_feed ~offset ~limit ~start_time ~id:user) in
       let* total_posts =
-        sql req (Database.Posts.count_feed ~id:user) in
+        Web.sql req (Database.Posts.count_feed ~id:user) in
       return_ok (posts, total_posts)
     | `WholeKnownNetwork, _ ->
-      let* posts = sql req (Database.Posts.collect_twkn ~offset ~limit ~start_time) in
-      let* total_posts = sql req (Database.Posts.count_twkn) in
+      let* posts = Web.sql req (Database.Posts.collect_twkn ~offset ~limit ~start_time) in
+      let* total_posts = Web.sql req (Database.Posts.count_twkn) in
       return_ok (posts, total_posts)        
     | _, _ ->
-      let* posts = sql req (Database.Posts.collect_local ~offset ~limit ~start_time) in
-      let* total_posts = sql req (Database.Posts.count_local) in
+      let* posts = Web.sql req (Database.Posts.collect_local ~offset ~limit ~start_time) in
+      let* total_posts = Web.sql req (Database.Posts.count_local) in
       return_ok (posts, total_posts)
     end
   in
@@ -104,7 +104,7 @@ let handle_feed_get req =
            ((ind - 1) * limit)
       ) () in
   log.debug (fun f -> f "rendering feed!");
-  tyxml @@ View.Page.render_page title @@ List.concat [
+  Web.tyxml @@ View.Page.render_page title @@ List.concat [
     [View.Header.render_header ?action headers];
     [
       View.Components.render_heading
@@ -133,5 +133,5 @@ let handle_feed_get req =
 (* * Route *)
 let route =
   Dream.scope "/feed" [] [
-    Dream.get "" @@ Error_handling.handle_error_html @@ handle_feed_get;
+    Dream.get "" @@ Error_display.handle_error_html @@ handle_feed_get;
   ]

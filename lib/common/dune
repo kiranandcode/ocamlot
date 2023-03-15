@@ -1,8 +1,9 @@
 (library (name common)
  (preprocess (pps ppx_deriving.show))
+ (modules common)
  (libraries
    ;; Internal libraries 
-   activitypub database
+   activitypub database logging error_handling
    ;; General utility libraries
    containers lwt lwt.unix magic-mime yojson tyxml
    ;; Web server

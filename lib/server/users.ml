@@ -9,7 +9,7 @@ module H = Tyxml.Html
 (* * Utils  *)
 
 let get_user_checked req username =
-  let* current_user = current_user req in
+  let* current_user = Web.current_user req in
   match current_user with
   | None ->
     return_ok None
@@ -26,12 +26,12 @@ let handle_actor_edit_get req =
   let* current_user = get_user_checked req username in
   match current_user with
   | None ->
-    redirect req "/feed"
+    Web.redirect req "/feed"
   | Some current_user ->
     let token = Dream.csrf_token req in
     let* user = Extract.extract_user_profile req current_user in
     let* headers, action = Navigation.build_navigation_bar req in
-    tyxml @@
+    Web.tyxml @@
     View.Page.render_page (username ^ "'s Profile") [
       View.Header.render_header ?action headers;
       View.Components.render_heading
@@ -52,17 +52,17 @@ let handle_actor_edit_post req =
   let* current_user = get_user_checked req username in
   match current_user with
   | None ->
-    redirect req "/feed"
+    Web.redirect req "/feed"
   | Some current_user ->
     let username = Dream.param req "username" in
     let* data = (Dream.multipart req)
-                |> sanitize_form_error ([%show: (string * (string option * string) list) list]) in
+                |> Web.sanitize_form_error ([%show: (string * (string option * string) list) list]) in
     match data with
     | _ when List.Assoc.mem ~eq:String.equal "avatar" data &&
              not @@ List.is_empty (List.Assoc.get_exn ~eq:String.equal "avatar" data) ->
       let* avatar =
         List.Assoc.get ~eq:String.equal "avatar" data
-        |> VResult.lift_result_check extract_file_multipart_data
+        |> VResult.lift_result_check Web.extract_file_multipart_data
         |> VResult.map_err (fun err -> `InvalidData err)
         |> VResult.flat_map
              (VResult.lift_result_check
@@ -71,24 +71,24 @@ let handle_actor_edit_post req =
         |> Lwt_result.lift in
       begin
         match avatar with
-        | None -> redirect req "/feed"
+        | None -> Web.redirect req "/feed"
         | Some (fname, avatar) ->
           log.debug (fun f -> f "got file %s, [%d]{%s..}" fname
                                 (String.length avatar) (String.take 100 avatar));
           let* _, image = Images.upload_file req ~fname ~data:avatar in
           let* () =
-            sql req
+            Web.sql req
               (Database.LocalUser.update_profile_picture
                  ~id:current_user.Database.LocalUser.id
                  ~image) in
-          redirect req (Configuration.Url.user_path username)
+          Web.redirect req (Configuration.Url.user_path username)
       end
 
     | _ when List.Assoc.mem ~eq:String.equal "display-name" data ||
              List.Assoc.mem ~eq:String.equal "about" data ->
       let* display_name =
         List.Assoc.get ~eq:String.equal "display-name" data
-        |> VResult.lift_result_check extract_single_multipart_data
+        |> VResult.lift_result_check Web.extract_single_multipart_data
         |> VResult.map_err (fun err -> `InvalidData err)        
         |> Result.flat_map
              (VResult.lift_result_check (VResult.check_input_size "display-name" 80))
@@ -96,7 +96,7 @@ let handle_actor_edit_post req =
         |> Lwt_result.lift in
       let* about =
         List.Assoc.get ~eq:String.equal "about" data
-        |> VResult.lift_result_check extract_single_multipart_data
+        |> VResult.lift_result_check Web.extract_single_multipart_data
         |> VResult.map_err (fun err -> `InvalidData err)
         |> Result.flat_map
              (VResult.lift_result_check (VResult.check_input_size "about" 2048))
@@ -106,7 +106,7 @@ let handle_actor_edit_post req =
         match display_name with
         | None -> return_ok ()
         | Some display_name ->
-          sql req
+          Web.sql req
             (Database.LocalUser.update_display_name
                ~id:current_user.Database.LocalUser.id
                ~display_name) in
@@ -114,13 +114,13 @@ let handle_actor_edit_post req =
         match about with
         | None -> return_ok ()
         | Some about ->
-          sql req
+          Web.sql req
             (Database.LocalUser.update_about
                ~id:current_user.Database.LocalUser.id
                ~about) in
-      redirect req (Configuration.Url.user_path username)
+      Web.redirect req (Configuration.Url.user_path username)
     | _ ->
-      redirect req (Configuration.Url.user_path username)
+      Web.redirect req (Configuration.Url.user_path username)
 
 
 (* ** Get (html) *)
@@ -150,7 +150,7 @@ let handle_actor_get_html req =
   let* profile = Extract.extract_user_profile req user in
 
   let* contents =
-    sql req begin fun db ->
+    Web.sql req begin fun db ->
       let* user = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db in
       match Dream.query req "state" with
       | Some "followers" ->
@@ -218,7 +218,7 @@ let handle_actor_get_html req =
       ) users >> Result.flatten_l in
       View.User.render_users_grid users in
   let* headers, action = Navigation.build_navigation_bar req in
-  tyxml @@
+  Web.tyxml @@
   View.Page.render_page (username ^ "'s Profile") [
     View.Header.render_header ?action headers;
     View.Profile.render_profile profile;
@@ -239,7 +239,7 @@ let handle_actor_get_json req =
                    |> Database.Interface.LocalUser.convert_to
                    |> Activitypub.Encode.person) in
   log.debug (fun f -> f "query for %s --> %a" username Yojson.Safe.pp user_json);
-  activity_json user_json
+  Web.activity_json user_json
 
 (* ** Get *)
 let handle_actor_get req =
@@ -249,15 +249,15 @@ let handle_actor_get req =
   match Activitypub.Constants.ContentType.of_string content_type with
   | None ->
     log.debug (fun f -> f "no idea for %s, returning html" content_type);
-    Error_handling.handle_error_html
+    Error_display.handle_error_html
       (fun _ -> return @@ Error (`UnsupportedContentType content_type)) req
   | Some `HTML ->
     log.debug (fun f -> f "%s -> html; returning html" content_type);
-    Error_handling.handle_error_html
+    Error_display.handle_error_html
       (handle_actor_get_html )req
   | Some `JSON ->
     log.debug (fun f -> f "%s -> json; returning json" content_type);
-    Error_handling.handle_error_json
+    Error_display.handle_error_json
       (handle_actor_get_json) req
 
 (* * Outbox *)
@@ -298,7 +298,7 @@ let handle_outbox_get req =
                          |> Option.get_exn_or "invalid assumption";
              contents=`First outbox_collection_page; 
            } : _ Activitypub.Types.ordered_collection) in
-  activity_json data
+  Web.activity_json data
 
 
 (* ** Post *)
@@ -345,7 +345,7 @@ let handle_followers_get req =
                          |> Option.get_exn_or "invalid assumption";
              contents=`First followers_collection_page; 
            } : string Activitypub.Types.ordered_collection) in
-  activity_json data
+  Web.activity_json data
 
 (* * Following *)
 (* ** Get *)
@@ -384,7 +384,7 @@ let handle_following_get req =
                          |> Option.get_exn_or "invalid assumption";
              contents=`First following_collection_page; 
            } : string Activitypub.Types.ordered_collection) in
-  activity_json data
+  Web.activity_json data
 
 (* * Users *)
 (* ** Utils *)
@@ -418,7 +418,7 @@ let classify_query s =
 
 let render_users_page ?ty ?search_query req user_type users =
   let* headers, action = Navigation.build_navigation_bar req in
-  tyxml (View.Page.render_page (show_user_types user_type) [
+  Web.tyxml (View.Page.render_page (show_user_types user_type) [
     View.Header.render_header ?action headers;
     View.Components.render_heading
       ~icon:(match user_type with `Local -> "1" | _ -> "2")
@@ -459,7 +459,7 @@ let handle_local_users_get req =
       |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   let* users_w_stats =
     Lwt_list.map_s (fun user ->
-      let* user_link = sql req (Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id)) in
+      let* user_link = Web.sql req (Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id)) in
       let* user = Extract.extract_user req (`Local user.Database.LocalUser.id) in
       let* socials = Extract.extract_user_socials req user_link in
       return_ok (user, socials)
@@ -469,7 +469,7 @@ let handle_local_users_get req =
 
 (* ** Remote users (get) *)
 let handle_remote_users_get req =
-  let* current_user_link = current_user_link req in
+  let* current_user_link = Web.current_user_link req in
   let offset =
     Dream.query req "offset-start"
     |> Option.flat_map Int.of_string
@@ -514,7 +514,7 @@ let handle_remote_users_get req =
         |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   let* users_w_stats =
     Lwt_list.map_p (fun (_url, user) ->
-      let* user_link = sql req (Database.Actor.create_remote_user ~remote_id:(user.Database.RemoteUser.id)) in
+      let* user_link = Web.sql req (Database.Actor.create_remote_user ~remote_id:(user.Database.RemoteUser.id)) in
       let* user = Extract.extract_user req (`Remote user.Database.RemoteUser.id) in
       let* socials = Extract.extract_user_socials req user_link in
       return_ok (user, socials)
@@ -564,9 +564,9 @@ let handle_follow_local_user current_user username req =
         ~pending:false
         ~created:(Ptime_clock.now ())
       |> map_err (fun e -> `DatabaseError (Caqti_error.show e)) in
-    redirect req "/users"
+    Web.redirect req "/users"
   | true ->
-    redirect req "/users"
+    Web.redirect req "/users"
 
 let handle_unfollow_local_user current_user username req =
   let* current_user =
@@ -586,7 +586,7 @@ let handle_unfollow_local_user current_user username req =
     |> map_err (fun e -> `DatabaseError (Caqti_error.show e)) in
   match is_following with
   | false ->
-    redirect req "/users"
+    Web.redirect req "/users"
   | true ->
     let* follow =
       Dream.sql req @@
@@ -599,7 +599,7 @@ let handle_unfollow_local_user current_user username req =
       Dream.sql req @@
       Database.Follows.delete ~id:(follow.Database.Follows.id)
       |> map_err (fun e -> `DatabaseError (Caqti_error.show e)) in
-    redirect req "/users"
+    Web.redirect req "/users"
 
 (* * Follow remote *)
 let handle_follow_remote_user current_user username domain req =
@@ -610,7 +610,7 @@ let handle_follow_remote_user current_user username domain req =
       domain
     }
   );
-  redirect req "/users"
+  Web.redirect req "/users"
 
 let handle_unfollow_remote_user current_user username domain req =
   Worker.send_task Worker.(
@@ -620,14 +620,14 @@ let handle_unfollow_remote_user current_user username domain req =
       domain
     }
   );
-  redirect req "/users"
+  Web.redirect req "/users"
 
 
 let handle_users_follow_post req =
   let username = Dream.param req "username" in
   log.debug (fun f -> f "got POST to follow with user %s" username);
   let* current_user =
-    let* current_user = current_user req in
+    let* current_user = Web.current_user req in
     lift_opt ~else_:(fun _ -> `InvalidPermissions ("Attempt to follow user while logged out"))
       current_user
     |> return in
@@ -642,7 +642,7 @@ let handle_users_unfollow_post req =
   let username = Dream.param req "username" in
   log.debug (fun f -> f "got POST to unfollow with user %s" username);
   let* current_user =
-    let* current_user = current_user req in
+    let* current_user = Web.current_user req in
     lift_opt ~else_:(fun _ -> `InvalidPermissions ("Attempt to follow user while logged out"))
       current_user
     |> return in
@@ -790,28 +790,28 @@ let handle_inbox_post req =
     | `Create _ ->
       return (Error (`NotImplemented (Format.sprintf "received unimplemented object %a" Activitypub.Types.pp_obj data))) in
 
-  json (`Assoc [
+  Web.json (`Assoc [
       "ok", `List []
     ])
 
 (* * Route *)
 let route = 
   Dream.scope "/users" [] [
-    Dream.get "" @@ Error_handling.handle_error_html (handle_users_get);
+    Dream.get "" @@ Error_display.handle_error_html (handle_users_get);
     Dream.get "/:username" @@ (handle_actor_get);
 
-    Dream.get "/:username/edit" @@ Error_handling.handle_error_html (handle_actor_edit_get);
-    Dream.post "/:username/edit" @@ Error_handling.handle_error_html (handle_actor_edit_post);
+    Dream.get "/:username/edit" @@ Error_display.handle_error_html (handle_actor_edit_get);
+    Dream.post "/:username/edit" @@ Error_display.handle_error_html (handle_actor_edit_post);
 
-    Dream.post "/:username/follow" @@ Error_handling.handle_error_html (handle_users_follow_post);
-    Dream.post "/:username/unfollow" @@ Error_handling.handle_error_html (handle_users_unfollow_post);
+    Dream.post "/:username/follow" @@ Error_display.handle_error_html (handle_users_follow_post);
+    Dream.post "/:username/unfollow" @@ Error_display.handle_error_html (handle_users_unfollow_post);
 
 
     (* Dream.get "/:username/inbox" handle_inbox_get; *)
-    Dream.post ":username/inbox" @@ Error_handling.handle_error_json (handle_inbox_post);
-    Dream.get "/:username/outbox" @@ Error_handling.handle_error_json handle_outbox_get;
+    Dream.post ":username/inbox" @@ Error_display.handle_error_json (handle_inbox_post);
+    Dream.get "/:username/outbox" @@ Error_display.handle_error_json handle_outbox_get;
     (* Dream.post "/:username/outbox" handle_outbox_post; *)
 
-    Dream.get "/:username/followers" @@ Error_handling.handle_error_json (handle_followers_get);
-    Dream.get "/:username/following" @@ Error_handling.handle_error_json (handle_following_get);
+    Dream.get "/:username/followers" @@ Error_display.handle_error_json (handle_followers_get);
+    Dream.get "/:username/following" @@ Error_display.handle_error_json (handle_following_get);
   ]

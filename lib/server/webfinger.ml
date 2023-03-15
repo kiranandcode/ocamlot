@@ -42,12 +42,12 @@ let handle_webfinger req =
       Database.Interface.Webfinger.construct_query_result_for user
       |> Activitypub.Encode.Webfinger.query_result in
     log.debug (fun f -> f "result for webfinger query: %a" Yojson.Safe.pp result);
-    json result
+    Web.json result
   | None ->
     log.debug (fun f -> f "user %s was not found" queried_resource);
-    not_found_json "User was not found"
+    Web.not_found_json "User was not found"
 
 let route =
   Dream.scope "/.well-known" [] [
-    Dream.get "/webfinger" @@ Error_handling.handle_error_json handle_webfinger
+    Dream.get "/webfinger" @@ Error_display.handle_error_json handle_webfinger
   ]

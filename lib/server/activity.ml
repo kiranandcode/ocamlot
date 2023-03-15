@@ -9,9 +9,9 @@ let handle_lookup_activity req =
     |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
   let* activity = return @@ lift_opt ~else_:(fun _ -> `ActivityNotFound uuid)
                               activity in
-  activity_json (activity.Database.Activity.raw_data)
+  Web.activity_json (activity.Database.Activity.raw_data)
 
 let route = 
   Dream.scope "/activity" [] [
-    Dream.get "/:uuid" @@ Error_handling.handle_error_json handle_lookup_activity
+    Dream.get "/:uuid" @@ Error_display.handle_error_json handle_lookup_activity
   ]

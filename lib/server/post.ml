@@ -25,7 +25,7 @@ let handle_post_get req =
     if post.Database.Posts.is_public
     then return_ok true
     else
-      let* current_user = current_user_link req in
+      let* current_user = Web.current_user_link req in
       let* current_user =
         current_user
         |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
@@ -50,7 +50,7 @@ let handle_post_get req =
       Dream.query req "offset-start"
       |> Option.flat_map Int.of_string in
     let* related_posts, related_posts_count =
-      let* current_user = current_user_link req in
+      let* current_user = Web.current_user_link req in
       match current_user with
       | None -> return_ok ([], 0)
       | Some user ->
@@ -72,7 +72,7 @@ let handle_post_get req =
              public_id (Ptime.to_float_s start_time)
              ((ind - 1) * limit)
         ) () in
-    tyxml @@ View.Page.render_page title @@ ([
+    Web.tyxml @@ View.Page.render_page title @@ ([
         View.Header.render_header ?action headers;
         View.Post.render ~render_attachments:true post_data;
         View.Components.render_heading ~icon:"R" ~current:"Replies" ();
@@ -82,9 +82,9 @@ let handle_post_get req =
 
 let handle_post_toast req =
   let public_id = Dream.param req "postid" in
-  let* current_user = current_user req in
+  let* current_user = Web.current_user req in
   match current_user with
-  | None -> redirect req "/feed"
+  | None -> Web.redirect req "/feed"
   | Some user ->
     let* post =
       sql req (Database.Posts.lookup_by_public_id ~public_id) in
@@ -96,13 +96,13 @@ let handle_post_toast req =
     let url =
       Dream.query req "redirect"
       |> Option.value ~default:("/post/" ^ public_id) in
-    redirect req url
+    Web.redirect req url
 
 let handle_post_cheer req =
   let public_id = Dream.param req "postid" in
-  let* current_user = current_user req in
+  let* current_user = Web.current_user req in
   match current_user with
-  | None -> redirect req "/feed"
+  | None -> Web.redirect req "/feed"
   | Some user ->
     let* post =
       sql req (Database.Posts.lookup_by_public_id ~public_id) in
@@ -114,12 +114,12 @@ let handle_post_cheer req =
     let url =
       Dream.query req "redirect"
       |> Option.value ~default:("/post/" ^ public_id) in
-    redirect req url
+    Web.redirect req url
 
 let handle_get_remote req =
   let (let-!) x f = Lwt.bind x (function
       | Error err -> return (Error err)
-      | Ok(None) -> redirect req "/feed"
+      | Ok(None) -> Web.redirect req "/feed"
       | Ok(Some x) -> f x) in
   let-! url = return_ok (Dream.query req "url") in
   let-! post = sql req (Database.Posts.lookup_by_url ~url) in
@@ -127,7 +127,7 @@ let handle_get_remote req =
     if post.Database.Posts.is_public
     then return_ok true
     else
-      let* current_user = current_user_link req in
+      let* current_user = Web.current_user_link req in
       let* current_user =
         current_user
         |> lift_opt ~else_:(fun () -> `ActivityNotFound "Could not find the requested post")
@@ -148,7 +148,7 @@ let handle_get_remote req =
       Dream.query req "offset-start"
       |> Option.flat_map Int.of_string in
     let* related_posts, related_posts_count =
-      let* current_user = current_user_link req in
+      let* current_user = Web.current_user_link req in
       match current_user with
       | None -> return_ok ([], 0)
       | Some user ->
@@ -178,14 +178,14 @@ let handle_get_remote req =
       self_link = Some (Uri.of_string url);
       reply_link=Some (Configuration.Url.write_reply_path url);
     } in
-    tyxml @@ View.Page.render_page title @@ ([
+    Web.tyxml @@ View.Page.render_page title @@ ([
       View.Header.render_header ?action headers;
       View.Post.render ~render_attachments:true post_data;
     ] @ (List.map (fun post -> View.Post.render post) related_posts) @ [navigation_panel])
-  else redirect req "/feed"
+  else Web.redirect req "/feed"
 
 let handle_post_remote req =
-  let* current_user = current_user req in
+  let* current_user = Web.current_user req in
   let url = Dream.query req "url" in
   let action = Dream.query req "action" in
   match current_user, url, action with
@@ -202,15 +202,15 @@ let handle_post_remote req =
     let url =
       Dream.query req "redirect"
       |> Option.value ~default:("/feed/") in
-    redirect req url
-  | _ -> redirect req "/feed"
+    Web.redirect req url
+  | _ -> Web.redirect req "/feed"
 
 let route =
   Dream.scope "/post" [] [
-    Dream.get "/remote" @@ Error_handling.handle_error_html @@ handle_get_remote;
-    Dream.post "/remote" @@ Error_handling.handle_error_html @@ handle_post_remote;
-    Dream.get "/:postid" @@ Error_handling.handle_error_html @@ handle_post_get;
-    Dream.post "/:postid/toast" @@ Error_handling.handle_error_html @@ handle_post_toast;
-    Dream.post "/:postid/cheer" @@ Error_handling.handle_error_html @@ handle_post_cheer;
+    Dream.get "/remote" @@ Error_display.handle_error_html @@ handle_get_remote;
+    Dream.post "/remote" @@ Error_display.handle_error_html @@ handle_post_remote;
+    Dream.get "/:postid" @@ Error_display.handle_error_html @@ handle_post_get;
+    Dream.post "/:postid/toast" @@ Error_display.handle_error_html @@ handle_post_toast;
+    Dream.post "/:postid/cheer" @@ Error_display.handle_error_html @@ handle_post_cheer;
   ]
 

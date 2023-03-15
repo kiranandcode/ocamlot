@@ -4,7 +4,7 @@ open Common
 
 let log = Logging.add_logger "web.auth"
 
-let check_unauthenticated = Common.Middleware.redirect_if_present "user" ~to_:"/feed"
+let check_unauthenticated = Web.Middleware.redirect_if_present "user" ~to_:"/feed"
 
 (* * Utilities *)
 
@@ -20,13 +20,13 @@ let recover f comp =
 (* * Register *)
 (* ** Get *)
 let handle_register_get ?(errors=[]) req =
-  let* registration_allowed = sql req (Database.Admin.is_registration_allowed) in
+  let* registration_allowed = Web.sql req (Database.Admin.is_registration_allowed) in
   if not registration_allowed
-  then redirect req "/login"
+  then Web.redirect req "/login"
   else
     let token = Dream.csrf_token req in 
     let* headers, action = Navigation.build_navigation_bar req in
-    tyxml @@
+    Web.tyxml @@
     View.Page.render_page "Register a new account" (List.concat [
       [View.Header.render_header ?action headers;
        View.Components.render_heading
@@ -44,12 +44,12 @@ let handle_register_get ?(errors=[]) req =
 
 (* ** Post *)
 let handle_register_post req =
-  let* registration_allowed = sql req (Database.Admin.is_registration_allowed) in
+  let* registration_allowed = Web.sql req (Database.Admin.is_registration_allowed) in
   if not registration_allowed
-  then redirect req "/login"
+  then Web.redirect req "/login"
   else begin
     log.info (fun f -> f "register page POST");
-    let* data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
+    let* data = Dream.form req |> Web.sanitize_form_error ([%show: (string * string) list]) in
     let res =
       let open VResult in
       let* username = form_data "username" data |> Result.map_err List.return in
@@ -72,16 +72,16 @@ let handle_register_post req =
       let* () = Lwt.map Result.return (Dream.invalidate_session req) in
       let* () = Lwt.map Result.return @@
         Dream.set_session_field req "user" (user.Database.LocalUser.username) in
-      redirect req "/feed"
+      Web.redirect req "/feed"
   end
 
 (* * Login *)  
 (* ** Get *)
 let handle_login_get ?(errors=[]) req =
   let token = Dream.csrf_token req in
-  let* registration_allowed = sql req Database.Admin.is_registration_allowed in
+  let* registration_allowed = Web.sql req Database.Admin.is_registration_allowed in
   let* headers, action = Navigation.build_navigation_bar req in
-  tyxml @@ View.Page.render_page "Log in to your account" (List.concat [
+  Web.tyxml @@ View.Page.render_page "Log in to your account" (List.concat [
     [View.Header.render_header ?action headers;
      View.Components.render_heading
        ~icon:"L" ~current:"Log in" ~actions:(
@@ -101,7 +101,7 @@ let handle_login_get ?(errors=[]) req =
 (* ** Post *)
 let handle_login_post req =
   log.info (fun f -> f "login page POST");
-  let* data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
+  let* data = Dream.form req |> Web.sanitize_form_error ([%show: (string * string) list]) in
   let res =
     let open VResult in
     let* username = form_data "username" data |> Result.map_err List.return in
@@ -123,26 +123,26 @@ let handle_login_post req =
       let* () = Lwt.map Result.return (Dream.invalidate_session req) in
       let* () = Lwt.map Result.return @@
         Dream.set_session_field req "user" (user.Database.LocalUser.username) in
-      redirect req "/feed"
+      Web.redirect req "/feed"
     | None ->
       handle_login_get ~errors:["Invalid username or password"] req
 
 (* * Logout *)
 let handle_logout_post req =
   let* _ = Dream.form ~csrf:false req
-           |> sanitize_form_error ([%show: (string * string) list]) in
+           |> Web.sanitize_form_error ([%show: (string * string) list]) in
   let* () = Dream.invalidate_session req |> Lwt.map Result.return in
-  redirect req "/feed"
+  Web.redirect req "/feed"
 
 (* * Router *)
 let route = 
   Dream.scope "/" [] [
     Dream.scope "/" [check_unauthenticated] [
-      Dream.get "/register" @@ Error_handling.handle_error_html @@ handle_register_get;
-      Dream.post "/register" @@ Error_handling.handle_error_html @@ handle_register_post;
+      Dream.get "/register" @@ Error_display.handle_error_html @@ handle_register_get;
+      Dream.post "/register" @@ Error_display.handle_error_html @@ handle_register_post;
 
-      Dream.get "/login" @@ Error_handling.handle_error_html @@ handle_login_get;
-      Dream.post "/login" @@ Error_handling.handle_error_html @@ handle_login_post;
+      Dream.get "/login" @@ Error_display.handle_error_html @@ handle_login_get;
+      Dream.post "/login" @@ Error_display.handle_error_html @@ handle_login_post;
     ];
-    Dream.post "/logout" @@ Error_handling.handle_error_html @@ handle_logout_post;
+    Dream.post "/logout" @@ Error_display.handle_error_html @@ handle_logout_post;
   ]

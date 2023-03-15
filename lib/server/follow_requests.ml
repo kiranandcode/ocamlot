@@ -14,8 +14,8 @@ let handle_follow_requests_reject _req =
 (* * Route *)
 let route = 
   Dream.scope "/follow-requests" [] [
-    Dream.get "" @@ Error_handling.handle_error_html (handle_follow_requests_get);
-    Dream.post "/:id/accept" @@ Error_handling.handle_error_json handle_follow_requests_accept;
-    Dream.post "/:id/reject" @@ Error_handling.handle_error_json handle_follow_requests_reject;
+    Dream.get "" @@ Error_display.handle_error_html (handle_follow_requests_get);
+    Dream.post "/:id/accept" @@ Error_display.handle_error_json handle_follow_requests_accept;
+    Dream.post "/:id/reject" @@ Error_display.handle_error_json handle_follow_requests_reject;
   ]
 
