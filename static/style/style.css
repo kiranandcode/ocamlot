@@ -69,6 +69,8 @@ header a {
 
 .post-social a {
     font-weight: bolder;
+    text-decoration: none;
+    color: var(--text-color);
 }
 .post-social > a:nth-child(1) {
   margin-right: 0.5em;
@@ -80,7 +82,7 @@ header a {
 .post-social form:nth-child(1) {
     margin-right: 0.5em;
 }
-.post-social form:nth-child(3) {
+.post-social form:nth-child(3), .post-social a:nth-child(3) {
   margin-left: 0.5em;
 }
 

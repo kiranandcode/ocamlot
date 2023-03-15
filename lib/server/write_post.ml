@@ -77,6 +77,39 @@ let handle_get_write ?(errors=[]) ?title ?to_ ?content_type ?visibility ?content
           return_ok (Some post)
         else return_ok None in
 
+    let* to_ =
+      match to_ with
+      | Some to_ -> return_ok to_
+      | None ->
+        let* extra_to, extra_cc =
+          match in_reply_to with
+          | None -> return_ok ([], [])
+          | Some in_reply_to ->
+            let* post = sql req (Database.Posts.lookup_by_url ~url:in_reply_to) in
+            match post with
+            | None -> return_ok ([], [])
+            | Some post ->
+              let author = post.Database.Posts.author_id in
+              let* extra_to = sql req (Database.Posts.post_to ~id:post.id) in
+              let* extra_cc = sql req (Database.Posts.post_cc ~id:post.id) in
+              return_ok (author :: extra_to, extra_cc) in
+        Lwt_list.map_s (fun id ->
+          let* result = sql req (Database.Actor.resolve ~id) in
+          match result with
+          | `Local _ -> return_ok None
+          | `Remote id ->
+            let+ user = sql req (Database.RemoteUser.resolve ~id) in
+            Some user.url
+        ) (extra_to @ extra_cc)
+        >> List.filter_map (function
+          | Ok v -> v
+          | Error err ->
+            let _, msg, details = Error_handling.extract_error_details err in
+            log.debug (fun f -> f "failed to resolve post target: %s: %s" msg details);
+            None
+        )
+        |> lift_pure in
+
     tyxml @@ View.Page.render_page "Write a new post" (List.concat [
         [
           View.Header.render_header ?action headers;
@@ -91,7 +124,7 @@ let handle_get_write ?(errors=[]) ?title ?to_ ?content_type ?visibility ?content
           View.Write_post_box.render_write_post_box
             ~fields:(["dream.csrf", token] @ in_reply_to_fields)
             ~action:(Uri.to_string write_action) ~id:"write-post-form"
-            ?title ?to_:(Option.map (String.concat ", ") to_)
+            ?title ~to_:((String.concat ", ") to_)
             ?content_type:(Option.map encode_content_type content_type)
             ?visibility:(Option.map encode_scope visibility)
             ?message:contents

@@ -1,7 +1,7 @@
 open Containers
 open Common
 
-let log = Logging.add_logger "web.home"
+let log = Logging.add_logger "web.feed"
 let limit = 10
 
 (* * Utilities  *)
@@ -53,44 +53,43 @@ let handle_feed_get req =
     |> Option.flat_map Int.of_string
     |> Option.value ~default:0 in
 
+  log.debug (fun f -> f "get of feed");
   let* current_user_link = current_user_link req in
-
+  log.debug (fun f -> f "worked out current user");
   let* feed_elements, feed_element_count =
-    sql req @@ fun db ->
     begin match feed_ty, current_user_link with
     | `Direct, Some user ->
       let* posts =
-        Database.Posts.collect_direct
-          ~offset ~limit ~start_time ~id:user db in
+        sql req (Database.Posts.collect_direct ~offset ~limit ~start_time ~id:user) in
       let* total_posts =
-        Database.Posts.count_direct ~id:user db in
+        sql req (Database.Posts.count_direct ~id:user) in
       return_ok (posts, total_posts)
     | `Feed, Some user ->
       let* posts =
-        Database.Posts.collect_feed
-          ~offset ~limit ~start_time ~id:user db in
+        sql req (Database.Posts.collect_feed ~offset ~limit ~start_time ~id:user) in
       let* total_posts =
-        Database.Posts.count_feed ~id:user db in
+        sql req (Database.Posts.count_feed ~id:user) in
       return_ok (posts, total_posts)
     | `WholeKnownNetwork, _ ->
-      let* posts = Database.Posts.collect_twkn ~offset ~limit ~start_time db in
-      let* total_posts = Database.Posts.count_twkn db in
+      let* posts = sql req (Database.Posts.collect_twkn ~offset ~limit ~start_time) in
+      let* total_posts = sql req (Database.Posts.count_twkn) in
       return_ok (posts, total_posts)        
     | _, _ ->
-      let* posts = Database.Posts.collect_local ~offset ~limit ~start_time db in
-      let* total_posts = Database.Posts.count_local db in
+      let* posts = sql req (Database.Posts.collect_local ~offset ~limit ~start_time) in
+      let* total_posts = sql req (Database.Posts.count_local) in
       return_ok (posts, total_posts)
     end
   in
-
+  log.debug (fun f -> f "worked out feed");
   let title = feed_type_to_string feed_ty in
 
   let* posts =
     Lwt_list.map_p (Extract.extract_post req) feed_elements
     |> Lwt.map Result.flatten_l in
+  log.debug (fun f -> f "extracted feed posts");
 
   let* headers,action = Navigation.build_navigation_bar req in
-
+  log.debug (fun f -> f "built navigation bar");
   let feed_navigation = match current_user_link with
     | None -> [`Local; `WholeKnownNetwork]
     | Some _ -> [`Feed; `Direct; `Local; `WholeKnownNetwork] in
@@ -104,7 +103,7 @@ let handle_feed_get req =
            (encode_feed feed_ty) (Ptime.to_float_s start_time)
            ((ind - 1) * limit)
       ) () in
-
+  log.debug (fun f -> f "rendering feed!");
   tyxml @@ View.Page.render_page title @@ List.concat [
     [View.Header.render_header ?action headers];
     [

@@ -13,7 +13,7 @@ let handle_local_post pool user scope post_to title content_type content in_repl
 
   let post_to = Option.get_or ~default:[] post_to
                 |> List.filter (Fun.negate String.is_empty) in
-  log.debug (fun f -> f "posted to %a" (List.pp String.pp) post_to);
+  log.debug (fun f -> f "posted to [%a]" (List.pp String.pp) post_to);
   let* _ =
     with_pool pool @@ 
     Ap_resolver.create_new_note scope user post_to [] title content content_type in_reply_to in
@@ -224,7 +224,7 @@ let send_task : Task.t -> unit =
   fun task ->
     (Lazy.force task_fun) (Some task)
 
-let init () =
+let init (_: 'a) =
   let task_in, send_task = Lwt_stream.create () in
   send_task_internal := Some send_task;
   (* hackity hack hacks to get access to Dream's internal Sql pool *)
@@ -239,18 +239,19 @@ let init () =
     | Some pool -> pool in
   (* configure journal with WAL and busy timeout to avoid busy errors *)
   log.info (fun f -> f "setting up worker database configurations");
-  Lwt.join [
-    worker (Obj.magic pool) task_in;
-    let enable_journal_mode =
-      Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.string @:-  "PRAGMA journal_mode=WAL" ) in
-    let update_busy_timout =
-      Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.int @:-  "PRAGMA busy_timeout = 5000" ) in
-    ((Caqti_lwt.Pool.use (fun (module DB : Caqti_lwt.CONNECTION) ->
-       let* _ = DB.find enable_journal_mode () in
-       let* _ = DB.find update_busy_timout () in
-       Lwt.return_ok ()
-     ) pool)
-     |> Obj.magic
-     |> handle_error)
-  ]
+  Lwt.bind
+    (let enable_journal_mode =
+       Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.string @:-  "PRAGMA journal_mode=WAL" ) in
+     let update_busy_timout =
+       Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.int @:-  "PRAGMA busy_timeout = 50000" ) in
+     ((Caqti_lwt.Pool.use (fun (module DB : Caqti_lwt.CONNECTION) ->
+        let* _ = DB.find enable_journal_mode () in
+        let* _ = DB.find update_busy_timout () in
+        Lwt.return_ok ()
+      ) pool)
+      |> Obj.magic
+      |> handle_error
+      |> lift_pure))
+    (fun _ -> worker (Obj.magic pool) task_in)
+
 

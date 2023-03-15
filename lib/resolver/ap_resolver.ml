@@ -312,7 +312,7 @@ let target_list_to_urls to_ db =
       (Database.resolve_actor_url ~id:actor db)
   ) to_
 
-let create_note_obj post_id author published scope to_ cc content summary =
+let create_note_obj post_id author published scope to_ cc content summary in_reply_to =
   let is_public, is_follower_public =
     match scope with
     | `DM -> false, false
@@ -343,7 +343,7 @@ let create_note_obj post_id author published scope to_ cc content summary =
     actor;
     to_;
     cc;
-    in_reply_to=None;
+    in_reply_to=in_reply_to;
     content=content;
     source=Some content;
     summary;
@@ -754,7 +754,7 @@ let create_note_request scope author to_ cc summary content content_type in_repl
     lift_database_error (target_list_to_urls cc db) in
 
   let post_obj : Activitypub.Types.note =
-    create_note_obj post_id author published scope to_ cc content summary in
+    create_note_obj post_id author published scope to_ cc content summary in_reply_to in
   let data = Activitypub.Encode.note post_obj in
   let* _ =
     lift_database_error
@@ -847,7 +847,7 @@ let create_new_reboost (author: Database.LocalUser.t) (post: Database.Posts.t) d
       return_ok ()
 
 let create_new_note scope author to_ cc summary content content_type in_reply_to db =
-  log.debug (fun f -> f "worker[create_new_note] ~author:%s ~to_:[%a] ~summary:%a ~content:%s ~in_reply_to:%a"
+  log.debug (fun f -> f "create_new_note ~author:%s ~to_:[%a] ~summary:%a ~content:%s ~in_reply_to:%a"
                         author.Database.LocalUser.username (List.pp String.pp) to_
                         (Option.pp String.pp) summary content (Option.pp String.pp) in_reply_to);
   let is_public, is_follower_public =
@@ -870,29 +870,6 @@ let create_new_note scope author to_ cc summary content content_type in_reply_to
       let _, msg, details = Error_handling.extract_error_details err in
       log.debug (fun f -> f "extracting target failed with error %s: %s" msg details);
       None in
-  let* in_reply_to, extra_to, extra_cc =
-    match in_reply_to with
-    | None -> return_ok (None, [], [])
-    | Some in_reply_to ->
-      let* post = lift_database_error (Database.Posts.lookup_by_url ~url:in_reply_to db) in
-      match post with
-      | None -> return_ok (None, [], [])
-      | Some post ->
-        let* extra_to = lift_database_error (Database.Posts.post_to ~id:post.id db) in
-        let* extra_cc = lift_database_error (Database.Posts.post_cc ~id:post.id db) in
-        return_ok (Some in_reply_to, extra_to, extra_cc) in
-  let* extra_remote_targets =
-    Lwt_list.map_s (fun id ->
-        let* result = lift_database_error (Database.Actor.resolve ~id db) in
-        match result with
-        | `Local _ -> return_ok None
-        | `Remote id ->
-          let+ user = lift_database_error (Database.RemoteUser.resolve ~id db) in
-          Some user
-      ) (extra_to @ extra_cc)
-    >> List.filter_map suppress_errors
-    >> List.filter_map Fun.id
-    |> lift_pure in
 
   let* to_remotes, to_ =
     Lwt_list.map_s partition_user to_
@@ -932,7 +909,10 @@ let create_new_note scope author to_ cc summary content content_type in_reply_to
 
   let* note_request =
     create_note_request scope author to_ cc summary content content_type in_reply_to db in
-  let remote_targets = to_remotes @ cc_remotes @ remote_followers_targets @ extra_remote_targets in
+  let remote_targets = to_remotes @ cc_remotes @ remote_followers_targets in
+  log.debug (fun f -> f "remote targets are [%a]"
+                        (List.pp (fun fmt usr -> Format.fprintf fmt "%s" usr.Database.RemoteUser.url))
+                        remote_targets);
   let* _ =
     let key_id =
       author.Database.LocalUser.username
