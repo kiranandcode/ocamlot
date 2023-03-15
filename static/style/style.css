@@ -103,6 +103,20 @@ header a {
 }
 
 
+.post-attachment-images {
+  overflow-x: scroll;
+  display: flex;
+}
+
+.post-attachment-files {
+  display: flex;
+}
+
+.post-attachment-images img {
+  max-height: 10em;
+}
+
+
 /* ** Post Feed */
 
 .post-grid {

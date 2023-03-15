@@ -115,14 +115,28 @@ let current_user_link req =
 let sanitize_form_error pp : 'a Dream.form_result Lwt.t -> _ Lwt_result.t =
   fun res ->
   Lwt.map (function
-      | `Many_tokens data  -> Error (`FormError ("Many tokens", pp data))
-      | `Missing_token data -> Error (`FormError ("Missing token", pp data))
-      | `Invalid_token data -> Error (`FormError ("Wrong session", pp data))
-      | `Wrong_session data  -> Error (`FormError ("Wrong session", pp data))
-      | `Expired (data, _) -> Error (`FormError ("Expired form", pp data))
-      | `Wrong_content_type -> Error (`FormError ("Wrong Content Type", "No further information"))
-      | `Ok v -> Ok v
-    ) res
+    | `Many_tokens data  -> Error (`FormError ("Many tokens", pp data))
+    | `Missing_token data -> Error (`FormError ("Missing token", pp data))
+    | `Invalid_token data -> Error (`FormError ("Wrong session", pp data))
+    | `Wrong_session data  -> Error (`FormError ("Wrong session", pp data))
+    | `Expired (data, _) -> Error (`FormError ("Expired form", pp data))
+    | `Wrong_content_type -> Error (`FormError ("Wrong Content Type", "No further information"))
+    | `Ok v -> Ok v
+  ) res
+
+let extract_single_multipart_data = function
+  | [(None, data)] -> Ok data
+  | _ -> Error ("expected a single text input")
+
+let extract_file_multipart_data = function
+  | [(Some fname, data)] -> Ok (fname, data)
+  | _ -> Error ("expected a file input")
+
+let extract_files_multipart_data data =
+  List.map (function
+    | (Some fname, data) -> Ok (fname, data)
+    | _ -> Error ("expected a file input")) data
+  |> List.all_ok
 
 let mime_lookup filename =
   let content_type = Magic_mime.lookup filename in
@@ -133,10 +147,10 @@ let file ~local_root path =
   Lwt.catch
     (fun () ->
        Lwt_io.(with_file ~mode:Input file) (fun channel ->
-           Lwt.bind (Lwt_io.read channel) @@ fun content ->
-           Dream.response
-             ~headers:(mime_lookup path) content
-           |> Lwt.return_ok))
+         Lwt.bind (Lwt_io.read channel) @@ fun content ->
+         Dream.response
+           ~headers:(mime_lookup path) content
+         |> Lwt.return_ok))
     (fun _exn ->
        Dream.response ~status:`Not_Found "Not found"
        |> Lwt.return_ok)
@@ -195,7 +209,7 @@ let tyxml ?status ?code ?headers doc =
 
 let not_found_json ?headers msg =
   json ~status:`Not_Found ?headers (`Assoc [
-      "type", `String "error";
-      "reason", `String msg
-    ])
+    "type", `String "error";
+    "reason", `String msg
+  ])
   

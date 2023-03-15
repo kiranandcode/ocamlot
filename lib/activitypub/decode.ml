@@ -113,6 +113,15 @@ let public_key =
   and* pem = field "publicKeyPem" string in
   succeed ({id;owner;pem}: Types.public_key)
 
+let attachment =
+  let open D in
+  let* media_type = field_opt "mediaType" string
+  and* name = field_opt "name" string
+  and* type_ = field_opt "type" string
+  and* url = field "url" string in
+  succeed ({media_type;name;type_;url}: Types.attachment)
+
+
 let person =
   let open D in
   let* () = field "type" @@ constant ~msg:"expected Person (received %s)" "Person"
@@ -159,6 +168,7 @@ let note =
   let* () = field "type" @@ constant ~msg:"expected Note (received %s)" "Note"
   and* id = field "id" string
   and* actor = one_of ["actor", field "actor" id; "attributed_to", field "attributedTo" id]
+  and* attachment = field_or_default "attachment" (singleton_or_list attachment) []
   and* to_ = field "to" (singleton_or_list string)
   and* in_reply_to = field_or_default "inReplyTo" (nullable string) None
   and* cc = field_or_default "cc" (singleton_or_list string) []
@@ -170,7 +180,7 @@ let note =
   and* published = field_opt "published" timestamp
   and* tags = field_or_default "tag" (lossy_list_of tag) []
   and* raw = value in
-  succeed ({ id; actor; in_reply_to; to_; cc;
+  succeed ({ id; actor; attachment; in_reply_to; to_; cc;
              sensitive=Option.value ~default:false sensitive;
              content; source; summary; tags; published; raw }: Types.note)
 

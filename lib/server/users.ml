@@ -18,14 +18,6 @@ let get_user_checked req username =
   | Some current_user ->
     return_ok (Some current_user)
 
-let extract_single_multipart_data = function
-  | [(None, data)] -> Ok data
-  | _ -> Error (`InvalidData "expected a single text input")
-
-let extract_file_multipart_data = function
-  | [(Some fname, data)] -> Ok (fname, data)
-  | _ -> Error (`InvalidData "expected a file input")
-
 (* * Actor *)
 (* ** Edit (html) *)
 
@@ -71,6 +63,7 @@ let handle_actor_edit_post req =
       let* avatar =
         List.Assoc.get ~eq:String.equal "avatar" data
         |> VResult.lift_result_check extract_file_multipart_data
+        |> VResult.map_err (fun err -> `InvalidData err)
         |> VResult.flat_map
              (VResult.lift_result_check
                 (VResult.lift_pair_snd
@@ -82,7 +75,7 @@ let handle_actor_edit_post req =
         | Some (fname, avatar) ->
           log.debug (fun f -> f "got file %s, [%d]{%s..}" fname
                                 (String.length avatar) (String.take 100 avatar));
-          let* image = Images.upload_file req ~fname ~data:avatar in
+          let* _, image = Images.upload_file req ~fname ~data:avatar in
           let* () =
             sql req
               (Database.LocalUser.update_profile_picture
@@ -96,6 +89,7 @@ let handle_actor_edit_post req =
       let* display_name =
         List.Assoc.get ~eq:String.equal "display-name" data
         |> VResult.lift_result_check extract_single_multipart_data
+        |> VResult.map_err (fun err -> `InvalidData err)        
         |> Result.flat_map
              (VResult.lift_result_check (VResult.check_input_size "display-name" 80))
         |> Result.map (Option.filter (Fun.negate String.is_empty))
@@ -103,6 +97,7 @@ let handle_actor_edit_post req =
       let* about =
         List.Assoc.get ~eq:String.equal "about" data
         |> VResult.lift_result_check extract_single_multipart_data
+        |> VResult.map_err (fun err -> `InvalidData err)
         |> Result.flat_map
              (VResult.lift_result_check (VResult.check_input_size "about" 2048))
         |> Result.map (Option.filter (Fun.negate String.is_empty))

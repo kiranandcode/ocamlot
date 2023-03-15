@@ -1855,6 +1855,35 @@ module Posts = struct
     |> Lwt.map Containers.List.all_ok
     |> Lwt_result.map ignore
 
+  let add_attachment ~post:(post_id: Types.post_id) ?media_type ~url conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+    Query.insert
+      ~table:Tables.Posts.PostAttachments.table
+      ~values:Expr.([
+        Tables.Posts.PostAttachments.post_id := i (post_id :> int);
+        Tables.Posts.PostAttachments.url := s url;
+      ] @
+        (Option.map (fun vl -> Tables.Posts.PostAttachments.media_type := s vl) media_type |> Option.to_list)
+      )
+    |> Request.make_zero
+    |> Petrol.exec conn
+
+  let collect_attachments ~post:(post_id: Types.post_id) conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Tables in
+
+    Query.select Expr.[
+      nullable Tables.Posts.PostAttachments.media_type;
+      Tables.Posts.PostAttachments.url;
+    ] ~from:Tables.Posts.PostAttachments.table
+    |> Query.where Expr.(Tables.Posts.PostAttachments.post_id = i (post_id :> int))
+    |> Request.make_many
+    |> Petrol.collect_list conn
+    |> Lwt_result.map (List.map (fun (media_type, (url, ())) -> (media_type, url)))
+
 end
 
 module Follows = struct

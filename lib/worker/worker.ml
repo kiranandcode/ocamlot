@@ -6,7 +6,7 @@ open Utils
 module Task = Task
 
 
-let handle_local_post pool user scope post_to title content_type content in_reply_to =
+let handle_local_post pool user scope post_to title content_type content in_reply_to attachments =
   log.debug (fun f ->
     f "working on local post by %s of %s"
       (user.Database.LocalUser.username) content);
@@ -16,7 +16,7 @@ let handle_local_post pool user scope post_to title content_type content in_repl
   log.debug (fun f -> f "posted to [%a]" (List.pp String.pp) post_to);
   let* _ =
     with_pool pool @@ 
-    Ap_resolver.create_new_note scope user post_to [] title content content_type in_reply_to in
+    Ap_resolver.create_new_note scope user post_to [] title content content_type in_reply_to attachments in
 
   Lwt.return_ok ()
 
@@ -195,8 +195,8 @@ let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) ta
            handle_remote_reboost pool id published target author raw_data
          | SearchRemoteUser {username; domain} ->
            handle_search_user pool username domain
-         | LocalPost {user; title; content; content_type; scope; post_to; in_reply_to} -> 
-           handle_local_post pool user scope post_to title content_type content in_reply_to
+         | LocalPost {user; title; content; content_type; scope; post_to; in_reply_to; attachments} -> 
+           handle_local_post pool user scope post_to title content_type content in_reply_to attachments
          | FollowRemoteUser {user; username; domain} ->
            handle_follow_remote_user pool user username domain
          | CreateRemoteNote { author; direct_message; note } ->
@@ -224,34 +224,22 @@ let send_task : Task.t -> unit =
   fun task ->
     (Lazy.force task_fun) (Some task)
 
-let init (_: 'a) =
+let post_connect (module DB : Caqti_lwt.CONNECTION) =
+  let enable_journal_mode =
+    Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.string @:-  "PRAGMA journal_mode=WAL" ) in
+  let update_busy_timout =
+    Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.int @:-  "PRAGMA busy_timeout = 50000" ) in
+  ((let* _ = DB.find enable_journal_mode () in
+    let* _ = DB.find update_busy_timout () in
+    Lwt.return_ok ()))
+
+let init () =
   let task_in, send_task = Lwt_stream.create () in
   send_task_internal := Some send_task;
   (* hackity hack hacks to get access to Dream's internal Sql pool *)
-  let pool =
-    let vl = ref None in
-    ignore @@ Dream.sql_pool (Configuration.(Lazy.force database_uri)) (fun req ->
-      vl :=(Dream__sql.Sql.Message.field req Dream__sql.Sql.pool_field);
-      Dream.html ""
-    ) (Dream.request "");
-    match !vl with
-    | None -> raise (Failure "worker failed to acquire access to pool")
-    | Some pool -> pool in
+  let db_uri = Lazy.force Configuration.database_uri in
+  let pool = Caqti_lwt.connect_pool ~post_connect (Uri.of_string db_uri)
+             |> Result.get_exn in
   (* configure journal with WAL and busy timeout to avoid busy errors *)
   log.info (fun f -> f "setting up worker database configurations");
-  Lwt.bind
-    (let enable_journal_mode =
-       Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.string @:-  "PRAGMA journal_mode=WAL" ) in
-     let update_busy_timout =
-       Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.int @:-  "PRAGMA busy_timeout = 50000" ) in
-     ((Caqti_lwt.Pool.use (fun (module DB : Caqti_lwt.CONNECTION) ->
-        let* _ = DB.find enable_journal_mode () in
-        let* _ = DB.find update_busy_timout () in
-        Lwt.return_ok ()
-      ) pool)
-      |> Obj.magic
-      |> handle_error
-      |> lift_pure))
-    (fun _ -> worker (Obj.magic pool) task_in)
-
-
+  worker (Obj.magic pool) task_in

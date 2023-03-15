@@ -26,7 +26,7 @@ let parse_scope = function
   | ct -> Error (Format.sprintf "unsupported scope type %s" ct)
 
 
-let handle_get_write ?(errors=[]) ?title ?to_ ?content_type ?visibility ?contents req =
+let handle_get_write ?(errors=[]) ?title ?attachments ?to_ ?content_type ?visibility ?contents req =
   let in_reply_to = Dream.query req "in-reply-to" in
   let* current_user = current_user req in
   let* user = match current_user with
@@ -125,6 +125,7 @@ let handle_get_write ?(errors=[]) ?title ?to_ ?content_type ?visibility ?content
             ~fields:(["dream.csrf", token] @ in_reply_to_fields)
             ~action:(Uri.to_string write_action) ~id:"write-post-form"
             ?title ~to_:((String.concat ", ") to_)
+            ?attachments:(Option.map (List.map fst) attachments)
             ?content_type:(Option.map encode_content_type content_type)
             ?visibility:(Option.map encode_scope visibility)
             ?message:contents
@@ -138,6 +139,7 @@ let handle_get_write ?(errors=[]) ?title ?to_ ?content_type ?visibility ?content
                View.Post.{
                  self_link=None; toast_link=None; cheer_link=None; reply_link=None;
                  headers=[];
+                 attachments=Option.map (List.map (fun (_, img) -> (false, img))) attachments |> Option.value ~default:[];
                  content=preview;
                  posted_date=Ptime_clock.now ();
                  no_toasts=10;
@@ -159,51 +161,80 @@ let handle_get_write ?(errors=[]) ?title ?to_ ?content_type ?visibility ?content
       ])
 
 let handle_post_write req =
-  let* data = Dream.form req |> sanitize_form_error ([%show: (string * string) list]) in
-  log.info (fun f -> f ~request:req "got post to write with %s"
-               ([%show: (string * string) list] data));
+  let* data = (Dream.multipart req) |> sanitize_form_error ([%show: (string * (string option * string) list) list]) in
+  log.debug (fun f -> f ~request:req "got post to write with %s"
+               ([%show: (string * (string option * string) list) list] data));
   let res =
     let open VResult in
-    let title = form_data "title" data |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
+    let title = form_data "title" data
+                |> flat_map extract_single_multipart_data
+                |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
+    let attachments =
+      form_data "attachment" data
+      |> flat_map extract_files_multipart_data
+      |> Result.to_opt in
+    log.debug (fun f ->  f "attachment names were %a" (Option.pp (List.pp String.pp)) (Option.map (List.map fst) attachments));
     let to_ = form_data "to" data
+              |> flat_map extract_single_multipart_data
               |> Result.to_opt
               |> Option.map (String.split_on_char ',')
               |> Option.map (List.map String.trim)
               |> Option.map (List.filter (Fun.negate String.is_empty))
               |> Option.filter (Fun.negate List.is_empty)  in
-    let in_reply_to = form_data "in-reply-to" data |> Result.to_opt
+    let in_reply_to = form_data "in-reply-to" data
+                      |> flat_map extract_single_multipart_data
+                      |> Result.to_opt
                       |> Option.filter (Fun.negate String.is_empty) in
-    let* contents = lift (form_data "message" data) in
-    let* content_type = lift (form_data "content-type" data) in
+    let* contents = lift (form_data "message" data  |> flat_map extract_single_multipart_data) in
+    let* content_type = lift (form_data "content-type" data |> flat_map extract_single_multipart_data) in
     let* content_type = lift (parse_content_type content_type) in
-    let* visibility = lift (form_data "visibility" data) in
+    let* visibility = lift (form_data "visibility" data |> flat_map extract_single_multipart_data) in
     let* visibility = lift (parse_scope visibility) in
     let* () = ensure "Post contents can not be empty" (not @@ String.is_empty contents) in
     let is_preview = form_data "preview" data |> Result.to_opt |> Option.is_some in
-    Ok (title, to_, content_type, visibility, contents, is_preview, in_reply_to) in
+    Ok (title, to_, content_type, visibility, contents, is_preview, in_reply_to, attachments) in
 
   match res with
   | Error errors ->
-    let title = form_data "title" data |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
-    let to_ = form_data "to" data |> Result.to_opt |> Option.map (String.split_on_char ',') in
-    let contents = form_data "message" data |> Result.to_opt in
-    let content_type = form_data "content-type" data |> Result.flat_map parse_content_type |> Result.to_opt in
+    let title = form_data "title" data
+                |> VResult.flat_map extract_single_multipart_data
+                |> Result.to_opt |> Option.filter (Fun.negate String.is_empty) in
+    let to_ = form_data "to" data
+              |> VResult.flat_map extract_single_multipart_data
+              |> Result.to_opt |> Option.map (String.split_on_char ',') in
+    let contents = form_data "message" data
+                |> VResult.flat_map extract_single_multipart_data
+                |> Result.to_opt in
+    let content_type = form_data "content-type" data
+                       |> VResult.flat_map extract_single_multipart_data
+                       |> Result.flat_map parse_content_type |> Result.to_opt in
     handle_get_write ~errors ?title ?to_ ?content_type ?contents req
   (* if is a preview request, then just handle get write *)
-  | Ok (title, to_, content_type, visibility, contents, true, _) ->
-    handle_get_write ?title ?to_ ~content_type ~visibility ~contents req
-  | Ok (title, to_, content_type, scope, contents, false, in_reply_to) ->
+  | Ok (title, to_, content_type, visibility, contents, true, _, attachments) ->
+    handle_get_write ?attachments ?title ?to_ ~content_type ~visibility ~contents req
+  | Ok (title, to_, content_type, scope, contents, false, in_reply_to, attachments) ->
     log.info (fun f -> f "received get request %s"
                          ([%show: string option * string list option *
                                   [> `Markdown | `Org | `Text ] *
                                   [> `DM | `Followers | `Public ] * string]
                             (title, to_, content_type, scope, contents)));
     let* Some user = current_user req in
+    let* attachments = match attachments with
+      | None -> return_ok []
+      | Some data ->
+        map_list (fun (fname, data) ->
+          let+ (mime_type, image_name) = Images.upload_file req ~fname ~data in
+          (mime_type, Configuration.Url.image_url image_name |> Uri.to_string)
+        ) data in
+    log.debug (fun f -> f "final set of attachments were %a"
+                          (List.pp (fun fmt (l,r) -> Format.fprintf fmt "(%s,%s)" l r)) attachments);
+
     let () = Worker.send_task
                ((LocalPost {
                  user=user;  title; scope; content_type;
                  post_to=to_; in_reply_to;
-                 content=contents
+                 content=contents;
+                 attachments
                })) in
     redirect req "/feed"
 [@@warning "-8"]

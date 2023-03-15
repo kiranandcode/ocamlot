@@ -7,9 +7,10 @@ let version_0_0_4 = VersionedSchema.version [0;0;4]
 let version_0_0_5 = VersionedSchema.version [0;0;5]
 let version_0_0_6 = VersionedSchema.version [0;0;6]
 let version_0_0_7 = VersionedSchema.version [0;0;7]
+let version_0_0_8 = VersionedSchema.version [0;0;8]
 
 
-let db = VersionedSchema.init version_0_0_7 ~name:"ocamlot"
+let db = VersionedSchema.init version_0_0_8 ~name:"ocamlot"
 
 module DreamSession = struct
 
@@ -319,6 +320,18 @@ module Posts = struct
         ~constraints:Schema.[
           table_unique ~on_conflict:`IGNORE ["post_context_parent"; "post_context_child"]
         ]
+
+  end
+
+  module PostAttachments = struct
+
+    let table, Expr.[post_id; media_type; url] =
+      VersionedSchema.declare_table db ~name:"post_attachments"
+        Schema.[
+          field ~constraints:[foreign_key ~table:table ~columns:Expr.[id] ()] "post_attachment_post_id" ~ty:Type.int;
+          field "post_attachment_media_type" ~ty:Type.text;
+          field ~constraints:[not_null ()] "post_attachment_url" ~ty:Type.text;
+        ] ~since:version_0_0_8
 
   end
 

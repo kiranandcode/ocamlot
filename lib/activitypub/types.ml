@@ -127,9 +127,17 @@ type tag = {
   name: string;
 } [@@deriving show, eq]
 
+type attachment = {
+  media_type: string option;
+  name: string option;
+  type_: string option;
+  url: string;
+} [@@deriving show, eq]
+
 type note = {
   id: string;
   actor: string;
+  attachment: attachment list;
   to_: string list;
   in_reply_to: string option;
   cc: string list;

@@ -163,6 +163,11 @@ let extract_post req (post: Database.Posts.t) =
     match post.public_id with
     | None -> Configuration.Url.remote_post_cheer post.url
     | Some id -> Uri.of_string (Configuration.Url.post_path id ^ "/cheer") in
+  let* attachments = sql req (Database.Posts.collect_attachments ~post:post.id) in
+  let attachments =
+    List.map (function
+      | (Some media_type, fname) when String.starts_with ~prefix:"image" media_type -> (true, fname)
+      | (_, fname) -> (false,fname)) attachments in
 
   return_ok @@
   View.Post.{
@@ -173,6 +178,8 @@ let extract_post req (post: Database.Posts.t) =
 
     no_toasts=post_likes; has_been_toasted;
     no_cheers=post_cheers; has_been_cheered;
+
+    attachments;
 
     author=author_obj
   }

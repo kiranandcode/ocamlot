@@ -279,9 +279,13 @@ CLOSED: [2023-03-15 Wed 01:35]
 CLOSED: [2023-03-15 Wed 01:35]
 *** DONE When adding post, add post to all posts
 CLOSED: [2023-03-15 Wed 01:35]
-** TODO Support posts with images
-*** TODO Collect json for post with image
-*** TODO Add table for post images?
-*** TODO Update html with image
+** DONE Support posts with images
+CLOSED: [2023-03-15 Wed 08:22]
+*** DONE Collect json for post with image
+CLOSED: [2023-03-15 Wed 06:58]
+*** DONE Add table for post images?
+CLOSED: [2023-03-15 Wed 06:58]
+*** DONE Update html with image
+CLOSED: [2023-03-15 Wed 08:22]
 
 

@@ -65,6 +65,7 @@ type t =
     post_to: string list option;
     content: string;
     in_reply_to: string option;
+    attachments: (string * string) list;
   }
   | LocalLike of {
       user: Database.LocalUser.t;

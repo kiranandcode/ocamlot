@@ -217,6 +217,11 @@ let rec insert_remote_note ?(direct_message=false) ?author (note: Activitypub.Ty
     Database.Posts.add_post_ccs ~id:(post.Database.Posts.id) ~ccs:cc_ db
     |> lift_database_error in
   log.debug (fun f -> f "ccs added");
+  let* _ =
+    map_list (fun (attch: Activitypub.Types.attachment) ->
+      Database.Posts.add_attachment ~post:post.Database.Posts.id ?media_type:attch.media_type ~url:attch.url db
+    ) note.attachment in
+  log.debug (fun f -> f "attachments added");
 
   let* _ = match note.in_reply_to with
     | None -> return_ok ()
@@ -312,7 +317,7 @@ let target_list_to_urls to_ db =
       (Database.resolve_actor_url ~id:actor db)
   ) to_
 
-let create_note_obj post_id author published scope to_ cc content summary in_reply_to =
+let create_note_obj post_id author published scope to_ cc content summary in_reply_to attachment =
   let is_public, is_follower_public =
     match scope with
     | `DM -> false, false
@@ -338,11 +343,16 @@ let create_note_obj post_id author published scope to_ cc content summary in_rep
         |> Uri.to_string in
       followers_url :: cc
     else cc in
+  let attachment =
+    List.map (fun (media_type, url) ->
+      ({media_type=Some media_type; url; name=Some ""; type_=Some "Document"}: Activitypub.Types.attachment))
+      attachment in
   Activitypub.Types.{
     id;
     actor;
     to_;
     cc;
+    attachment;
     in_reply_to=in_reply_to;
     content=content;
     source=Some content;
@@ -712,7 +722,7 @@ let create_reboost_request (author: Database.LocalUser.t) (post: Database.Posts.
   let* _ = lift_database_error (Database.Activity.create ~id:reboost_id ~data db) in
   Lwt.return_ok (Yojson.Safe.to_string data)
 
-let create_note_request scope author to_ cc summary content content_type in_reply_to db =
+let create_note_request scope author to_ cc summary content content_type in_reply_to attachment db =
   let post_id = fresh_id () in
   let is_public, is_follower_public =
     match scope with
@@ -753,8 +763,14 @@ let create_note_request scope author to_ cc summary content content_type in_repl
   let* cc =
     lift_database_error (target_list_to_urls cc db) in
 
+  let* _ =
+    map_list (fun (media_type, url) ->
+      Database.Posts.add_attachment ~post:post.Database.Posts.id ~media_type ~url db
+    ) attachment in
+
+
   let post_obj : Activitypub.Types.note =
-    create_note_obj post_id author published scope to_ cc content summary in_reply_to in
+    create_note_obj post_id author published scope to_ cc content summary in_reply_to attachment in
   let data = Activitypub.Encode.note post_obj in
   let* _ =
     lift_database_error
@@ -846,7 +862,7 @@ let create_new_reboost (author: Database.LocalUser.t) (post: Database.Posts.t) d
                               body);
       return_ok ()
 
-let create_new_note scope author to_ cc summary content content_type in_reply_to db =
+let create_new_note scope author to_ cc summary content content_type in_reply_to attachment db =
   log.debug (fun f -> f "create_new_note ~author:%s ~to_:[%a] ~summary:%a ~content:%s ~in_reply_to:%a"
                         author.Database.LocalUser.username (List.pp String.pp) to_
                         (Option.pp String.pp) summary content (Option.pp String.pp) in_reply_to);
@@ -908,7 +924,7 @@ let create_new_note scope author to_ cc summary content content_type in_reply_to
     end in
 
   let* note_request =
-    create_note_request scope author to_ cc summary content content_type in_reply_to db in
+    create_note_request scope author to_ cc summary content content_type in_reply_to attachment db in
   let remote_targets = to_remotes @ cc_remotes @ remote_followers_targets in
   log.debug (fun f -> f "remote targets are [%a]"
                         (List.pp (fun fmt usr -> Format.fprintf fmt "%s" usr.Database.RemoteUser.url))
@@ -1095,9 +1111,14 @@ let build_outbox_collection_page start_time offset user db =
         lift_database_error (Database.Posts.post_cc ~id:post.id db) in
       let* to_ = map_list (fun to_ -> extract_user_url ~id:to_ db) post_to in
       let* cc = map_list (fun to_ -> extract_user_url ~id:to_ db) post_cc in
+      let* attachment = lift_database_error (Database.Posts.collect_attachments ~post:post.id db) in
+      let attachment =
+        List.map (fun (media_type, url) ->
+          ({media_type; url;name=Some ""; type_=Some "Document"}: Activitypub.Types.attachment)) attachment in
       return_ok ({
         id = post.url;
         actor = Configuration.Url.user user.username |> Uri.to_string;
+        attachment;
         to_;
         in_reply_to = None;     (* TODO: when conversations are added, update this field *)
         cc;

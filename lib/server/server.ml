@@ -62,8 +62,7 @@ let run () =
 
   end;
 
-
-  let worker = Worker.init (Lazy.force Configuration.database_uri) |> Lwt.map ignore in
+  let worker = Worker.init () |> Lwt.map ignore in
 
   if Lazy.force Configuration.is_tls_enabled then
     Dream.info (fun f -> f "Enabled HTTPS/TLS for OCamlot server");

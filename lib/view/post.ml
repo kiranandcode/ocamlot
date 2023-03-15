@@ -11,6 +11,7 @@ type t = {
   posted_date: Ptime.t;
   no_toasts: int; has_been_toasted: bool;
   no_cheers: int; has_been_cheered: bool;
+  attachments: (bool * string) list;
   author: User.t;
 }
 
@@ -50,12 +51,38 @@ let render_post_headers = function
             ]
          ) headers)]
 
-let render ?redirect_url ?a_class post =
+let render ?(render_attachments=false) ?redirect_url ?a_class post =
   H.div ~a:[H.a_class (Option.to_list a_class @ ["post-box"; "padding-all"])]
     (List.concat [
        render_post_headers post.headers;
        [
-         H.div ~a:[H.a_class ["post-text"; "text-justify"]] (post.content);
+         H.div ~a:[H.a_class ["post-text"; "text-justify"]] (
+           post.content @
+           match post.attachments with
+           | [] -> []
+           | attachments ->
+             if render_attachments
+             then
+               let images, files = List.partition (fun (is_img, _) -> is_img) attachments in
+               [
+
+                 H.div ~a:[H.a_class ["post-attachments"]] (
+                   [
+                     H.div ~a:[H.a_class ["post-attachment-images"]] (List.mapi (fun i (_, img) ->
+                       H.img ~src:img ~alt:(Format.sprintf "Attached image %d" i) ()
+                     ) images);
+                     H.div ~a:[H.a_class ["post-attachment-files"]] (List.mapi (fun i (_, file) ->
+                       H.a ~a:[H.a_href file] [H.txt (Format.sprintf "Attached file %d" i)]
+                     ) files)
+                   ]
+                 )
+               ]
+             else [
+               H.div ~a:[H.a_class ["post-attachments"]] (List.mapi (fun i (is_image, img) ->
+                 H.a ~a:[H.a_href img] [H.txt (Format.sprintf "Attached %s %d" (if is_image then "image" else "file") i)]
+               ) attachments)
+             ]
+         );
          H.div ~a:[H.a_class ["post-details"; "font-small"; "flex"]] [
            H.div ~a:[H.a_class ["post-stats"; "justify-space-around"; "flex-column"]] [
              H.div ~a:[H.a_class ["post-date"]] [

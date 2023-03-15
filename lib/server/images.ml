@@ -55,7 +55,7 @@ let upload_file req ~fname:_ ~data =
     let* image = Dream.sql req (Database.UserImage.resolve_by_hash ~hash)
                  |> Lwt_result.map_error (fun err ->
                      `DatabaseError (Caqti_error.show err)) in
-    Lwt_result.return (image.Database.UserImage.path)
+    Lwt_result.return (mime_type, image.Database.UserImage.path)
   | Some _ -> 
     (* write image to disk *)
     let* () =
@@ -65,7 +65,7 @@ let upload_file req ~fname:_ ~data =
         path (fun oc ->
             Lwt_io.write oc data
             |> Lwt_result.ok) in
-    Lwt_result.return (image_name)
+    Lwt_result.return (mime_type, image_name)
 
 
 let handle_image_get req =

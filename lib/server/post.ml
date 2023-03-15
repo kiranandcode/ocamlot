@@ -74,7 +74,7 @@ let handle_post_get req =
         ) () in
     tyxml @@ View.Page.render_page title @@ ([
         View.Header.render_header ?action headers;
-        View.Post.render post_data;
+        View.Post.render ~render_attachments:true post_data;
         View.Components.render_heading ~icon:"R" ~current:"Replies" ();
       ] @ (List.map (fun post -> View.Post.render post) related_posts) @ [navigation_panel])
   else
@@ -180,7 +180,7 @@ let handle_get_remote req =
     } in
     tyxml @@ View.Page.render_page title @@ ([
       View.Header.render_header ?action headers;
-      View.Post.render post_data;
+      View.Post.render ~render_attachments:true post_data;
     ] @ (List.map (fun post -> View.Post.render post) related_posts) @ [navigation_panel])
   else redirect req "/feed"
 

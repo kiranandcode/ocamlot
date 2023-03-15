@@ -157,11 +157,22 @@ let tag ({ ty; href; name }: Types.tag) =
     "name" @ name <: E.string;
   ]
 
+let attachment ({media_type; name; url; type_}: Types.attachment) =
+  obj [
+    "type" @? type_ <: E.string;
+    "mediaType" @? media_type <: E.string;
+    "name" @? name <: E.string;
+    "url" @ url <: E.string;
+  ]
+
 let note ({ id; actor; to_; in_reply_to; cc; content; sensitive; source; summary;
+            attachment=att;
             published; tags; raw=_ }: Types.note) =
+  let att = match att with [] -> None | _ -> Some att in
   ap_obj "Note" [
     "id" @ id <: E.string;
     "actor" @ actor <: E.string;
+    "attachment" @? att <: E.list attachment;
     "to" @ to_ <: E.list E.string;
     "inReplyTo" @? in_reply_to <: E.string;
     "cc" @ cc <: E.list E.string;

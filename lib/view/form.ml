@@ -11,14 +11,16 @@ let render_input_form_textarea ?(rows=5) ?(cols=40) ?initial_value ~value ~name 
 
 let (^::) h t = match h with None -> t | Some h -> h :: t
 
-let render_input_form_entry ?a_class
-    ?(disabled=false) ?initial_value ~ty ~value ~name () =
+let render_input_form_entry ?a_class ?(multiple=false)
+    ?(disabled=false) ?initial_value ?initial_values ~ty ~value ~name () =
   H.div ~a:[H.a_class (a_class ^:: ["input-form-entry"])] [
     H.label ~a:[H.a_label_for value] [H.txt (name ^ ":")];
     H.input ~a:(List.flatten [
         [H.a_input_type ty; H.a_name value; ];
         optional H.a_value initial_value;
-        optional H.a_disabled (if disabled then Some () else None)
+        (match initial_values with Some ((_ :: _) as values) -> List.map H.a_value values | _ -> []);
+        optional H.a_disabled (if disabled then Some () else None);
+        optional H.a_multiple (if multiple then Some () else None)
       ]) ()
   ]
 
