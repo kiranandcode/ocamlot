@@ -5,34 +5,11 @@ open Common
 let log = Logging.add_logger "back.resolver"
 
 
-let filter_map_list ~msg f ls =
-  Lwt_list.map_s f ls
-  |> Lwt.map (List.filter_map (function
-    | Ok v -> v
-    | Error err ->
-      let _, header, details = Error_handling.extract_error_details err in
-      log.debug (fun f -> f "%s failed with %s: %s" msg header details);
-      None
-  ))
-  |> lift_pure
-
-
 let fresh_id () = Uuidm.v `V4 |> Uuidm.to_string
 let sanitize err =
   Lwt_result.map_error (fun err -> Caqti_error.show err) err
 let lift_database_error res =
   map_err (fun err -> `DatabaseError (Caqti_error.show err)) res
-
-let map_list f ls =
-  Lwt_list.map_s f ls
-  |> Lwt.map (List.filter_map (function
-    | Ok v -> Some v
-    | Error err ->
-      let _, msg, details = Error_handling.extract_error_details err in
-      log.debug (fun f -> f "extracting results failed with %s: %s" msg details);
-      None
-  ))
-  |> lift_pure
 
 let extract_local_target_link to_ db =
   let lazy local_user_regex =
@@ -189,9 +166,11 @@ let rec insert_remote_note ?(direct_message=false) ?author (note: Activitypub.Ty
       is_follower_public := true          
   ) (note.to_ @ note.cc);
   let* to_ =
-    filter_map_list ~msg:"resolving target of post" (fun vl -> extract_local_target_link vl db) note.to_ in
+    map_list_suppressing_errors ~tag:"[resolver] resolving target of post"
+      (fun vl -> extract_local_target_link vl db) note.to_ in
   let* cc_ =
-    filter_map_list ~msg:"resolving ccd of post" (fun vl -> extract_local_target_link vl db) note.cc in
+    map_list_suppressing_errors ~tag:"[resolver] resolving ccd of post"
+      (fun vl -> extract_local_target_link vl db) note.cc in
   let* author =
     Database.Actor.create_remote_user ~remote_id:(author.Database.RemoteUser.id) db
     |> lift_database_error in
@@ -210,15 +189,15 @@ let rec insert_remote_note ?(direct_message=false) ?author (note: Activitypub.Ty
   log.debug (fun f -> f "created post");
 
   let* _ =
-    Database.Posts.add_post_tos ~id:(post.Database.Posts.id) ~tos:to_ db
+    Database.Posts.add_post_tos ~id:(post.Database.Posts.id) ~tos:(List.filter_map Fun.id to_) db
     |> lift_database_error  in
   log.debug (fun f -> f "to_s added");
   let* _ =
-    Database.Posts.add_post_ccs ~id:(post.Database.Posts.id) ~ccs:cc_ db
+    Database.Posts.add_post_ccs ~id:(post.Database.Posts.id) ~ccs:(List.filter_map Fun.id cc_) db
     |> lift_database_error in
   log.debug (fun f -> f "ccs added");
   let* _ =
-    map_list (fun (attch: Activitypub.Types.attachment) ->
+    map_list_suppressing_errors (fun (attch: Activitypub.Types.attachment) ->
       Database.Posts.add_attachment ~post:post.Database.Posts.id ?media_type:attch.media_type ~url:attch.url db
     ) note.attachment in
   log.debug (fun f -> f "attachments added");
@@ -312,7 +291,7 @@ let create_accept_follow follow remote local db =
   Lwt_result.return accept
 
 let target_list_to_urls to_ db =
-  map_list (fun actor ->
+  map_list_suppressing_errors ~tag:"[resolver] target_list_to_urls" (fun actor ->
     lift_database_error
       (Database.resolve_actor_url ~id:actor db)
   ) to_
@@ -702,7 +681,6 @@ let create_like_request (author: Database.LocalUser.t) (post: Database.Posts.t) 
   let* _ = lift_database_error (Database.Activity.create ~id:like_id ~data db) in
   Lwt.return_ok (Yojson.Safe.to_string data)
 
-
 let create_reboost_request (author: Database.LocalUser.t) (post: Database.Posts.t) db =
   let reboost_id = fresh_id () in
   let published = Ptime_clock.now () in
@@ -764,7 +742,7 @@ let create_note_request scope author to_ cc summary content content_type in_repl
     lift_database_error (target_list_to_urls cc db) in
 
   let* _ =
-    map_list (fun (media_type, url) ->
+    map_list_suppressing_errors (fun (media_type, url) ->
       Database.Posts.add_attachment ~post:post.Database.Posts.id ~media_type ~url db
     ) attachment in
 
@@ -977,12 +955,12 @@ let build_followers_collection_page start_time offset user db =
         (Database.Follows.count_followers ~target:user db) in
     Lwt.return_ok (followers, total_count) in
   let* followers =
-    map_list (fun follow ->
+    map_list_suppressing_errors (fun follow ->
       Database.Actor.resolve ~id:follow.Database.Follows.author_id db
     ) followers
     |> lift_database_error in
   let* followers =
-    map_list (function
+    map_list_suppressing_errors (function
         `Local u ->
         let* u = Database.LocalUser.resolve ~id:u db
                  |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
@@ -1040,12 +1018,12 @@ let build_following_collection_page start_time offset user db =
         (Database.Follows.count_following ~author:user db) in
     Lwt.return_ok (following, total_count) in
   let* following =
-    map_list (fun follow ->
+    map_list_suppressing_errors (fun follow ->
       Database.Actor.resolve ~id:follow.Database.Follows.author_id db
     ) following
     |> lift_database_error in
   let* following =
-    map_list (function
+    map_list_suppressing_errors (function
         `Local u ->
         let* u = Database.LocalUser.resolve ~id:u db in
         return_ok (Configuration.Url.user (u.Database.LocalUser.username)
@@ -1104,33 +1082,34 @@ let build_outbox_collection_page start_time offset user db =
         (Database.Posts.count_posts_by_author ~author:user db) in
     Lwt.return_ok (posts, total_count) in
   let* posts =
-    map_list (fun (post: Database.Posts.t) ->
-      let* post_to =
-        lift_database_error (Database.Posts.post_to ~id:post.id db) in
-      let* post_cc =
-        lift_database_error (Database.Posts.post_cc ~id:post.id db) in
-      let* to_ = map_list (fun to_ -> extract_user_url ~id:to_ db) post_to in
-      let* cc = map_list (fun to_ -> extract_user_url ~id:to_ db) post_cc in
-      let* attachment = lift_database_error (Database.Posts.collect_attachments ~post:post.id db) in
-      let attachment =
-        List.map (fun (media_type, url) ->
-          ({media_type; url;name=Some ""; type_=Some "Document"}: Activitypub.Types.attachment)) attachment in
-      return_ok ({
-        id = post.url;
-        actor = Configuration.Url.user user.username |> Uri.to_string;
-        attachment;
-        to_;
-        in_reply_to = None;     (* TODO: when conversations are added, update this field *)
-        cc;
-        content=post.post_source;
-        sensitive = not post.is_public;
-        source = Some post.post_source;
-        summary = post.summary;
-        published = Some post.published;
-        tags=[];
-        raw=`Null
-      }: Activitypub.Types.note)
-    ) posts
+    map_list_suppressing_errors ~tag:"[resolver] outbox collection page"
+      (fun (post: Database.Posts.t) ->
+         let* post_to =
+           lift_database_error (Database.Posts.post_to ~id:post.id db) in
+         let* post_cc =
+           lift_database_error (Database.Posts.post_cc ~id:post.id db) in
+         let* to_ = map_list_suppressing_errors (fun to_ -> extract_user_url ~id:to_ db) post_to in
+         let* cc = map_list_suppressing_errors (fun to_ -> extract_user_url ~id:to_ db) post_cc in
+         let* attachment = lift_database_error (Database.Posts.collect_attachments ~post:post.id db) in
+         let attachment =
+           List.map (fun (media_type, url) ->
+               ({media_type; url;name=Some ""; type_=Some "Document"}: Activitypub.Types.attachment)) attachment in
+         return_ok ({
+             id = post.url;
+             actor = Configuration.Url.user user.username |> Uri.to_string;
+             attachment;
+             to_;
+             in_reply_to = None;     (* TODO: when conversations are added, update this field *)
+             cc;
+             content=post.post_source;
+             sensitive = not post.is_public;
+             source = Some post.post_source;
+             summary = post.summary;
+             published = Some post.published;
+             tags=[];
+             raw=`Null
+           }: Activitypub.Types.note)
+      ) posts
     |> lift_database_error in
   let* start_time =
     (start_time

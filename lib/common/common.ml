@@ -27,6 +27,15 @@ let form_data_present key form =
 let map_list f ls =
   Lwt.map Result.flatten_l (Lwt_list.map_s f ls)
 
+let iter_list f ls =
+  let rec flatten_result_list (ls: _ Result.t list) : _ Result.t =
+    match ls with
+    | [] -> Ok ()
+    | Ok _ :: tl -> flatten_result_list tl
+    | Error err :: _ -> Error err in
+  Lwt.map flatten_result_list (Lwt_list.map_s f ls)
+
+
 let map_list_suppressing_errors ?tag f ls =
   let tag = match tag with None -> "" | Some tag -> tag ^ ": " in
   Lwt_list.map_s f ls
@@ -38,6 +47,20 @@ let map_list_suppressing_errors ?tag f ls =
         log.debug (fun f -> f "%s details - %s" tag details);
         None
     ))
+  |> lift_pure
+
+let iter_list_suppressing_errors ?tag f ls =
+  let tag = match tag with None -> "" | Some tag -> tag ^ ": " in
+  Lwt_list.map_s f ls
+  |> Lwt.map (List.iter (function
+      | Ok _ -> ()
+      | Error err ->
+        let _, msg, details = Error_handling.extract_error_details err in
+        log.error (fun f -> f "%s %s" tag msg);
+        log.debug (fun f -> f "%s %s" tag details);
+        ()
+    ))
+  |> lift_pure
 
 
 

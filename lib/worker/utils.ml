@@ -8,21 +8,7 @@ let lift_database_error res =
 let lift_resolver_error res =
   map_err (fun err -> `ResolverError err) res
 
-let iter_list ~msg f ls =
-  Lwt_list.map_s f ls
-  |> Lwt.map (List.iter (function
-    | Ok _ -> ()
-    | Error err ->
-      let _, header, details = Error_handling.extract_error_details err in
-      log.debug (fun f -> f "%s failed with %s: %s" msg header details);
-      ()
-  ))
-  |> lift_pure
-
-
-
 let with_pool pool f = Caqti_lwt.Pool.use f pool
-
 
 let extract_local_target_link pool to_ =
   let lazy local_user_regex =

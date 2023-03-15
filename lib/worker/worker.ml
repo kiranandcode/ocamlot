@@ -33,7 +33,7 @@ let handle_search_user pool username domain =
         ("%" ^ username ^ "%") db
       |> lift_database_error in
     (* for each remote instance *)
-    iter_list ~msg:"search query" (fun instance ->
+    iter_list_suppressing_errors ~tag:"worker search query" (fun instance ->
       let domain = instance.Database.RemoteInstance.url in
       (* attempt to resolve the remote user *)
       with_pool pool @@ fun db ->
