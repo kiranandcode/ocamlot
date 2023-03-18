@@ -319,7 +319,7 @@ module Posts = struct
           field ~constraints:[foreign_key ~table:table ~columns:Expr.[id] ()] "post_context_child" ~ty:Type.big_serial;
         ] ~since:version_0_0_7
         ~constraints:Schema.[
-          table_unique ~on_conflict:`IGNORE ["post_context_parent"; "post_context_child"]
+          table_unique ["post_context_parent"; "post_context_child"]
         ]
 
   end

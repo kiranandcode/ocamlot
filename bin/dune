@@ -4,11 +4,11 @@
 
    database configuration
 
-   containers sqlite3 uri fpath omd
+   containers sqlite3 postgresql uri fpath omd
 
    lwt lwt.unix
 
-   caqti caqti-lwt
+   caqti caqti-lwt caqti-driver-sqlite3 caqti-driver-postgresql
 
    petrol
 

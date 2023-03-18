@@ -9,7 +9,7 @@ let sql_err = function Sqlite3.Rc.OK -> Ok () | err -> Error (`Msg (Sqlite3.Rc.t
 let init_database ?(force_migrations=false) path =
   let initialise =
     let open Lwt_result.Syntax in
-    Caqti_lwt.with_connection (Uri.of_string ("sqlite3://:" ^ path)) (fun conn ->
+    Caqti_lwt.with_connection path (fun conn ->
       let* needs_migration =
         Petrol.VersionedSchema.migrations_needed Database.Tables.db conn in
       Format.printf "needs migration: %b\n@." needs_migration;
@@ -52,14 +52,24 @@ let enforce_directory path =
 
 (** [enforce_database path] when given a path [path] ensures that
     database exists at [path], creating it if not. *)
-let enforce_database ?force_migrations path =
+let enforce_sqlite_database ?force_migrations path =
   let* path = Fpath.of_string path in
   (* we call exists here just to make sure that it is a file if it exists and not a directory *)
   let* _ = OS.File.exists path in
   let* () =
     try
-      init_database ?force_migrations (Fpath.to_string path)
+      init_database ?force_migrations (Uri.of_string ("sqlite3://:" ^ (Fpath.to_string path)))
     with Sqlite3.SqliteError err -> Error (`Msg ("failed to initialise a fresh database: " ^ err)) in
+  Ok ()
+
+(** [enforce_postgres_database url] when given a [url] ensures that a
+    postgres database exists at [path], creating it if not. *)
+let enforce_postgres_database ?force_migrations url =
+  let* () =
+    try
+      init_database ?force_migrations (Uri.of_string ("postgresql://" ^ url))
+    with Postgresql.Error err -> Error (`Msg ("failed to initialise a fresh database: " ^
+                                              Postgresql.string_of_error err)) in
   Ok ()
 
 
@@ -74,9 +84,17 @@ let enforce_markdown path =
 let run promote_admin =
 
   let* () =
-    enforce_database
-      ~force_migrations:(Lazy.force Configuration.force_migrations)
-      (Lazy.force Configuration.database_path) in
+    match Lazy.force Configuration.database_dialect with
+    | `Sqlite3 ->
+      enforce_sqlite_database
+        ~force_migrations:(Lazy.force Configuration.force_migrations)
+        (Lazy.force Configuration.database_path)
+    | `Postgres ->
+      enforce_postgres_database
+        ~force_migrations:(Lazy.force Configuration.force_migrations)
+        (Option.get_exn_or "invalid assumptions -- postgres url not found"
+            (Lazy.force Configuration.postgres_url)) in
+  let database_url = Lazy.force Configuration.database_uri in
 
   let* _ =
     match Lazy.force Configuration.dump_json_dir with
@@ -91,7 +109,7 @@ let run promote_admin =
 
   match promote_admin with
   | Some username ->
-    Lwt_main.run (Caqti_lwt.with_connection (Uri.of_string ("sqlite3://:" ^ Lazy.force Configuration.database_path)) (fun db ->
+    Lwt_main.run (Caqti_lwt.with_connection (Uri.of_string database_url) (fun db ->
       Database.LocalUser.promote_user_to_admin ~username db
     ) |> Lwt_result.map_error (fun err -> `Msg (Caqti_error.show err)))
   | None -> Ok (Server.run ())

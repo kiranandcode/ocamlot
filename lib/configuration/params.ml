@@ -124,7 +124,7 @@ let user_image_dir =
     ~ty:Cmdliner.Arg.(dir)
     ~absent:{| A directory `user-images` in current working directory is used.|}
     ~default:"./user-images/"
-    ~flags:["u"; "user-image-path"] ()
+    ~flags:["U"; "user-image-path"] ()
 
 let postgres_url =
   optional ~name:"postgres_url" ~docv:"POSTGRES"
