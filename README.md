@@ -15,9 +15,9 @@ Features:
 
 Screenshot:
 
-![]
+![screenshot.png](https://raw.githubusercontent.com/Gopiandcode/ocamlot/master/screenshot.png)
 
-You can see a running instance of the server at `ocamlot.xyz`!
+You can see a running instance of the server at [ocamlot.xyz](ocamlot.xyz)!
 
 ## Deploying OCamlot
 
