@@ -33,6 +33,7 @@ let handle_webfinger req =
   log.debug (fun f -> f "queried resource: %s" queried_resource);
   match resource_to_username queried_resource with
   | Some username ->
+    let username = String.lowercase_ascii username in
     let* user = 
       Dream.sql req begin fun db -> 
         let* query_res = Database.LocalUser.find_user ~username db |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in

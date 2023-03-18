@@ -54,7 +54,7 @@ let extract_user req author =
       let name =
         Option.value ~default:l.Database.LocalUser.username
           l.Database.LocalUser.display_name in
-      let image = l.Database.LocalUser.profile_picture in
+      let image = Configuration.Url.user_profile_picture l.Database.LocalUser.profile_picture in
       return_ok (self_link, name, username, image)
     | `Remote l ->
       let* l = Web.sql req (Database.RemoteUser.resolve ~id:l) in
@@ -64,12 +64,12 @@ let extract_user req author =
       let name =
         Option.value ~default:l.Database.RemoteUser.username
           l.Database.RemoteUser.display_name in
-      let image = l.Database.RemoteUser.profile_picture in
+      let image = Option.value ~default:"/static/images/unknown.png" l.Database.RemoteUser.profile_picture in
       return_ok (self_link, name, username, image) in
   return_ok View.User.{
     display_name=name;
     username;
-    profile_picture=Configuration.Url.user_profile_picture image;
+    profile_picture=image;
     self_link;
   }
 

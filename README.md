@@ -1,5 +1,156 @@
 # OCamlot - An OCaml Activitypub Server
 
+OCamlot is an activitypub server written in OCaml!
+
+As with most non-mainstream activitypub servers, it's currently in very experimental status!
+
+Features:
+
+ - Creating posts
+ - Replying to posts
+ - Custom profiles
+ - Liking posts (we call them `toasts`)
+ - Reboosting posts (we call them `cheers`)
+ - Replying to posts
+
+Screenshot:
+
+![]
+
+You can see a running instance of the server at `ocamlot.xyz`!
+
+## Deploying OCamlot
+
+The rest of this guide will be assuming that you have a server with
+OCaml installed, and nginx, setup with letsencrypt, such that an
+appropriate internal port is accessible via a public domain.
+
+Your nginx config may look something like as follows (using PORT
+`7331` and DOMAIN `ocamlot.xyz`):
+```
+server {
+    server_name ocamlot.xyz;
+
+    listen 443 ssl; # managed by Certbot
+
+    location / {
+        proxy_pass http://localhost:7331;
+    }
+    ssl_certificate /etc/letsencrypt/live/ocamlot.xyz/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/ocamlot.xyz/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = ocamlot.xyz) {
+        return 301 https://$host$request_uri;
+   } # managed by Certbot
+
+   listen 80 default_server;
+   listen [::]:80 default_server;
+
+   return 404; # managed by Certbot
+}
+
+```
+
+To deploy the server, do the following:
+
+1. Create a new user to run the ocamlot process
+
+```
+$ sudo useradd -r -s /bin/false -m -d /var/lib/ocamlot -U ocamlot
+```
+
+2. Create a new postgres user and database:
+
+```bash
+$ sudo -Hu postgres psql
+
+postgres=# CREATE ROLE ocamlot WITH password = '<password>';
+CREATE ROLE
+
+postgres=# ALTER ROLE ocamlot WITH login;
+ALTER ROLE
+
+postgres=# CREATE DATABASE ocamlot WITH OWNER ocamlot;
+CREATE DATABASE
+```
+
+3. Clone the development repository:
+
+```
+$ sudo mkdir -p /opt/ocamlot
+$ sudo chown -R ocamlot:ocamlot /opt/ocamlot
+$ sudo -Hu ocamlot git clone https://codeberg.org/gopiandcode/ocamlot /opt/ocamlot
+```
+
+4. Switch user to the ocamlot user:
+
+```
+$ sudo -Hu ocamlot bash
+```
+
+5. Setup opam:
+
+```
+$ opam init
+
+$ eval $(opam env)
+
+$ opam update
+```
+
+6. Install dev dependencies:
+
+```
+$ cd /var/lib/ocamlot
+
+$ git clone https://github.com/gopiandcode/petrol
+
+$ cd ./petrol
+
+$ opam pin .
+```
+
+7. Build the project
+
+```
+$ cd /opt/ocamlot
+
+$ opam update && opam install --deps-only .
+
+$ dune build
+```
+
+8. Modify `./scripts/run.sh` with domain and port:
+
+```
+# file: ./scripts/run.sh
+
+#!/bin/bash
+/opt/ocamlot/_build/default/bin/main.exe -u 'ocamlot:<password>@localhost:5432' -d "ocamlot.xyz" -p 7331 -D
+```
+
+9. Create an account via the web UI, with username `<username>`
+
+10. Promote user `<username>` to admin
+
+```
+/opt/ocamlot/_build/default/bin/main.exe -u 'ocamlot:<password>@localhost:5432' -d "ocamlot.xyz" --promote-to-admin=<username>
+```
+
+11. Copy over `./scripts/ocamlot.service` to `etc/systemd/system/ocamlot.service`:
+
+```
+sudo cp /opt/ocamlot/scripts/ocamlot.service /etc/systemd/system/ocamlot.service
+```
+12. Enable and start `ocamlot.service`:
+
+```
+sudo systemctl enable --now ocamlot.service
+```
 
 ## Development Setup
 
