@@ -55,17 +55,25 @@ let handle_register_post req =
       let* username = form_data "username" data |> Result.map_err List.return in
       let* password = form_data "password" data |> Result.map_err List.return  in
       let* password2 = form_data "password2" data |> Result.map_err List.return in
-      let* reason = form_data "about" data  |> Result.map_err List.return in
+      let* display_name = form_data "display-name" data
+                          |> Result.to_opt
+                          |> Option.filter (Fun.negate String.is_empty)
+                          |> Result.return in
+      let* about = form_data "about" data
+                   |> Result.to_opt
+                   |> Option.filter (Fun.negate String.is_empty)
+                   |> Result.return in
       let* () = ensure "username must not be empty" (not @@ String.is_empty username)
+      and* () = ensure "username must not contain spaces" (not @@ String.contains username ' ')
       and* () = ensure "password must not be empty" (not @@ String.is_empty password)
       and* () = ensure "passwords should match" (String.equal password password2) in
-      Ok (username, password, reason) in
+      Ok (username, password, display_name, about) in
     match res with
     | Error errors ->
       List.iter (fun error -> log.debug (fun f -> f "register page invalid form %s" error)) errors;
       handle_register_get ~errors req
-    | Ok (username, password, _) ->
-      let* user = Dream.sql req (Database.LocalUser.create_user ~username ~password)
+    | Ok (username, password, display_name, about) ->
+      let* user = Dream.sql req (Database.LocalUser.create_user ?display_name ?about ~username ~password)
                   |> map_err (function
                       `ArgonError err -> `ArgonError err 
                     | #Caqti_error.t as err -> `DatabaseError (Caqti_error.show err)) in

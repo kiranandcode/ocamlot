@@ -5,7 +5,11 @@ open Common
 let log = Logging.add_logger "web.image"
 
 let database =
-  Conan.Process.database ~tree:(Conan_magic_database.tree)
+  Conan.Process.database ~tree:(List.fold_left Conan.Tree.merge Conan.Tree.empty [
+    Conan_magic_database.conan_images;
+    Conan_magic_database.conan_jpeg;
+    Conan_magic_database.conan_web;
+  ])
 
 let get_image_extension mime_type =
   List.Assoc.get ~eq:(String.equal)  mime_type 
@@ -24,7 +28,7 @@ let build_image_path ~image_name:image_base_name =
 
 let upload_file req ~fname:_ ~data =
   let* meta_data =
-    Conan_string.run ~database data
+    (try Conan_string.run ~database data with e -> Error (`Msg (Printexc.to_string e)))
     |> Result.map_err (fun (`Msg m) -> `Internal ("mime lookup error", m))
     |> Lwt_result.lift in
   let* mime_type = Conan.Metadata.mime meta_data

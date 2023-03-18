@@ -445,7 +445,6 @@ let handle_local_users_get req =
     match search_query with
     | Some query when not (String.is_empty query) ->
       let query = "%" ^ (String.replace ~sub:" " ~by:"%" query) ^ "%" in
-      log.debug (fun f -> f "local users search is %s" query);
       Dream.sql req (fun db ->
         Database.LocalUser.find_local_users
           ~offset:(offset_start * limit) ~limit

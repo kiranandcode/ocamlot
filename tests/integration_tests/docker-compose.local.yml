@@ -47,6 +47,7 @@ services:
           - testing.ocamlot.xyz
     depends_on:
       - cert-gen
+      - postgres
     volumes:
       - '../../:/home/opam/code'
       - 'certs:/certs'

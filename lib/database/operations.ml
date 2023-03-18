@@ -150,7 +150,7 @@ module Activity = struct
           Activity.id := s id;
           Activity.raw_data := s (Yojson.Safe.to_string data)
         ]
-    |> Query.on_err `IGNORE
+    |> Query.on_conflict `DO_NOTHING
     |> Request.make_zero
     |> Petrol.exec conn
 
@@ -178,7 +178,6 @@ module Activity = struct
           Activity.raw_data := s (Yojson.Safe.to_string raw_data)
         ]
     |> Query.where Expr.(Activity.id = s id)
-    |> Query.on_err `IGNORE
     |> Request.make_zero
     |> Petrol.exec conn
 
@@ -247,7 +246,7 @@ module Actor = struct
     let* () =
       Query.insert ~table:Actor.table
         ~values:Expr.[Actor.local_id := vl ~ty:Type.big_serial (local_id:> int64)]
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> Petrol.exec conn in
     lookup_local_user ~id:(local_id) conn
@@ -260,7 +259,7 @@ module Actor = struct
     let* () =
       Query.insert ~table:Actor.table
         ~values:Expr.[Actor.remote_id := vl ~ty:Type.big_serial (remote_id :> int64)]
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> Petrol.exec conn in
     lookup_remote_user ~id:remote_id conn
@@ -559,7 +558,6 @@ module LocalUser = struct
       ~from:LocalUser.table
     |> Query.where Expr.(like LocalUser.username ~pat:(s pattern) ||
                          like LocalUser.display_name ~pat:(s pattern))
-    |> Query.order_by ~direction:`ASC LocalUser.username
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (count, ()) -> count)
@@ -658,7 +656,7 @@ module RemoteInstance = struct
         ~values:Expr.[
             RemoteInstance.url := s url
           ]
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> Petrol.exec conn in
     let* instance = lookup_instance ~url conn in
@@ -712,7 +710,7 @@ module UserImage = struct
     Query.select
       Expr.[UserImage.path; UserImage.hash]
       ~from:UserImage.table
-    |> Query.where Expr.(UserImage.hash = s hash)
+    |> Query.where Expr.(UserImage.hash = vl ~ty:Petrol.Postgres.Type.bytea hash)
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map decode
@@ -752,9 +750,9 @@ module UserImage = struct
       Query.insert ~table:UserImage.table
         ~values:Expr.[
             UserImage.path := s path;
-            UserImage.hash := s hash;
+            UserImage.hash := vl ~ty:Petrol.Postgres.Type.bytea hash;
           ]
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> Petrol.exec conn in
     find_by_path ~path conn
@@ -1136,7 +1134,7 @@ module Tag = struct
     let* () =
       Query.insert ~table:Tag.table
         ~values:Expr.[Tag.name := s name]
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> Petrol.exec conn in
     find_by_name ~tag:name conn
@@ -1325,7 +1323,7 @@ module Posts = struct
                Posts.in_reply_to := s url)
            |> Option.to_list)
         ) 
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> Petrol.exec conn in
     let* data = lookup_by_url ~url conn in
@@ -1446,7 +1444,7 @@ module Posts = struct
           Posts.PostTo.post_id := vl ~ty:Type.big_serial (id :> int64);
           Posts.PostTo.actor_id := vl ~ty:Type.big_serial (actor_id :> int64);
         ]
-    |> Query.on_err `IGNORE
+    |> Query.on_conflict `DO_NOTHING
     |> Request.make_zero
     |> Petrol.exec conn
 
@@ -1467,7 +1465,7 @@ module Posts = struct
           Posts.PostCc.post_id := vl ~ty:Type.big_serial (id :> int64);
           Posts.PostCc.actor_id := vl ~ty:Type.big_serial (actor_id :> int64);
         ]
-    |> Query.on_err `IGNORE
+    |> Query.on_conflict `DO_NOTHING
     |> Request.make_zero
     |> Petrol.exec conn
 
@@ -1488,7 +1486,7 @@ module Posts = struct
           Posts.PostMentions.post_id := vl ~ty:Type.big_serial (id :> int64);
           Posts.PostMentions.actor_id := vl ~ty:Type.big_serial (actor_id :> int64);
         ]
-    |> Query.on_err `IGNORE
+    |> Query.on_conflict `DO_NOTHING
     |> Request.make_zero
     |> Petrol.exec conn
 
@@ -1510,7 +1508,7 @@ module Posts = struct
           Posts.PostTags.post_id := vl ~ty:Type.big_serial (id :> int64);
           Posts.PostTags.tag_id := vl ~ty:Type.big_serial (tag.id :> int64);
         ]
-    |> Query.on_err `IGNORE
+    |> Query.on_conflict `DO_NOTHING
     |> Request.make_zero
     |> Petrol.exec conn
 
@@ -1570,15 +1568,15 @@ module Posts = struct
     let open Petrol.Postgres in
     let open Tables in
     let reboost_post,reboost_post_ref =
-      Expr.as_ Reboosts.post_id ~name:"rbp" in
+      Expr.as_ Reboosts.post_id ~name:"reboost_post_id" in
     let reboost_actor,reboost_actor_ref =
-      Expr.as_ Reboosts.actor_id ~name:"rba" in
+      Expr.as_ Reboosts.actor_id ~name:"reboost_actor_id" in
     let follow_author,follow_author_ref =
-      Expr.as_ Follows.author_id ~name:"fid" in
+      Expr.as_ Follows.author_id ~name:"follows_author_id" in
     let follow_target,follow_target_ref =
-      Expr.as_ Follows.target_id ~name:"ftgt" in
+      Expr.as_ Follows.target_id ~name:"follows_target_id" in
     let follow_pending,follow_pending_ref =
-      Expr.as_ Follows.pending ~name:"fpending" in
+      Expr.as_ Follows.pending ~name:"follows_pending" in
     Expr.(
       Expr.exists begin
         Query.select Expr.[reboost_post; reboost_actor; follow_author_ref;
@@ -1847,8 +1845,8 @@ module Posts = struct
       Option.value start_time
         ~default:(Ptime_clock.now ())
       |> Ptime.to_rfc3339 in
-    let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"pcp" Posts.PostContext.parent in
-    let post_context_child, post_context_child_ref = Expr.as_ ~name:"pcc" Posts.PostContext.child in
+    let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"post_context_parent" Posts.PostContext.parent in
+    let post_context_child, post_context_child_ref = Expr.as_ ~name:"post_context_child" Posts.PostContext.child in
     (* collect posts where *)
     Query.select
       Expr.[
@@ -1864,7 +1862,6 @@ module Posts = struct
                          (is_feed_post ~id:user_id || Posts.is_public) &&
                          ((not Posts.deleted) || is_null Posts.deleted) &&
                          post_context_parent_ref = vl ~ty:Type.big_serial (post_id :> int64))
-    |> Query.order_by Posts.published ~direction:`DESC
     |> Request.make_one
     |> Petrol.find conn
     |> Lwt_result.map (fun (count, _) -> count)
@@ -1878,8 +1875,8 @@ module Posts = struct
       Option.value start_time
         ~default:(Ptime_clock.now ())
       |> Ptime.to_rfc3339 in
-    let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"pcp" Posts.PostContext.parent in
-    let post_context_child, post_context_child_ref = Expr.as_ ~name:"pcc" Posts.PostContext.child in
+    let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"post_context_parent" Posts.PostContext.parent in
+    let post_context_child, post_context_child_ref = Expr.as_ ~name:"post_context_child" Posts.PostContext.child in
     (* collect posts where *)
     Query.select
       Expr.[
@@ -1920,8 +1917,8 @@ module Posts = struct
       let open Petrol in
       let open Petrol.Postgres in
       let open Tables in
-      let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"pcp" Posts.PostContext.parent in
-      let post_context_child, post_context_child_ref = Expr.as_ ~name:"pcc" Posts.PostContext.child in
+      let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"post_context_parent" Posts.PostContext.parent in
+      let post_context_child, post_context_child_ref = Expr.as_ ~name:"post_context_child" Posts.PostContext.child in
       (* collect posts where *)
       Query.select Expr.[ Posts.id; ] ~from:Posts.table
       |> Query.join ~op:Query.INNER begin
@@ -1942,8 +1939,8 @@ module Posts = struct
       let open Petrol in
       let open Petrol.Postgres in
       let open Tables in
-      let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"pcp" Posts.PostContext.parent in
-      let post_context_child, post_context_child_ref = Expr.as_ ~name:"pcc" Posts.PostContext.child in
+      let post_context_parent, post_context_parent_ref = Expr.as_ ~name:"post_context_parent" Posts.PostContext.parent in
+      let post_context_child, post_context_child_ref = Expr.as_ ~name:"post_context_child" Posts.PostContext.child in
       (* collect posts where *)
       Query.select Expr.[ Posts.id; ] ~from:Posts.table
       |> Query.join ~op:Query.INNER begin
@@ -1968,7 +1965,7 @@ module Posts = struct
     Query.insert ~table:Posts.PostContext.table
       ~values:Expr.[Posts.PostContext.parent := vl ~ty:Type.big_serial (parent_id :> int64);
                     Posts.PostContext.child := vl ~ty:Type.big_serial (child_id :> int64)]
-    |> Query.on_err `IGNORE
+    |> Query.on_conflict `DO_NOTHING
     |> Request.make_zero
     |> Petrol.exec conn
 
@@ -2127,7 +2124,7 @@ module Follows = struct
         @ (Option.map Expr.(fun raw_data -> Follows.raw_data := s (Yojson.Safe.to_string raw_data)) raw_data |> Option.to_list)
         @ (Option.map Expr.(fun updated -> Follows.updated := s (Ptime.to_rfc3339 updated)) updated |> Option.to_list)
       )
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> Petrol.exec conn in
     let* result = lookup_by_url ~url conn in
@@ -2424,7 +2421,7 @@ module Reboosts = struct
             Reboosts.raw_data := s (Yojson.Safe.to_string raw_data)) raw_data
            |> Option.to_list)
       )
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> Petrol.exec conn in
     let* result = lookup_by_url ~url conn in
@@ -2607,7 +2604,7 @@ module Likes = struct
         @ (Option.map Expr.(fun public_id -> Likes.public_id := s public_id) public_id |> Option.to_list)
         @ (Option.map Expr.(fun raw_data -> Likes.raw_data := s (Yojson.Safe.to_string raw_data)) raw_data |> Option.to_list)
       )
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> Petrol.exec conn in
     let* result = lookup_by_url ~url conn in
@@ -2704,7 +2701,7 @@ module Admin = struct
           Admin.key := s_stat "is_registration_allowed";
           Admin.value := s_stat "true"
         ]
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> exec conn in
     Query.select Expr.[ Admin.value ] ~from:Admin.table
@@ -2723,7 +2720,7 @@ module Admin = struct
           Admin.key := s_stat "is_registration_allowed";
           Admin.value := s_stat "true"
         ]
-      |> Query.on_err `IGNORE
+      |> Query.on_conflict `DO_NOTHING
       |> Request.make_zero
       |> exec conn in
     Query.update ~table:Admin.table ~set:Expr.[ Admin.value := s_stat (if allowed then  "true" else "false")]

@@ -1,7 +1,7 @@
 From ocaml/opam:debian-11-ocaml-4.14
 
 # install deps
-RUN sudo apt update && sudo apt install -y nginx libev-dev libgmp-dev pkg-config libffi-dev libsqlite3-dev libssl-dev libargon2-1
+RUN sudo apt update && sudo apt install -y nginx libev-dev libgmp-dev pkg-config libffi-dev libsqlite3-dev libssl-dev libargon2-1 libev-dev libpq-dev 
 
 USER root
 

@@ -13,7 +13,7 @@ sudo update-ca-certificates
 dune clean && dune build @all
 
 # start ocamlot
-dune exec ./bin/main.exe -- -d "testing.ocamlot.xyz" -D &
+dune exec ./bin/main.exe -- -u "ocamlot:password@postgres:5432" -d "testing.ocamlot.xyz" -D &
 
 # start nginx
 sudo nginx -g "error_log /opt/logs info;"

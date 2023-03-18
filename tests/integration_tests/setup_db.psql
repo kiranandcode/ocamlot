@@ -1,5 +1,7 @@
 CREATE USER pleroma WITH ENCRYPTED PASSWORD 'HQrHnuWVff27td35zhPW4ZTwZe6CSDZBZgPIEvV6/jvhdCDNh7mZeJ2X3tAJ1Oa7';
+CREATE USER ocamlot WITH PASSWORD 'password';
 CREATE DATABASE pleroma OWNER pleroma;
+CREATE DATABASE ocamlot OWNER ocamlot;
 \c pleroma;
 --Extensions made by ecto.migrate that need superuser access
 CREATE EXTENSION IF NOT EXISTS citext;

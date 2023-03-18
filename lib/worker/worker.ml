@@ -225,13 +225,17 @@ let send_task : Task.t -> unit =
     (Lazy.force task_fun) (Some task)
 
 let post_connect (module DB : Caqti_lwt.CONNECTION) =
-  let enable_journal_mode =
-    Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.string @:-  "PRAGMA journal_mode=WAL" ) in
-  let update_busy_timout =
-    Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.int @:-  "PRAGMA busy_timeout = 50000" ) in
-  ((let* _ = DB.find enable_journal_mode () in
-    let* _ = DB.find update_busy_timout () in
-    Lwt.return_ok ()))
+  match Lazy.force Configuration.database_dialect with
+  | `Sqlite3 ->
+    let enable_journal_mode =
+      Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.string @:-  "PRAGMA journal_mode=WAL" ) in
+    let update_busy_timout =
+      Caqti_request.Infix.(Caqti_type.unit -->! Caqti_type.int @:-  "PRAGMA busy_timeout = 50000" ) in
+    ((let* _ = DB.find enable_journal_mode () in
+      let* _ = DB.find update_busy_timout () in
+      Lwt.return_ok ()))
+  | `Postgres ->
+    Lwt.return_ok ()
 
 let init () =
   let task_in, send_task = Lwt_stream.create () in
