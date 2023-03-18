@@ -407,7 +407,7 @@ let () =
     let limit =
       if String.equal limit "" then None else Some (int_of_string limit)
     in
-    let target = int_of_string target in
+    let target = Database.Types.unsafe_actor_of_string target in
     let* res =
       Database.RemoteUser.collect_remote_users_following ?offset ?limit
         ~target db
@@ -441,14 +441,14 @@ let () =
 (* *** body *)
     let local_id = Database.Types.unsafe_local_of_string id in
     let* res = Database.Actor.create_local_user ~local_id db in
-    (fun i -> print_endline (string_of_int i)) (res:>int);
+    (fun i -> print_endline (Int64.to_string i)) (res:>int64);
     Lwt_result.return ()
 (* ** lookup remote user *)
   | [ "actor"; "lookup-remote-user"; id ] ->
 (* *** body *)
     let remote_id = Database.Types.unsafe_remote_of_string id in
     let* res = Database.Actor.create_remote_user ~remote_id db in
-    (fun i -> print_endline (string_of_int i)) (res:>int);
+    (fun i -> print_endline (Int64.to_string i)) (res:>int64);
     Lwt_result.return ()
 (* ** resolve *)
   | [ "actor"; "resolve"; id ] ->
@@ -458,8 +458,8 @@ let () =
     (fun (ls: [ `Local of Database.Types.local_user_id | `Remote of Database.Types.remote_user_id ]) ->
        print_endline
          (match ls with
-          | `Local i -> "local " ^ string_of_int (i:>int)
-          | `Remote i -> "remote " ^ string_of_int (i:>int)))
+          | `Local i -> "local " ^ Int64.to_string (i:>int64)
+          | `Remote i -> "remote " ^ Int64.to_string (i:>int64)))
       res;
     Lwt_result.return ()
 (* ** create local user *)
@@ -467,14 +467,14 @@ let () =
 (* *** body *)
     let local_id = Database.Types.unsafe_local_of_string local_id in
     let* res = Database.Actor.create_local_user ~local_id db in
-    (fun i -> print_endline (string_of_int i)) (res:>int);
+    (fun i -> print_endline (Int64.to_string i)) (res:>int64);
     Lwt_result.return ()
 (* ** create remote user *)
   | [ "actor"; "create-remote-user"; remote_id ] ->
 (* *** body *)
     let remote_id = Database.Types.unsafe_remote_of_string remote_id in
     let* res = Database.Actor.create_remote_user ~remote_id db in
-    (fun i -> print_endline (string_of_int i)) (res:>int);
+    (fun i -> print_endline (Int64.to_string i)) (res:>int64);
     Lwt_result.return ()
 (* * Tag *)
 (* ** find by name *)
@@ -487,7 +487,7 @@ let () =
 (* ** resolve *)
   | [ "tag"; "resolve"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_tag_of_string id in
     let* res = Database.Tag.resolve ~id db in
     (fun s -> print_endline @@ Database.Tag.show s) res;
     Lwt_result.return ()
@@ -637,7 +637,7 @@ let () =
     let id = Database.Types.unsafe_post_of_string id in
     let* res = Database.Posts.post_to ?offset ?limit ~id db in
     (fun (ls: Database.Types.actor_id list) ->
-       List.iter (fun (i : Database.Types.actor_id) -> print_endline (string_of_int (i:>int))) ls) res;
+       List.iter (fun (i : Database.Types.actor_id) -> print_endline (Int64.to_string (i:>int64))) ls) res;
     Lwt_result.return ()
 (* ** post cc *)
   | [ "posts"; "post-cc"; offset; limit; id ] ->
@@ -650,7 +650,7 @@ let () =
     in
     let id = Database.Types.unsafe_post_of_string id in
     let* res = Database.Posts.post_cc ?offset ?limit ~id db in
-    (fun ls -> List.iter (fun (i: Database.Types.actor_id) -> print_endline (string_of_int (i:>int))) ls) res;
+    (fun ls -> List.iter (fun (i: Database.Types.actor_id) -> print_endline (Int64.to_string (i:>int64))) ls) res;
     Lwt_result.return ()
 (* ** post mentions *)
   | [ "posts"; "post-mentions"; offset; limit; id ] ->
@@ -663,7 +663,7 @@ let () =
     in
     let id = Database.Types.unsafe_post_of_string id in
     let* res = Database.Posts.post_mentions ?offset ?limit ~id db in
-    (fun ls -> List.iter (fun (i: Database.Types.actor_id) -> print_endline (string_of_int (i:>int))) ls) res;
+    (fun ls -> List.iter (fun (i: Database.Types.actor_id) -> print_endline (Int64.to_string (i:>int64))) ls) res;
     Lwt_result.return ()
 (* ** post tags *)
   | [ "posts"; "post-tags"; offset; limit; id ] ->
@@ -912,7 +912,7 @@ let () =
 (* ** resolve *)
   | [ "follows"; "resolve"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_follow_of_string id in
     let* res = Database.Follows.resolve ~id db in
     (fun s -> print_endline @@ Database.Follows.show s) res;
     Lwt_result.return ()
@@ -966,7 +966,7 @@ let () =
 (* ** update pending status *)
   | [ "follows"; "update-pending-status"; id; pending ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_follow_of_string id in
     let pending =
       (function
         | "true" -> true
@@ -980,7 +980,7 @@ let () =
 (* ** delete *)
   | [ "follows"; "delete"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_follow_of_string id in
     let* _ = Database.Follows.delete ~id db in
 (* pretty print result here? *)
     Lwt_result.return ()
@@ -1108,7 +1108,7 @@ let () =
 (* ** resolve *)
   | [ "likes"; "resolve"; id ] ->
 (* *** body *)
-    let id = int_of_string id in
+    let id = Database.Types.unsafe_like_of_string id in
     let* res = Database.Likes.resolve ~id db in
     (fun s -> print_endline @@ Database.Likes.show s) res;
     Lwt_result.return ()

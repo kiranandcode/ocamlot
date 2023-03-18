@@ -206,7 +206,9 @@ Donate to the FSF if you wish to support FREEDOM: [Free Software Foundation](www
 |}
 
 
-let using_postgres = lazy (Option.is_some @@ Lazy.force postgres_url)
+let database_dialect = lazy (match Lazy.force postgres_url with
+    | Some _ -> `Postgres
+    | None -> `Sqlite3)
 
 let is_tls_enabled =
   lazy (Option.is_some (Lazy.force certificate_file) && Option.is_some (Lazy.force key_file))
@@ -232,7 +234,10 @@ end
 let host = domain
 let domain = lazy (Uri.of_string ("https://" ^ Lazy.force domain))
 let database_uri =
-  lazy ("sqlite3://:" ^ (Lazy.force database_path))
+  lazy (match Lazy.force database_dialect with
+      | `Sqlite3 -> "sqlite3://:" ^ (Lazy.force database_path)
+      | `Postgres -> "postgresql://" ^ Option.get (Lazy.force postgres_url)
+    )
 let port = port 
 let debug = debug 
 let debug_dream_info = debug_dream_info
