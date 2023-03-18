@@ -126,6 +126,14 @@ let user_image_dir =
     ~default:"./user-images/"
     ~flags:["u"; "user-image-path"] ()
 
+let postgres_url =
+  optional ~name:"postgres_url" ~docv:"POSTGRES"
+    ~documentation:"$(docv) is the url for the postgres database, if \
+                    running in postgres mode."
+    ~ty:Cmdliner.Arg.string
+    ~absent:{|OCamlot will run using a local sqlite database.|}
+    ~flags:["u"; "postgres-url"] ()
+
 let database_path =
   optional_with_default ~name:"database_path" ~docv:"DB"
     ~documentation:"$(docv) is the path to the database used by OCamlot. The database is generated if not present."
@@ -197,6 +205,8 @@ The site administrator for this OCamlot instance has not configured the about th
 Donate to the FSF if you wish to support FREEDOM: [Free Software Foundation](www.fsf.org)
 |}
 
+
+let using_postgres = lazy (Option.is_some @@ Lazy.force postgres_url)
 
 let is_tls_enabled =
   lazy (Option.is_some (Lazy.force certificate_file) && Option.is_some (Lazy.force key_file))

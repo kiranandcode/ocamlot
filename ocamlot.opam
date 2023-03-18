@@ -21,6 +21,7 @@ depends: [
   "cohttp-lwt-unix"
   "caqti"
   "caqti-driver-sqlite3"
+  "caqti-driver-postgresql"
   "caqti-type-calendar"
   "conan"
   "conan-database"

@@ -24,7 +24,7 @@
    cohttp cohttp-lwt cohttp-lwt-unix
 
    caqti
-   caqti-driver-sqlite3
+   caqti-driver-sqlite3 caqti-driver-postgresql
    caqti-type-calendar
 
    conan conan-database
@@ -47,9 +47,7 @@
    angstrom
    re
 
-   (omd (= 2.0.0~alpha3))
+  (omd (= 2.0.0~alpha3))
    crunch ppx_blob
 
-   inotify
-   
-) )
+   inotify))
