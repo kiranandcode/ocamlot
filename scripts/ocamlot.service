@@ -3,7 +3,7 @@ Description=OCamlot
 After=network.target postgresql.service
 
 [Service]
-ExecReload=/bin/kill $MAINPID
+ExecReload=/bin/kill -9 $MAINPID
 KillMode=process
 Restart=on-failure
 
