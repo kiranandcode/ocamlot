@@ -12,7 +12,11 @@ watch.sh
 !tests/integration_tests/run_ocamlot_local.sh
 !tests/integration_tests/run_pleroma.sh
 !tests/integration_tests/run_pleroma_local.sh
+!tests/integration_tests/run_mastodon.sh
+!tests/integration_tests/mastodon.nginx
 !tests/integration_tests/ocamlot.nginx
 !tests/integration_tests/pleroma.nginx
 !tests/integration_tests/setup_db.psql
 !tests/integration_tests/config.exs
+!tests/integration_tests/pleroma
+!tests/integration_tests/.env.production

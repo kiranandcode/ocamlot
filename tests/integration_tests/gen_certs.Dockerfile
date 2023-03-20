@@ -11,7 +11,7 @@ touch ./openssl.cnf \n\
     cat /etc/ssl/openssl.cnf; \n\
     echo \"\"; \n\
     echo \"[ SAN ]\"; \n\
-    echo \"subjectAltName=DNS.1:pleroma.ocamlot.xyz,DNS.2:testing.ocamlot.xyz\"; \n\
+    echo \"subjectAltName=DNS.1:pleroma.ocamlot.xyz,DNS.2:testing.ocamlot.xyz,DNS.3:mastodon.ocamlot.xyz\"; \n\
 } >> ./openssl.cnf \n\
 \n\
 openssl req -x509 -sha256 -nodes -newkey rsa:4096 -keyout ocamlot.key -out ocamlot.crt \
