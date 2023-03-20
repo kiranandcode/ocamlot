@@ -41,9 +41,8 @@ bundle exec rake assets:precompile
 # update ca certificates
 update-ca-certificates
 
-# run mastadong
-PORT=3000 bundle exec puma -C config/puma.rb &
-
 # start nginx
 nginx -g "error_log /opt/logs info;"
 
+# run mastadong
+PORT=3000 bundle exec puma -C config/puma.rb
