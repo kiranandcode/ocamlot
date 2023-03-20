@@ -10,7 +10,7 @@ RUN apt-get update && \
         libssl-dev libyaml-0-2 ca-certificates libreadline8 \
         python3 shared-mime-info whois wget procps libssl1.1 \
         libpq5 imagemagick ffmpeg libjemalloc2 libicu67 libidn11 \
-        libyaml-0-2 file ca-certificates tzdata libreadline8 tini 
+        libyaml-0-2 file ca-certificates tzdata libreadline8 tini nginx 
 
 RUN curl -sL https://deb.nodesource.com/setup_16.x -o /tmp/nodesource_setup.sh && \
     bash /tmp/nodesource_setup.sh && \

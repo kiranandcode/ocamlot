@@ -29,7 +29,7 @@ export SMTP_ENABLE_STARTTLS=never
 export SMTP_FROM_ADDRESS='Mastodon <notifications@mastodon.ocamlot.xyz>'
 
 cp /opt/.env.production ./.env.production 
-chmod 1000:1000 ./.env.production
+chown 1000:1000 ./.env.production
 
 # setup db
 bundle exec rake db:setup
@@ -45,5 +45,5 @@ update-ca-certificates
 PORT=3000 bundle exec puma -C config/puma.rb &
 
 # start nginx
-sudo nginx -g "error_log /opt/logs info;"
+nginx -g "error_log /opt/logs info;"
 
