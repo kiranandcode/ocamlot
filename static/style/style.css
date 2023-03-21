@@ -126,7 +126,7 @@ header a {
 
 @media only screen and (min-width: 1280px) {
     .post-grid {
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .post-large {
@@ -141,7 +141,7 @@ header a {
 
 @media only screen and (min-width: 880px) and (max-width: 1280px) {
     .post-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .post-large, .post-medium {
