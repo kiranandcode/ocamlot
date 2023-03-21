@@ -1005,6 +1005,17 @@ module RemoteUser = struct
         (url, decode user)
       ))
 
+  let count_remote_users conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Petrol.Postgres in
+    let open Tables in
+    Query.select Expr.[ count_star ]
+      ~from:RemoteUser.table
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (count, ()) -> count)
+
   let collect_remote_users_following
       ?(offset=0) ?(limit=10) ~target:(target_id: Types.actor_id) conn =
     let open Lwt_result.Syntax in
@@ -1090,6 +1101,22 @@ module RemoteUser = struct
     |> Lwt_result.map (List.map (fun (url, user) ->
         (url, decode user)
       ))
+
+  let find_remote_users_count ~pattern conn =
+    let open Lwt_result.Syntax in
+    let open Petrol in
+    let open Petrol.Postgres in
+    let open Tables in
+    Query.select Expr.[count_star]
+      ~from:RemoteUser.table
+    |> Query.where Expr.(
+        like RemoteUser.username ~pat:(s pattern) ||
+        like RemoteUser.display_name ~pat:(s pattern)
+      )
+    |> Request.make_one
+    |> Petrol.find conn
+    |> Lwt_result.map (fun (count, ()) -> count)
+
 
 end
 

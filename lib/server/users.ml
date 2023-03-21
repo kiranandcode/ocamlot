@@ -5,6 +5,7 @@ open Common
 module StringSet = Set.Make(String)
 
 let log = Logging.add_logger "web.user"
+let limit = 9
 module H = Tyxml.Html
 (* * Utils  *)
 
@@ -149,25 +150,28 @@ let handle_actor_get_html req =
                |> Option.value ~default:0 in
   let* profile = Extract.extract_user_profile req user in
 
-  let* contents =
+  let* contents, contents_count =
     Web.sql req begin fun db ->
       let* user = Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id) db in
       match Dream.query req "state" with
       | Some "followers" ->
         let* follows = 
           Database.Follows.collect_followers_for_actor
-            ~since:timestamp ~offset:(offset * 10) ~limit:10 ~id:user db in
+            ~since:timestamp ~offset:(offset * limit) ~limit ~id:user db in
+        let* follows_count = Database.Follows.count_followers ~target:user db in
         let* follows =
           Lwt_list.map_s (fun follow ->
             let target = follow.Database.Follows.author_id in
             let* target = Database.Actor.resolve ~id:target db in
             Lwt.return_ok (follow, target)) follows
           >> Result.flatten_l in
-        Lwt.return_ok (`Followers (timestamp, offset, follows))
+        Lwt.return_ok (`Followers (timestamp, offset, follows), follows_count)
       | Some "following" ->
         let* follows = 
           Database.Follows.collect_following_for_actor
-            ~offset:(offset * 10) ~limit:10 ~since:timestamp ~id:user db in
+            ~offset:(offset * limit) ~limit ~since:timestamp ~id:user db in
+        let* follows_count = 
+          Database.Follows.count_following ~author:user db in
         let* follows =
           Lwt_list.map_s (fun follow ->
             let target = follow.Database.Follows.target_id in
@@ -175,12 +179,14 @@ let handle_actor_get_html req =
             Lwt.return_ok (follow, target)) follows
           |> lift_pure in
         let* follows = Lwt.return @@ Result.flatten_l follows in
-        Lwt.return_ok (`Following (timestamp, offset, follows))
+        Lwt.return_ok (`Following (timestamp, offset, follows), follows_count)
       | Some "post" | _ ->
         let* posts =
           Database.Posts.collect_posts_by_author
-            ~offset:(offset * 10) ~start_time:timestamp ~limit:10 ~author:user db in
-        Lwt.return_ok (`Posts (timestamp, offset, posts))
+            ~offset:(offset * limit) ~start_time:timestamp ~limit ~author:user db in
+        let* posts_count =
+          Database.Posts.count_posts_by_author ~author:user db in
+        Lwt.return_ok (`Posts (timestamp, offset, posts), posts_count)
     end in
   let heading =
     let options =
@@ -196,6 +202,18 @@ let handle_actor_get_html req =
       View.Components.render_heading ~icon:"2" ~current:"Followers" ~options ()
     | `Following _ ->
       View.Components.render_heading ~icon:"3" ~current:"Following" ~options () in
+  let pagination =
+    let state =
+      match contents with
+      | `Posts _ -> "posts"
+      | `Followers _ -> "followers"
+      | `Following _ -> "following" in
+    View.Components.render_pagination_numeric
+      ~start:1 ~stop:(contents_count / limit + 1) ~current:offset
+      (fun ind ->
+         Format.sprintf "/users?state=%s&offset=%d&start=%s"
+           state ((ind - 1) * limit) (Ptime.to_rfc3339 timestamp)
+      ) () in
   let* contents =
     match contents with
     | `Posts (_, _, posts) ->
@@ -219,12 +237,13 @@ let handle_actor_get_html req =
       View.User.render_users_grid users in
   let* headers, action = Navigation.build_navigation_bar req in
   Web.tyxml @@
-  View.Page.render_page (username ^ "'s Profile") [
+  View.Page.render_page (username ^ "'s Profile") ([
     View.Header.render_header ?action headers;
     View.Profile.render_profile profile;
     heading;
     contents;
-  ]
+    pagination
+  ])
 
 
 (* ** Get (json) *)
@@ -416,21 +435,29 @@ let classify_query s =
     | _ -> `SearchLike [s]
   end
 
-let render_users_page ?ty ?search_query req user_type users =
+let render_users_page ?ty ?search_query ?current_offset ~users_count req user_type users =
   let* headers, action = Navigation.build_navigation_bar req in
-  Web.tyxml (View.Page.render_page (show_user_types user_type) [
+  Web.tyxml (View.Page.render_page (show_user_types user_type) ([
     View.Header.render_header ?action headers;
     View.Components.render_heading
       ~icon:(match user_type with `Local -> "1" | _ -> "2")
       ~current:(show_user_types user_type) ~options:[
-        {text="Local Users"; url="/users?type=" ^ encode_user_types `Local; form=None};
-        {text="Remote Users"; url="/users?type=" ^ encode_user_types `Remote; form=None}
-      ] ();
+      {text="Local Users"; url="/users?type=" ^ encode_user_types `Local; form=None};
+      {text="Remote Users"; url="/users?type=" ^ encode_user_types `Remote; form=None}
+    ] ();
     View.User.render_users_search_box
       ?fields:(Option.map (fun ty -> ["type", encode_user_types ty]) ty)
       ?initial_value:search_query ();
     View.User.render_users_grid users;
-  ])
+    View.Components.render_pagination_numeric
+      ~start:1 ~stop:(users_count / limit + 1) ?current:current_offset
+      (* ~current:(offset/limit) *)
+      (fun ind ->
+         Format.sprintf "/users?type=%s&offset-start=%d"
+           (encode_user_types user_type)
+           ((ind - 1) * limit)
+      ) () 
+  ]))
 
 (* ** Local users (get) *)
 let handle_local_users_get req =
@@ -438,24 +465,36 @@ let handle_local_users_get req =
     Dream.query req "offset-start"
     |> Option.flat_map Int.of_string
     |> Option.value ~default:0 in
-  let limit = 10 in
+
   let search_query = Dream.query req "search" in
 
-  let* users =
+  let* users, users_count =
     match search_query with
     | Some query when not (String.is_empty query) ->
       let query = "%" ^ (String.replace ~sub:" " ~by:"%" query) ^ "%" in
-      Dream.sql req (fun db ->
-        Database.LocalUser.find_local_users
-          ~offset:(offset_start * limit) ~limit
-          ~pattern:query db)
-      |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
+      let* local_users =
+        Dream.sql req
+          (Database.LocalUser.find_local_users
+             ~offset:(offset_start * limit) ~limit
+             ~pattern:query)
+        |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      let* local_users_count =
+        Dream.sql req
+          (Database.LocalUser.find_local_user_count
+             ~pattern:query)
+        |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      return_ok (local_users, local_users_count)
     | _ ->
-      Dream.sql req (fun db ->
-        Database.LocalUser.collect_local_users
-          ~offset:(offset_start * limit)
-          ~limit:limit db)
-      |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      let* local_users =
+        Dream.sql req
+          (Database.LocalUser.collect_local_users
+             ~offset:(offset_start * limit)
+             ~limit)
+        |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      let* local_users_count =
+        Dream.sql req (Database.LocalUser.local_user_count)
+        |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      return_ok (local_users, local_users_count) in
   let* users_w_stats =
     Lwt_list.map_s (fun user ->
       let* user_link = Web.sql req (Database.Actor.create_local_user ~local_id:(user.Database.LocalUser.id)) in
@@ -464,7 +503,7 @@ let handle_local_users_get req =
       return_ok (user, socials)
     ) users
     >> Result.flatten_l in
-  render_users_page ~ty:`Local ?search_query req `Local users_w_stats
+  render_users_page ~ty:`Local ?search_query ~current_offset:offset_start ~users_count req `Local users_w_stats
 
 (* ** Remote users (get) *)
 let handle_remote_users_get req =
@@ -473,15 +512,19 @@ let handle_remote_users_get req =
     Dream.query req "offset-start"
     |> Option.flat_map Int.of_string
     |> Option.value ~default:0 in
-  let limit = 10 in
   let search_query = Dream.query req "search" in
-  let* users =
+  let* users, users_count =
     match search_query, current_user_link with
     | None, _ | Some _, None ->
-      Dream.sql req (fun db ->
-        Database.RemoteUser.collect_remote_users
-          ~limit ~offset:(offset * limit) db)
-      |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
+      let* remote_users =
+        Dream.sql req
+          (Database.RemoteUser.collect_remote_users
+             ~limit ~offset:(offset * limit))
+        |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      let* remote_user_count =
+        Dream.sql req (Database.RemoteUser.count_remote_users)
+        |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+      return_ok (remote_users, remote_user_count)
     | Some query, Some _ ->
       match classify_query query with
       | `Resolve (user, domain) ->
@@ -490,11 +533,14 @@ let handle_remote_users_get req =
           username=user; domain=Some domain
         });
         let query = "%" ^ user ^ "%" in
-        Dream.sql req (fun db ->
-          Database.RemoteUser.find_remote_users ~limit
-            ~offset:(offset * limit) ~pattern:query db
-        )
-        |> map_err (fun err -> `DatabaseError (Caqti_error.show err))
+        let* remote_users =
+          Dream.sql req (Database.RemoteUser.find_remote_users ~limit
+            ~offset:(offset * limit) ~pattern:query)
+          |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+        let* remote_users_count =
+          Dream.sql req (Database.RemoteUser.find_remote_users_count ~pattern:query)
+          |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+        return_ok (remote_users, remote_users_count)
       | `SearchLike query ->
         log.debug (fun f -> f "received implicit search");
         begin match query with
@@ -506,11 +552,16 @@ let handle_remote_users_get req =
         | _ -> ()
         end;
         let query = "%" ^ (String.concat "%" query) ^ "%" in
-        Dream.sql req (fun db ->
-          Database.RemoteUser.find_remote_users ~limit
-            ~offset:(offset * limit) ~pattern:query db
-        )
-        |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+        let* remote_users =
+          Dream.sql req
+            (Database.RemoteUser.find_remote_users ~limit
+               ~offset:(offset * limit) ~pattern:query)
+          |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+        let* remote_users_count =
+          Dream.sql req
+            (Database.RemoteUser.find_remote_users_count ~pattern:query)
+          |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+        return_ok (remote_users, remote_users_count) in
   let* users_w_stats =
     Lwt_list.map_p (fun (_url, user) ->
       let* user_link = Web.sql req (Database.Actor.create_remote_user ~remote_id:(user.Database.RemoteUser.id)) in
@@ -519,7 +570,7 @@ let handle_remote_users_get req =
       return_ok (user, socials)
     ) users
     >> Result.flatten_l in
-  render_users_page ~ty:`Remote ?search_query req `Remote users_w_stats
+  render_users_page ~ty:`Remote ?search_query ~current_offset:offset ~users_count req `Remote users_w_stats
 
 (* ** Users (get) *)
 let handle_users_get req =
