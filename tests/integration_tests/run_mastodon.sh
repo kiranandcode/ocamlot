@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# 96c6671e85f0a2fb72572ff66c41218e
+# ./bin/tootctl accounts create --email test@ocamlot.xyz --confirmed testuser
+export RAILS_ENV='development'
+export RAILS_LOG_LEVEL='debug'
 export DB_NAME='mastodon_production'
 export DB_HOST='postgres'
 export DB_USER='mastodon'
@@ -45,4 +49,9 @@ update-ca-certificates
 nginx -g "error_log /opt/logs info;"
 
 # run mastadong
-PORT=3000 bundle exec puma -C config/puma.rb
+PORT=3000 bundle exec puma -C config/puma.rb &
+
+# read nginx logs
+touch /opt/logs
+tail -f /opt/logs
+

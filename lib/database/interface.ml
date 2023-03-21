@@ -22,9 +22,9 @@ module LocalUser = struct
         pem=Cstruct.to_string (X509.Public_key.encode_pem actor.Operations.LocalUser.pubkey);
       } in {
       id= uri (Configuration.Url.user username);
-      name= Some Operations.LocalUser.(actor.username);
+      name= Operations.LocalUser.(actor.display_name);
+      preferred_username=Some (actor.Operations.LocalUser.username);
       url = Some (uri (Configuration.Url.user_profile_page username));
-      preferred_username=(actor.Operations.LocalUser.display_name);
       inbox = uri (Configuration.Url.user_inbox username);
       outbox = uri (Configuration.Url.user_outbox username);
       summary = (actor.Operations.LocalUser.about);
