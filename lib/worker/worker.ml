@@ -90,7 +90,7 @@ let handle_remote_follow pool id actor target raw =
   Ap_resolver.follow_local_user id actor target raw db
   |> lift_resolver_error
 
-let handle_remote_like pool id published target author raw_data =
+let handle_remote_like_of_local_post pool id published target author raw_data =
   log.debug (fun f -> f "worker handling remote like");
   let* author =
     with_pool pool @@ fun db ->
@@ -99,7 +99,27 @@ let handle_remote_like pool id published target author raw_data =
   let* author =
     with_pool pool (Database.Actor.create_remote_user
                       ~remote_id:author.Database.RemoteUser.id) in
-  let* follow = 
+  let* like = 
+    with_pool pool @@ fun db ->
+    Database.Likes.create
+      ~raw_data ~url:id
+      ~post:target.Database.Posts.id ~published
+      ~actor:author db
+    |> lift_database_error in
+  log.debug (fun f -> f "worker added remote like of local object");
+  return_ok ()
+
+let handle_remote_like_of_remote_post pool id published (target: string) author raw_data =
+  log.debug (fun f -> f "worker handling remote like");
+  let* author =
+    with_pool pool @@ fun db ->
+    Ap_resolver.resolve_remote_user_by_url (Uri.of_string author) db
+    |> lift_resolver_error in
+  let* author =
+    with_pool pool (Database.Actor.create_remote_user
+                      ~remote_id:author.Database.RemoteUser.id) in
+  let* target = with_pool pool (Ap_resolver.resolve_remote_note ~note_uri:target) in
+  let* like = 
     with_pool pool @@ fun db ->
     Database.Likes.create
       ~raw_data ~url:id
@@ -198,44 +218,50 @@ let handle_undo pool author obj =
   with_pool pool (Ap_resolver.undo_object author obj)
 
 let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) task_in =
-  log.debug (fun f -> f "worker now waiting for task");
+  log.debug (fun f -> f "worker now waiting for tasks");
   Lwt_stream.iter_s
     (fun task ->
-       log.debug (fun f -> f "worker woken up with task");
+       log.debug (fun f -> f "worker woken up with task [%s]" (Task.task_name task));
        try
-         begin match[@warning "-8"] (task: Task.t) with
-         | HandleUndoFollow {follow_id} ->
-           handle_undo_follow pool follow_id
-         | HandleRemoteFollow {id; actor; target; raw} ->
-           handle_remote_follow pool id actor target raw
-         | HandleAcceptFollow {follow_id} ->
-           handle_accept_follow pool follow_id
-         | HandleRemoteLike { id; published; target; author; raw_data } -> 
-           handle_remote_like pool id published target author raw_data
-         | HandleRemoteReboostOfLocalPost { id; published; target; author; raw_data } -> 
-           handle_remote_reboost_of_local_post pool id published target author raw_data
-         | HandleRemoteReboostOfRemotePost { id; published; target; author; raw_data } -> 
-           handle_remote_reboost_of_remote_post pool id published target author raw_data
-         | SearchRemoteUser {username; domain} ->
-           handle_search_user pool username domain
-         | LocalPost {user; title; content; content_type; scope; post_to; in_reply_to; attachments} -> 
-           handle_local_post pool user scope post_to title content_type content in_reply_to attachments
-         | FollowRemoteUser {user; username; domain} ->
-           handle_follow_remote_user pool user username domain
-         | CreateRemoteNote { author; direct_message; note } ->
-           handle_create_remote_note pool author direct_message note
-         | LocalLike {user; post} ->
-           handle_local_like pool user post
-         | LocalReboost {user; post} ->
-           handle_local_reboost pool user post
-         | HandleUndo {author; obj} ->
-           handle_undo pool author obj
-         | UnfollowRemoteUser { user; username; domain } ->
-           handle_unfollow_remote_user pool user username domain
-         end |> handle_error |> Lwt.map ignore
+         let open Lwt.Syntax in
+         let* _ =
+           begin match[@warning "-8"] (task: Task.t) with
+           | HandleUndoFollow {follow_id} ->
+             handle_undo_follow pool follow_id
+           | HandleRemoteFollow {id; actor; target; raw} ->
+             handle_remote_follow pool id actor target raw
+           | HandleAcceptFollow {follow_id} ->
+             handle_accept_follow pool follow_id
+           | HandleRemoteLikeOfLocalPost { id; published; target; author; raw_data } -> 
+             handle_remote_like_of_local_post pool id published target author raw_data
+           | HandleRemoteLikeOfRemotePost { id; published; target; author; raw_data } -> 
+             handle_remote_like_of_remote_post pool id published target author raw_data
+           | HandleRemoteReboostOfLocalPost { id; published; target; author; raw_data } -> 
+             handle_remote_reboost_of_local_post pool id published target author raw_data
+           | HandleRemoteReboostOfRemotePost { id; published; target; author; raw_data } -> 
+             handle_remote_reboost_of_remote_post pool id published target author raw_data
+           | SearchRemoteUser {username; domain} ->
+             handle_search_user pool username domain
+           | LocalPost {user; title; content; content_type; scope; post_to; in_reply_to; attachments} -> 
+             handle_local_post pool user scope post_to title content_type content in_reply_to attachments
+           | FollowRemoteUser {user; username; domain} ->
+             handle_follow_remote_user pool user username domain
+           | CreateRemoteNote { author; direct_message; note } ->
+             handle_create_remote_note pool author direct_message note
+           | LocalLike {user; post} ->
+             handle_local_like pool user post
+           | LocalReboost {user; post} ->
+             handle_local_reboost pool user post
+           | HandleUndo {author; obj} ->
+             handle_undo pool author obj
+           | UnfollowRemoteUser { user; username; domain } ->
+             handle_unfollow_remote_user pool user username domain
+           end |> handle_error |> Lwt.map ignore in
+         log.debug (fun f -> f "worker completed task [%s] successfully" (Task.task_name task));
+         Lwt.return ()
        with
        | exn ->
-         log.debug (fun f -> f "worker failed with exn %s" (Printexc.to_string exn));
+         log.debug (fun f -> f "worker failed to complete task [%s] with exn %s" (Printexc.to_string exn) (Task.task_name task));
          Lwt.return ()
     )
     task_in

@@ -31,7 +31,7 @@ let update_start ~start ~stop ~current =
 let render_pagination_numeric ?prev ?next ?current ~start ~stop url () =
   let start,stop = match current with None -> start,stop | Some current -> update_start ~start ~stop ~current in
   let elements =
-    List.init (stop - start)
+    List.init (stop - start + 1)
       (fun i -> {url=url (start + i); text=string_of_int (start + i); form=None}) in
   let elements =
     (Option.map (fun url -> {url; text="<-"; form=None}) prev |> Option.to_list) @

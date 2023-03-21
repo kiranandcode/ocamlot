@@ -211,7 +211,7 @@ let handle_actor_get_html req =
     View.Components.render_pagination_numeric
       ~start:1 ~stop:(contents_count / limit + 1) ~current:offset
       (fun ind ->
-         Format.sprintf "/users?state=%s&offset=%d&start=%s"
+         Format.sprintf "/users/%s?state=%s&offset=%d&start=%s" username
            state (ind - 1) (Ptime.to_rfc3339 timestamp)
       ) () in
   let* contents =
@@ -813,26 +813,29 @@ let handle_inbox_post req =
     | `Like ({ id; published; actor; obj; raw; _ } as like) ->
       log.debug (fun f -> f "received like");
       let public_id = Configuration.extract_activity_id_from_url obj in
-      let* public_id =
-        lift_opt public_id
-          ~else_:(fun _ ->
-              `InvalidData "received like addressed to a post not from \
-                            this instance.")
-        |> return in
-      let* post = Dream.sql req (Database.Posts.lookup_by_public_id ~public_id)
-                  |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-      let* post =
-        lift_opt post
-          ~else_:(fun _ ->
+      let published = Option.get_lazy Ptime_clock.now published in
+      begin match public_id with
+      | Some public_id ->
+        let* post = Dream.sql req (Database.Posts.lookup_by_public_id ~public_id)
+                    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+        let* post =
+          lift_opt post
+            ~else_:(fun _ ->
               `ActivityNotFound "Received like for activity that is \
                                  not present on this instance.")
-        |> return in
-      let published = Option.get_lazy Ptime_clock.now published in
-      Worker.send_task Worker.(
-          HandleRemoteLike { id; author=actor; target=post; published; raw_data=raw }
+          |> return in
+        Worker.send_task Worker.(
+          HandleRemoteLikeOfLocalPost { id; author=actor; target=post; published; raw_data=raw }
         );
-      log.debug (fun f -> f "received like %a" Activitypub.Types.pp_like like);
-      return_ok ()
+        log.debug (fun f -> f "received like %a for local object" Activitypub.Types.pp_like like);
+        return_ok ()
+      | None ->
+        Worker.send_task Worker.(
+          HandleRemoteLikeOfRemotePost { id; author=actor; target=obj; published; raw_data=raw }
+        );
+        log.debug (fun f -> f "received like %a for remote object" Activitypub.Types.pp_like like);
+        return_ok ()
+      end
     | `Undo { id; actor; published; obj=`Link obj; raw; } ->
       Worker.send_task Worker.(HandleUndo {author=actor; obj});
       return_ok ()
