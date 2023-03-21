@@ -146,7 +146,9 @@ let resolve_remote_user_by_url url db =
     ) db
 
 let rec insert_remote_note ?(direct_message=false) ?author (note: Activitypub.Types.note) db =
+  log.debug (fun f -> f "insert_remote_note with author %a" (Option.pp String.pp) author);
   let author = Option.value author ~default:note.actor in
+  log.debug (fun f -> f "insert_remote_note resolved author to %a" (Option.pp String.pp) author);
   let* author =
     resolve_remote_user_by_url (Uri.of_string author) db
     |> Lwt_result.map_error (fun err -> `ResolverError err) in
@@ -506,7 +508,7 @@ let unfollow_remote_user
     log.debug (fun f -> f "unfollow request response was (STATUS: %s) %s"
                           (Cohttp.Code.string_of_status resp.status) body);
     match resp.status with
-    | `OK -> Lwt_result.return ()
+    | `OK | `Accepted -> Lwt_result.return ()
     | _ -> Lwt_result.fail "request failed"
 
 
@@ -539,7 +541,7 @@ let follow_remote_user
     log.debug (fun f -> f "follow request response was (STATUS: %s) %s"
                           (Cohttp.Code.string_of_status resp.status) body);
     match resp.status with
-    | `OK -> Lwt_result.return ()
+    | `OK | `Accepted -> Lwt_result.return ()
     | _ -> Lwt_result.fail "request failed"
 
 let accept_remote_follow  follow remote local db =
@@ -565,7 +567,7 @@ let accept_remote_follow  follow remote local db =
   log.debug (fun f -> f  "response from server was %s" body);
 
   match resp.status with
-  | `OK ->
+  | `OK | `Accepted ->
     log.debug (fun f -> f "successfully updated pending status!");
     return_ok ()
   | _ -> Lwt_result.fail "request failed"
@@ -792,7 +794,7 @@ let create_new_like (author: Database.LocalUser.t) (post: Database.Posts.t) db =
         (Uri.of_string remote_user_inbox) data
       |> map_err (fun err -> `WorkerFailure err) in
     match Cohttp.Response.status response with
-    | `OK ->
+    | `OK | `Accepted ->
       let* _ = Cohttp_lwt.Body.drain_body body |> lift_pure in
       log.debug (fun f -> f "successfully sent like");
       return_ok ()
@@ -829,7 +831,7 @@ let create_new_reboost (author: Database.LocalUser.t) (post: Database.Posts.t) d
         (Uri.of_string remote_user_inbox) data
       |> map_err (fun err -> `WorkerFailure err) in
     match Cohttp.Response.status response with
-    | `OK ->
+    | `OK | `Accepted ->
       let* _ = Cohttp_lwt.Body.drain_body body |> lift_pure in
       log.debug (fun f -> f "successfully sent reboost");
       return_ok ()
@@ -924,7 +926,7 @@ let create_new_note scope author to_ cc summary content content_type in_reply_to
           (Uri.of_string remote_user_inbox) note_request
         |> map_err (fun err -> `WorkerFailure err) in
       match Cohttp.Response.status response with
-      | `OK ->
+      | `OK | `Accepted ->
         let* _ = Cohttp_lwt.Body.drain_body body |> lift_pure in
         log.debug (fun f -> f "successfully sent message");
         return_ok ()
