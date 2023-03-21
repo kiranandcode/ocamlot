@@ -87,6 +87,7 @@ let run () =
   @@ enforce_domain
   @@ Dream.router [
     Webfinger.route;
+    Webfinger.node_info;
 
     Authentication.route;
     Feed.route;

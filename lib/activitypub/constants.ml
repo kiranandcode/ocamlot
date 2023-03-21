@@ -3,6 +3,7 @@ open Containers
 module ContentType = struct
   let ld_json_activity_streams = "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
 
+  let xrd_xml = "application/xrd+xml"
   let ld_json = "application/ld+json"
   let activity_json = "application/activity+json"
   let plain_json = "application/json"

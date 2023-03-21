@@ -314,3 +314,39 @@ module Webfinger = struct
     succeed Types.Webfinger.{subject;aliases;links}
 
 end
+
+module Nodeinfo = struct
+
+  let software =
+    let open D in
+    let* name = field "name" string
+    and* version = field "version" string in
+    succeed @@ Types.Nodeinfo.{name;version}
+
+  let usage_users =
+    let open D in
+    let* total = field_or_default "total" int 0
+    and* active_month = field_or_default "activeMonth" int 0
+    and* active_half_year = field_or_default "activeHalfyear" int 0 in
+    succeed @@ Types.Nodeinfo.{total; active_month; active_half_year}
+
+  let usage =
+    let open D in
+    let* users = field "users" usage_users 
+    and* local_posts = field_or_default "localPosts" int 0 in
+    succeed @@ Types.Nodeinfo.{users; local_posts}
+
+  let t =
+    let open D in
+    let* software = field "software" software
+    and* protocols = field_or_default "protocols" (list string) []
+    and* inbound_services = field_or_default "services" (field_or_default "inbound" (list string) []) []
+    and* outbound_services = field_or_default "services" (field_or_default "outbound" (list string) []) []
+    and* usage = field "usage" usage
+    and* open_registrations = field_or_default "openRegistrations" bool false 
+    and* metadata = field_opt "metadata" value
+    and* raw = value in
+    succeed @@ Types.Nodeinfo.{software;protocols;inbound_services;outbound_services;usage;open_registrations;metadata;raw}
+
+
+end

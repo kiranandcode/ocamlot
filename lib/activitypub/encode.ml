@@ -254,6 +254,45 @@ module Webfinger = struct
 
 end
 
+module Nodeinfo = struct
+
+  let software (s: Types.Nodeinfo.software) =
+    obj [
+      "name" @ s.name <: E.string;
+      "version" @ s.version <: E.string;
+    ]
+
+  let usage_users ({ total; active_month; active_half_year }: Types.Nodeinfo.usage_users) =
+    obj [
+      "total" @ total <: E.int;
+      "activeMonth" @ active_month <: E.int;
+      "activeHalfyear" @ active_half_year <: E.int;
+    ]
+
+  let usage ({ local_posts; users } : Types.Nodeinfo.usage) =
+    obj [
+      "users" @ users <: usage_users;
+      "localPosts" @ local_posts <: E.int
+    ]
+
+  let t ({ software=software'; protocols; inbound_services; outbound_services; usage=usage';
+           open_registrations; metadata; raw=_ } : Types.Nodeinfo.t) =
+    obj [
+      "version" @ "2.0" <: E.string;
+      "software" @ software' <: software;
+      "protocols" @ protocols <: E.list E.string;
+      "services" @ obj [
+        "inbound" @ inbound_services <: E.list E.string;
+        "outbound" @ outbound_services <: E.list E.string;
+      ] <: Fun.id;
+      "usage" @ usage' <: usage;
+      "openRegistrations" @ open_registrations <: E.bool;
+      "metadata" @? metadata <: Fun.id;
+    ]
+
+end
+
+
 (* module Build (S: sig
  *     type user
  * 

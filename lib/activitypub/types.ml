@@ -208,3 +208,38 @@ module Webfinger = struct
         | _ -> None)
 
 end
+
+module Nodeinfo = struct
+
+  type software = {
+    name: string;
+    version: string;
+  }
+  [@@deriving show, eq]
+
+  type usage_users = {
+    total: int;
+    active_month: int;
+    active_half_year: int;
+  }
+  [@@deriving show, eq]
+
+  type usage = {
+    local_posts: int;
+    users: usage_users;
+  }
+  [@@deriving show, eq]
+
+  type t = {
+    software: software;
+    protocols: string list;
+    inbound_services: string list;
+    outbound_services: string list;
+    usage: usage;
+    open_registrations: bool;
+    metadata: yojson option;
+    raw: yojson;
+  }
+  [@@deriving show, eq]
+
+end

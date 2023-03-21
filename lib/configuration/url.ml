@@ -101,3 +101,8 @@ let api_base_path = lazy begin
   Lazy.force Params.domain
   |> Fun.flip Uri.with_path "api"
 end
+
+let node_info_path = lazy begin
+  Lazy.force Params.domain
+  |> Fun.flip Uri.with_path "/nodeinfo/2.0"
+end

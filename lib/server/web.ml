@@ -99,6 +99,12 @@ let activity_json  ?(status:Dream.status option) ?code ?(headers=[])  json =
     ~headers:(("Content-Type", Activitypub.Constants.ContentType.activity_json) :: headers)
     (Yojson.Safe.to_string json)
 
+let xrd_xml ?status ?code ?(headers=[]) txt =
+  Lwt.map Result.return @@
+  Dream.respond ?status ?code ~headers:(("Content-Type", Activitypub.Constants.ContentType.xrd_xml) :: headers)
+    txt
+    
+
 let json_pure ?(status:Dream.status option) ?code ?(headers=[]) json =
   Dream.respond ?status ?code ~headers:(("Content-Type", "application/json") :: headers)
     (Yojson.Safe.to_string json)
