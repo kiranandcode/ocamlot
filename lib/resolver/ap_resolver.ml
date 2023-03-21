@@ -107,9 +107,7 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
     let* username =
       get_opt person_res.preferred_username
         ~else_:(fun () -> "could not retrieve username") in
-    let* url =
-      get_opt person_res.url
-        ~else_:(fun () -> "could not retrieve user url.") in
+    let url = person_res.id in
     log.debug (fun f -> f "creating remote user in database");
     Database.RemoteUser.create_remote_user
       ?display_name:person_res.name
