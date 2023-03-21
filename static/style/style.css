@@ -46,7 +46,6 @@ header a {
 }
 
 .post-details {
-  flex-grow: 1;
   margin-top: 0.25em;
   justify-content: space-between;
 }
@@ -104,6 +103,9 @@ header a {
   font-weight: bolder;
 }
 
+.post-text {
+  flex-grow: 1;
+}
 .post-text a {
   color: var(--primary-accent);
 }
