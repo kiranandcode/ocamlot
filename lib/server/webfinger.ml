@@ -92,7 +92,7 @@ let handle_nodeinfo req =
                             (Option.value ~default:"" content_type));
   let software  : Activitypub.Types.Nodeinfo.software = {
     name = "ocamlot";
-    version = "%%VERSION%%";
+    version = "1.0.0";
   } in
   let* total_posts = Web.sql req (Database.Posts.count_local) in
   let* users_count = Web.sql req (Database.LocalUser.local_user_count) in
