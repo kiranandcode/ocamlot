@@ -33,6 +33,11 @@ header a {
 /* * Posts */
 /* ** Post */
 
+.post-box {
+    display: flex;
+    flex-direction: column;
+}
+
 .post-box-header {
   font-weight: bolder;
   overflow-x: hidden;
@@ -41,6 +46,7 @@ header a {
 }
 
 .post-details {
+  flex-grow: 1;
   margin-top: 0.25em;
   justify-content: space-between;
 }
