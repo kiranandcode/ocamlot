@@ -725,30 +725,40 @@ let handle_inbox_post req =
       log.debug (fun f -> f "received reboost of %s by %s (at %a)"
                     obj actor (Option.pp(Ptime.pp_rfc3339 ())) published);
       let public_id = Configuration.extract_activity_id_from_url obj in
-      let* public_id =
-        lift_opt public_id
-          ~else_:(fun _ ->
-              `InvalidData "received reboost addressed to a post not from this instance.")
-        |> return in
-      let* post =
-        Dream.sql req (Database.Posts.lookup_by_public_id ~public_id)
-        |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
-      let* post =
-        lift_opt post
-          ~else_:(fun _ ->
+      begin match public_id with
+      | Some public_id ->
+        (* local post *)
+        let* post =
+          Dream.sql req (Database.Posts.lookup_by_public_id ~public_id)
+          |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+        let* post =
+          lift_opt post
+            ~else_:(fun _ ->
               `ActivityNotFound "Received reboost for activity that is \
                                  not present on this instance.")
-        |> return in
-      let published = Option.get_lazy Ptime_clock.now published in
-      Worker.send_task Worker.(
-          HandleRemoteReboost {
+          |> return in
+        let published = Option.get_lazy Ptime_clock.now published in
+        Worker.send_task Worker.(
+          HandleRemoteReboostOfLocalPost {
             id; author=actor; target=post; published; raw_data=raw
           }
         );
-      log.debug (fun f ->
+        log.debug (fun f ->
           f "received reboost %a"
             (Activitypub.Types.pp_announce Activitypub.Types.pp_core_obj) reboost);
-      return_ok ()
+        return_ok ()
+      | None ->
+        let published = Option.get_lazy Ptime_clock.now published in
+        Worker.send_task Worker.(
+          HandleRemoteReboostOfRemotePost {
+            id; target=obj; author=actor; published; raw_data=raw;
+          }
+        );
+        log.debug (fun f ->
+          f "received reboost %a"
+            (Activitypub.Types.pp_announce Activitypub.Types.pp_core_obj) reboost);
+        return_ok ()
+      end
     | `Like ({ id; published; actor; obj; raw; _ } as like) ->
       log.debug (fun f -> f "received like");
       let public_id = Configuration.extract_activity_id_from_url obj in

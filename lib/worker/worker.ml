@@ -109,8 +109,8 @@ let handle_remote_like pool id published target author raw_data =
   log.debug (fun f -> f "worker added remote like");
   return_ok ()
 
-let handle_remote_reboost pool id published target author raw_data =
-  log.debug (fun f -> f "worker handling remote reboost by %s" author);
+let handle_remote_reboost_of_local_post pool id published target author raw_data =
+  log.debug (fun f -> f "worker handling remote reboost by %s of local post" author);
   let* author =
     with_pool pool @@ fun db ->
     Ap_resolver.resolve_remote_user_by_url (Uri.of_string author) db
@@ -125,8 +125,29 @@ let handle_remote_reboost pool id published target author raw_data =
       ~post:target.Database.Posts.id ~published
       ~actor:author db
     |> lift_database_error in
-  log.debug (fun f -> f "worker added remote reboost");
+  log.debug (fun f -> f "worker added remote reboost of local post");
   return_ok ()
+
+let handle_remote_reboost_of_remote_post pool id published (target: string) author raw_data =
+  log.debug (fun f -> f "worker handling remote reboost by %s of remote post %s" author target);
+  let* author =
+    with_pool pool @@ fun db ->
+    Ap_resolver.resolve_remote_user_by_url (Uri.of_string author) db
+    |> lift_resolver_error in
+  let* author =
+    with_pool pool (Database.Actor.create_remote_user
+                      ~remote_id:author.Database.RemoteUser.id) in
+  let* target = with_pool pool (Ap_resolver.resolve_remote_note ~note_uri:target) in
+  let* reboost = 
+    with_pool pool @@ fun db ->
+    Database.Reboosts.create
+      ~raw_data ~url:id
+      ~post:target.Database.Posts.id ~published
+      ~actor:author db
+    |> lift_database_error in
+  log.debug (fun f -> f "worker added remote reboost of remote post");
+  return_ok ()
+
 
 let handle_local_like pool (author: Database.LocalUser.t) (target: Database.Posts.t) =
   let* like =
@@ -191,8 +212,10 @@ let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) ta
            handle_accept_follow pool follow_id
          | HandleRemoteLike { id; published; target; author; raw_data } -> 
            handle_remote_like pool id published target author raw_data
-         | HandleRemoteReboost { id; published; target; author; raw_data } -> 
-           handle_remote_reboost pool id published target author raw_data
+         | HandleRemoteReboostOfLocalPost { id; published; target; author; raw_data } -> 
+           handle_remote_reboost_of_local_post pool id published target author raw_data
+         | HandleRemoteReboostOfRemotePost { id; published; target; author; raw_data } -> 
+           handle_remote_reboost_of_remote_post pool id published target author raw_data
          | SearchRemoteUser {username; domain} ->
            handle_search_user pool username domain
          | LocalPost {user; title; content; content_type; scope; post_to; in_reply_to; attachments} -> 

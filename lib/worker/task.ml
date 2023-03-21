@@ -43,14 +43,20 @@ type t =
       author: string;
       raw_data: Yojson.Safe.t;
     }
-  | HandleRemoteReboost of {
+  | HandleRemoteReboostOfLocalPost of {
       id: string;
       published: Ptime.t;
       target: Database.Posts.t;
       author: string;
       raw_data: Yojson.Safe.t;
     }
-
+  | HandleRemoteReboostOfRemotePost of {
+      id: string;
+      published: Ptime.t;
+      target: string;
+      author: string;
+      raw_data: Yojson.Safe.t;
+    }
   | SearchRemoteUser of {
     username: string;
     domain: string option;
