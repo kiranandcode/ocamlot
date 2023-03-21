@@ -98,6 +98,7 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
       decode_body ~ty:"remote-user" body
         ~into:Activitypub.Decode.person in
     log.debug (fun f -> f "was able to sucessfully resolve user at %a!" Uri.pp remote_user_url);
+    log.debug (fun f -> f "person object is %a!" Activitypub.Types.pp_person person_res);
     let* remote_instance = Database.RemoteInstance.create_instance ~url:domain db |> sanitize in
     let* () =
       Database.RemoteInstance.unset_instance_last_unreachable
