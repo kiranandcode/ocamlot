@@ -1,0 +1,20 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://pleroma.ocamlot.xyz/schemas/litepub-0.1.jsonld",
+        { "@language": "und" }
+    ],
+    "actor": "https://pleroma.ocamlot.xyz/users/lain",
+    "bcc": [],
+    "bto": [],
+    "cc": [ "https://www.w3.org/ns/activitystreams#Public" ],
+    "content": "🦈",
+    "context": "https://pleroma.ocamlot.xyz/contexts/48761a46-e53a-4bdf-85ad-3d9df6d7f89a",
+    "id": "https://pleroma.ocamlot.xyz/activities/aa2ec16a-f6ff-4cc4-aa26-fdbd6bc1b8be",
+    "object": "https://testing.ocamlot.xyz/objects/e92856aa-2067-4a30-8e6d-c22c0f4165cb",
+    "to": [
+        "https://pleroma.ocamlot.xyz/users/lain/followers",
+        "https://testing.ocamlot.xyz/users/hakui"
+    ],
+    "type": "EmojiReact"
+}
