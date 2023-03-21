@@ -148,7 +148,7 @@ let resolve_remote_user_by_url url db =
 let rec insert_remote_note ?(direct_message=false) ?author (note: Activitypub.Types.note) db =
   log.debug (fun f -> f "insert_remote_note with author %a" (Option.pp String.pp) author);
   let author = Option.value author ~default:note.actor in
-  log.debug (fun f -> f "insert_remote_note resolved author to %a" (Option.pp String.pp) author);
+  log.debug (fun f -> f "insert_remote_note resolved author to %s" author);
   let* author =
     resolve_remote_user_by_url (Uri.of_string author) db
     |> Lwt_result.map_error (fun err -> `ResolverError err) in
