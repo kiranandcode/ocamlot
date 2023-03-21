@@ -10,23 +10,15 @@ let render_pagination links =
          ) links)
   ]
 
-let update_start ~start ~stop ~current =
+let update_start =
   let max_dist = 15 in
+  let max_dist_div_2 = 15 / 2 in
+  fun ~start ~stop ~current ->
   if stop - start < max_dist
   then start, stop
   else
-    let start_diff = current - start in
-    let stop_diff = stop - current in
-    if stop_diff <= max_dist && start_diff <= max_dist
-    then start,stop
-    else
-      let current_trim_stop = current + (15 - start_diff) in
-      let current_trim_start = current - (15 - stop_diff) in
-      if start_diff <= 15 && current_trim_stop <= stop
-      then start, current_trim_stop
-      else if stop_diff <= 15 && start <= current_trim_start
-      then current_trim_start, stop
-      else current - 7, current + 7
+    max (current - max_dist_div_2) start,
+    min (current + max_dist_div_2) stop
 
 let render_pagination_numeric ?prev ?next ?current ~start ~stop url () =
   let start,stop = match current with None -> start,stop | Some current -> update_start ~start ~stop ~current in
