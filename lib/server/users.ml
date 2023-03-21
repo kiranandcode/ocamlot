@@ -212,7 +212,7 @@ let handle_actor_get_html req =
       ~start:1 ~stop:(contents_count / limit + 1) ~current:offset
       (fun ind ->
          Format.sprintf "/users?state=%s&offset=%d&start=%s"
-           state ((ind - 1) * limit) (Ptime.to_rfc3339 timestamp)
+           state (ind - 1) (Ptime.to_rfc3339 timestamp)
       ) () in
   let* contents =
     match contents with
@@ -455,7 +455,7 @@ let render_users_page ?ty ?search_query ?current_offset ~users_count req user_ty
       (fun ind ->
          Format.sprintf "/users?type=%s&offset-start=%d"
            (encode_user_types user_type)
-           ((ind - 1) * limit)
+           (ind - 1)
       ) () 
   ]))
 

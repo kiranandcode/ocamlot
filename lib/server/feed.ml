@@ -2,7 +2,7 @@ open Containers
 open Common
 
 let log = Logging.add_logger "web.feed"
-let limit = 10
+let limit = 9
 
 (* * Utilities  *)
 let parse_feed = function
@@ -60,22 +60,22 @@ let handle_feed_get req =
     begin match feed_ty, current_user_link with
     | `Direct, Some user ->
       let* posts =
-        Web.sql req (Database.Posts.collect_direct ~offset ~limit ~start_time ~id:user) in
+        Web.sql req (Database.Posts.collect_direct ~offset:(offset * limit) ~limit ~start_time ~id:user) in
       let* total_posts =
         Web.sql req (Database.Posts.count_direct ~id:user) in
       return_ok (posts, total_posts)
     | `Feed, Some user ->
       let* posts =
-        Web.sql req (Database.Posts.collect_feed ~offset ~limit ~start_time ~id:user) in
+        Web.sql req (Database.Posts.collect_feed ~offset:(offset * limit) ~limit ~start_time ~id:user) in
       let* total_posts =
         Web.sql req (Database.Posts.count_feed ~id:user) in
       return_ok (posts, total_posts)
     | `WholeKnownNetwork, _ ->
-      let* posts = Web.sql req (Database.Posts.collect_twkn ~offset ~limit ~start_time) in
+      let* posts = Web.sql req (Database.Posts.collect_twkn ~offset:(offset * limit) ~limit ~start_time) in
       let* total_posts = Web.sql req (Database.Posts.count_twkn) in
       return_ok (posts, total_posts)        
     | _, _ ->
-      let* posts = Web.sql req (Database.Posts.collect_local ~offset ~limit ~start_time) in
+      let* posts = Web.sql req (Database.Posts.collect_local ~offset:(offset * limit) ~limit ~start_time) in
       let* total_posts = Web.sql req (Database.Posts.count_local) in
       return_ok (posts, total_posts)
     end
@@ -96,12 +96,12 @@ let handle_feed_get req =
 
   let navigation_panel =
     View.Components.render_pagination_numeric
-      ~start:1 ~stop:(feed_element_count / limit + 1)
+      ~start:1 ~stop:(feed_element_count / limit + 1) ~current:offset
       (* ~current:(offset/limit) *)
       (fun ind ->
          Format.sprintf "/feed?feed-ty=%s&offset-time=%f&offset-start=%d"
            (encode_feed feed_ty) (Ptime.to_float_s start_time)
-           ((ind - 1) * limit)
+           (ind - 1)
       ) () in
   log.debug (fun f -> f "rendering feed!");
   Web.tyxml @@ View.Page.render_page title @@ List.concat [
