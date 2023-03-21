@@ -30,6 +30,7 @@ let extract_error_details err =
       | `DatabaseError _ -> "Database error"
       | `FormError (title, _) -> "Form error - " ^ title
       | `NotImplemented _ -> "Not Implemented"
+      | `ResolverError _ -> "Resolver error"
       | _ -> "Unknown internal error" in
     let details =
       match err with
@@ -44,6 +45,7 @@ let extract_error_details err =
       | `FormError (_, data) -> "Form data was:\n" ^ data
       | `NotImplemented details -> details
       | `Msg m -> m
+      | `ResolverError msg -> msg
       | `InvalidSignature -> "Invalid signature"
       | `Internal (msg, err) -> msg ^ ": " ^ err
       | _ -> "No Further Details" in
