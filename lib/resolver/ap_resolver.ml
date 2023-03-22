@@ -57,18 +57,21 @@ let extract_user_url ~id:to_ db =
 
 let decode_body ?ty ~into:decoder body =
   let* body = Cohttp_lwt.Body.to_string body >> Result.return in
-  log.debug (fun f -> f "decoding body [%a] \"%s...\"" (Option.pp String.pp) ty (String.take 10 body));
-
+  log.debug (fun f -> f "decoding body [%a] \"%s...\""
+                (Option.pp String.pp) ty
+                (String.take 10 body));
   begin match ty with
   | Some ty -> Configuration.dump_string ~ty body
   | None -> ()
   end;
   let res = body |> Activitypub.Decode.(decode_string decoder) in
   begin match res with
-  | Ok _ -> ()
-  | Error _ ->
+  | Ok _ -> log.debug (fun f -> f "decoding succeded!"); ()
+  | Error err ->
+    log.debug (fun f -> f "decoding failed with error %s" err);
     if Lazy.force Configuration.debug then
-      IO.with_out ~flags:[Open_append; Open_creat] "ocamlot-failed-events.json" (Fun.flip IO.write_line (body ^ "\n"));
+      IO.with_out ~flags:[Open_append; Open_creat]
+        "ocamlot-failed-events.json" (Fun.flip IO.write_line (body ^ "\n"));
   end;
   begin match res, body with
   | Ok v, _ -> Ok (Some v)
@@ -80,15 +83,19 @@ let activity_req ?ty ?user ~(into: 'a Decoders_yojson.Safe.Decode.decoder) url =
   log.debug (fun f -> f "sending a request to %s ==> %a" url Uri.pp (Uri.of_string url));
   let* (_, body) = Requests.activity_req (Uri.of_string url) in
   let* data = decode_body ?ty ~into body in
-  let* data = match user with
+  let* data = match data with
+    | Some data ->
+      return_ok data
     | None ->
-      lift_opt
-        ~else_:(fun _ -> "could not retrieve activity using unsigned req, and no user present") data
-      |> return
-    | Some user ->
-      let* (_, body) = Requests.signed_activity_req (local_user_key user) (Uri.of_string url) in
-      let* data = decode_body ?ty ~into body in
-      return @@ lift_opt ~else_:(fun _ -> "activity req failed even with signed request") data in
+      match user with
+      | None ->
+        lift_opt
+          ~else_:(fun _ -> "could not retrieve activity using unsigned req, and no user present") data
+        |> return
+      | Some user ->
+        let* (_, body) = Requests.signed_activity_req (local_user_key user) (Uri.of_string url) in
+        let* data = decode_body ?ty ~into body in
+        return @@ lift_opt ~else_:(fun _ -> "activity req failed even with signed request") data in
   return_ok data
 
 let resolve_public_key ?user url =
@@ -126,7 +133,8 @@ let resolve_remote_user_with_webfinger ?user ~local_lookup ~webfinger_uri db
     log.debug (fun f -> f "remote user self url was %a" Uri.pp remote_user_url);
     (* retrieve json *)
     let* person_res =
-      activity_req ?user ~into:Activitypub.Decode.person ~ty:"remote-user" (Uri.to_string remote_user_url) in
+      activity_req ?user ~into:Activitypub.Decode.person ~ty:"remote-user"
+        (Uri.to_string remote_user_url) in
     log.debug (fun f -> f "was able to sucessfully resolve user at %a!" Uri.pp remote_user_url);
     log.debug (fun f -> f "person object is %a!" Activitypub.Types.pp_person person_res);
     let* remote_instance = Database.RemoteInstance.create_instance ~url:domain db |> sanitize in
