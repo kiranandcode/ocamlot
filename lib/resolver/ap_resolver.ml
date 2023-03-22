@@ -33,6 +33,13 @@ let extract_local_target_link to_ db =
     | None ->
       return_ok None
 
+let local_user_key author = 
+  let key_id =
+    author.Database.LocalUser.username
+    |> Configuration.Url.user_key
+    |> Uri.to_string in
+  let priv_key = author.Database.LocalUser.privkey in
+  (key_id, priv_key) 
 
 let uri_ends_with_followers to_ =
   Uri.of_string to_ |> Uri.path |> String.split_on_char '/'
@@ -61,14 +68,28 @@ let decode_body ?ty ~into:decoder body =
     if Lazy.force Configuration.debug then
       IO.with_out ~flags:[Open_append; Open_creat] "ocamlot-failed-events.json" (Fun.flip IO.write_line (body ^ "\n"));
   end;
-  res |> Lwt.return
+  begin match res, body with
+  | Ok v, _ -> Ok (Some v)
+  | Error _, "Request not signed" -> Ok (None)
+  | Error err, _ -> Error err
+  end |> Lwt.return
 
-let resolve_public_key url =
+let activity_req ?ty ?user ~(into: 'a Decoders_yojson.Safe.Decode.decoder) url =
+  let* (_, body) = Requests.activity_req (Uri.of_string url) in
+  let* data = decode_body ?ty ~into body in
+  let* data = match user with
+    | None -> lift_opt ~else_:(fun _ -> "could not retrieve activity using unsigned req, and no user present") data |> return
+    | Some user ->
+      let* (_, body) = Requests.signed_activity_req (local_user_key user) (Uri.of_string url) in
+      let* data = decode_body ?ty ~into body in
+      return @@ lift_opt ~else_:(fun _ -> "activity req failed even with signed request") data in
+  return_ok data
+
+let resolve_public_key ?user url =
   (* NOTE: Not obvious, but you need to specify accept headers, else
      pleroma will return html *)
   log.debug (fun f -> f "resolve_public_key %s" url);
-  let* (_resp, body) = Requests.activity_req (Uri.of_string url) in
-  let* actor = decode_body ~into:Activitypub.Decode.person body in
+  let* actor = activity_req ?user ~into:Activitypub.Decode.person url in
   let pub_key =
     actor.public_key.pem
     |> Cstruct.of_string
@@ -76,7 +97,7 @@ let resolve_public_key url =
     |> Result.map_err (fun (`Msg err) -> err) in
   Lwt.return pub_key
 
-let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
+let resolve_remote_user_with_webfinger ?user ~local_lookup ~webfinger_uri db
   : (Database.RemoteUser.t, string) Lwt_result.t =
   log.debug (fun f -> f "resolving remote user with webfinger url \"%a\"" Uri.pp webfinger_uri);
   let* domain = Uri.host webfinger_uri |> Result.of_opt |> Lwt.return in
@@ -94,14 +115,12 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
       let* query_res =
         decode_body ~ty:"webfinger" body
           ~into:Activitypub.Decode.Webfinger.query_result in
-      get_opt (Activitypub.Types.Webfinger.self_link query_res)
+      get_opt (Option.flat_map Activitypub.Types.Webfinger.self_link query_res)
         ~else_:(fun () -> "could not retrieve self link.") in
     log.debug (fun f -> f "remote user self url was %a" Uri.pp remote_user_url);
     (* retrieve json *)
-    let* (_, body) = Requests.activity_req remote_user_url in
     let* person_res =
-      decode_body ~ty:"remote-user" body
-        ~into:Activitypub.Decode.person in
+      activity_req ?user ~into:Activitypub.Decode.person ~ty:"remote-user" (Uri.to_string remote_user_url) in
     log.debug (fun f -> f "was able to sucessfully resolve user at %a!" Uri.pp remote_user_url);
     log.debug (fun f -> f "person object is %a!" Activitypub.Types.pp_person person_res);
     let* remote_instance = Database.RemoteInstance.create_instance ~url:domain db |> sanitize in
@@ -127,8 +146,8 @@ let resolve_remote_user_with_webfinger ~local_lookup ~webfinger_uri db
       ~instance:(remote_instance.Database.RemoteInstance.id)
       ~url:url db |> sanitize
 
-let resolve_remote_user ~username ~domain db =
-  resolve_remote_user_with_webfinger
+let resolve_remote_user ?user ~username ~domain db =
+  resolve_remote_user_with_webfinger ?user
     ~local_lookup:(fun db ->
       Database.RemoteUser.lookup_remote_user_by_address ~username ~url:domain db |> sanitize)
     ~webfinger_uri:(Uri.make
@@ -138,9 +157,9 @@ let resolve_remote_user ~username ~domain db =
                       ~query:["resource", [Printf.sprintf "acct:%s@%s" username domain]] ()
                    ) db
 
-let resolve_remote_user_by_url url db =
+let resolve_remote_user_by_url ?user url db =
   let url' = Uri.to_string url in
-  resolve_remote_user_with_webfinger
+  resolve_remote_user_with_webfinger ?user
     ~local_lookup:(fun db -> Database.RemoteUser.lookup_remote_user_by_url ~url:url' db |> sanitize)
     ~webfinger_uri:(
       url
@@ -207,17 +226,27 @@ let rec insert_remote_note ?(direct_message=false) ?author (note: Activitypub.Ty
       Database.Posts.add_attachment ~post:post.Database.Posts.id ?media_type:attch.media_type ~url:attch.url db
     ) note.attachment in
   log.debug (fun f -> f "attachments added");
-
+  let* user =
+    let user_id = List.find_map Fun.id to_ in
+    match user_id with
+    | None -> return_ok None
+    | Some user_id ->
+      Lwt.bind (Database.Actor.resolve ~id:user_id db) (function
+        | Ok (`Local id) ->
+          Lwt.map (function Ok v -> Ok (Some v) | _ -> Ok None)
+            (Database.LocalUser.resolve ~id db)
+        | _ -> return_ok None
+      ) in
   let* _ = match note.in_reply_to with
     | None -> return_ok ()
     | Some url -> begin
-        let* n' = resolve_remote_note ~note_uri:url db in
+        let* n' = resolve_remote_note ?user ~note_uri:url db in
         lift_database_error (Database.Posts.record_reply_relation ~parent:n'.id ~child:post.id db)
       end |> Lwt.map (fun _ -> Ok ()) in
 
   return_ok post
 
-and resolve_remote_note ~note_uri db
+and resolve_remote_note ?user ~note_uri db
   : (Database.Posts.t, _) Lwt_result.t =
   log.debug (fun f -> f "resolving remote note with url \"%s\"" note_uri);
   let* result = Database.Posts.lookup_by_url ~url:note_uri db
@@ -231,29 +260,26 @@ and resolve_remote_note ~note_uri db
     (* remote note not found *)
     log.debug (fun f -> f "remote user self url was %s" note_uri);
     (* retrieve json *)
-    let* (_, body) = Requests.activity_req (Uri.of_string note_uri) |> Lwt_result.map_error (fun err -> `ResolverError err) in
-    let* note_res =
-      decode_body ~ty:"remote-note" body
-        ~into:Activitypub.Decode.note
-      |>  map_err (fun err -> `ResolverError err) in
+    let* note_res = activity_req ?user ~ty:"remote-note" ~into:Activitypub.Decode.note note_uri
+                    |>  map_err (fun err -> `ResolverError err) in
     log.debug (fun f -> f "was able to sucessfully resolve note at %s!" note_uri);
     let* n = insert_remote_note note_res db in
     return_ok n
 
-let resolve_remote_note_by_url url db =
-  resolve_remote_note ~note_uri:url db
+let resolve_remote_note_by_url ?user url db =
+  resolve_remote_note ?user ~note_uri:url db
 
 (** [resolve_tagged_user config username db] given a [username] in the
     form {<username>@<domain>} classifies the user a a local or remote
     user if they exist. *)
-let resolve_tagged_user user db = 
+let resolve_tagged_user ?user:local_user user db = 
   let user_tag = Configuration.Regex.user_tag in
   let matches = Re.all user_tag (String.trim user) in
   let user_tag = List.head_opt matches in
   match user_tag with
   | None ->
     (* remote user by url *)
-    let* remote_user = resolve_remote_user_by_url (Uri.of_string user) db
+    let* remote_user = resolve_remote_user_by_url ?user:local_user (Uri.of_string user) db
                        |> map_err (fun err -> `WorkerFailure err) in
     return (Ok (`Remote remote_user))
   | Some group when Option.equal String.equal
@@ -271,7 +297,7 @@ let resolve_tagged_user user db =
   | Some group ->
     let username = Re.Group.get group 1 in
     let domain = Re.Group.get group 2 in
-    let* resolved_user = resolve_remote_user ~username ~domain db
+    let* resolved_user = resolve_remote_user ?user:local_user ~username ~domain db
                          |> map_err (fun msg -> `WorkerFailure msg) in
     return_ok (`Remote resolved_user)
 
@@ -466,7 +492,7 @@ let unfollow_remote_user
       (local: Database.LocalUser.t)
       ~username ~domain db: (unit,string) Lwt_result.t =
   log.debug (fun f -> f "resolving remote user %s@%s" username domain);
-  let* remote = resolve_remote_user ~username ~domain db in
+  let* remote = resolve_remote_user ~user:local ~username ~domain db in
   log.debug (fun f -> f "successfully resolved remote user %s@%s" username domain);
   let* local_user = sanitize (Database.Actor.create_local_user ~local_id:local.id db) in
   let* remote_user = sanitize (Database.Actor.create_remote_user ~remote_id:remote.id db) in
@@ -520,7 +546,7 @@ let follow_remote_user
       (local: Database.LocalUser.t)
       ~username ~domain db: (unit,string) Lwt_result.t =
   log.debug (fun f -> f "resolving remote user %s@%s" username domain);
-  let* remote = resolve_remote_user ~username ~domain db in
+  let* remote = resolve_remote_user ~user:local ~username ~domain db in
   let* local_user = sanitize (Database.Actor.create_local_user ~local_id:local.id db) in
   let* remote_user = sanitize (Database.Actor.create_remote_user ~remote_id:remote.id db) in
   let* follow = 
@@ -603,7 +629,7 @@ let accept_local_follow _config follow ~target:remote ~author:local db =
   Lwt_result.return ()
 
 let follow_local_user follow_url remote_url local_user data db =
-  let* remote = resolve_remote_user_by_url (Uri.of_string remote_url) db in
+  let* remote = resolve_remote_user_by_url ~user:local_user (Uri.of_string remote_url) db in
   let* follow = 
     let* author =
       Database.Actor.create_remote_user ~remote_id:(remote.Database.RemoteUser.id) db |> sanitize in
@@ -733,7 +759,7 @@ let create_note_request scope author to_ cc summary content content_type in_repl
     match in_reply_to with
     | None -> return_ok ()
     | Some url -> begin
-        let* n = resolve_remote_note_by_url url db in
+        let* n = resolve_remote_note_by_url ~user:author url db in
         lift_database_error (Database.Posts.record_reply_relation ~parent:n.id ~child:post.id db)
       end |> Lwt.map (fun _ -> Ok ()) in
 
@@ -1099,22 +1125,22 @@ let build_outbox_collection_page start_time offset user db =
          let* attachment = lift_database_error (Database.Posts.collect_attachments ~post:post.id db) in
          let attachment =
            List.map (fun (media_type, url) ->
-               ({media_type; url;name=Some ""; type_=Some "Document"}: Activitypub.Types.attachment)) attachment in
+             ({media_type; url;name=Some ""; type_=Some "Document"}: Activitypub.Types.attachment)) attachment in
          return_ok ({
-             id = post.url;
-             actor = Configuration.Url.user user.username |> Uri.to_string;
-             attachment;
-             to_;
-             in_reply_to = None;     (* TODO: when conversations are added, update this field *)
-             cc;
-             content=post.post_source;
-             sensitive = not post.is_public;
-             source = Some post.post_source;
-             summary = post.summary;
-             published = Some post.published;
-             tags=[];
-             raw=`Null
-           }: Activitypub.Types.note)
+           id = post.url;
+           actor = Configuration.Url.user user.username |> Uri.to_string;
+           attachment;
+           to_;
+           in_reply_to = None;     (* TODO: when conversations are added, update this field *)
+           cc;
+           content=post.post_source;
+           sensitive = not post.is_public;
+           source = Some post.post_source;
+           summary = post.summary;
+           published = Some post.published;
+           tags=[];
+           raw=`Null
+         }: Activitypub.Types.note)
       ) posts
     |> lift_database_error in
   let* start_time =

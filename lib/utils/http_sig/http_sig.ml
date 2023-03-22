@@ -97,51 +97,66 @@ let verify_request ~resolve_public_key (req: Dream.request) =
   Lwt_result.return @@ verify ~signed_string ~signature public_key
 
 let build_signed_headers ~priv_key ~key_id
-      ~headers ~body_str ~current_time
-      ~method_ ~uri =
-  let signed_headers = "(request-target) content-length host date digest" in
-  let body_str_len = String.length body_str |> Int.to_string in
-  let body_digest = body_digest body_str in
+      ~headers ?body_str ~current_time
+      ~method_ ~uri () =
+  let signed_headers =
+    match body_str with
+    | Some _ -> "(request-target) content-length host date digest"
+    | None -> "(request-target) host date" in
+
+  let body_str_len = Option.map Fun.(Int.to_string % String.length) body_str in
+  let body_digest = Option.map body_digest body_str in
+
   let date = Http_date.to_utc_string current_time in
   let host = uri
              |> Uri.host
              |> Option.get_exn_or "no host for request" in
 
   let signature_string =
+    let opt name vl =
+      match vl with
+        None -> Fun.id
+      | Some vl -> StringMap.add name vl in
     let to_be_signed =
       build_signed_string
         ~signed_headers
         ~meth:(method_ |> String.lowercase_ascii)
         ~path:(Uri.path uri)
-        ~headers:(StringMap.add "content-length" body_str_len @@
+        ~headers:(opt "content-length" body_str_len @@
                   StringMap.add "date" date @@
                   StringMap.add "host" host @@
                   headers)
-        ~body_digest in
+        ~body_digest:(Option.value body_digest ~default:"") in
 
     let signed_string = encrypt priv_key to_be_signed |> Result.get_exn in
     Printf.sprintf {|keyId="%s",algorithm="rsa-sha256",headers="%s",signature="%s"|}
       key_id signed_headers signed_string in
-  List.fold_left (fun map (k,v) -> StringMap.add k v map) headers
+  List.fold_left (fun map (k,v) ->
+    match v with
+    | None -> map
+    | Some v -> StringMap.add k v map
+  ) headers
     ["Digest", body_digest;
-     "Date", date;
-     "Host", host;
-     "Signature", signature_string;
+     "Date", Some date;
+     "Host", Some host;
+     "Signature", Some signature_string;
      "Content-Length", body_str_len ]
   |> StringMap.to_list
 
 let sign_headers ~priv_key ~key_id
-      ~(body: Cohttp_lwt.Body.t)
-      ~(headers: Cohttp.Header.t) ~uri ~method_ =
-  let (let@) x f = Lwt.bind x f in
+      ?(body: Cohttp_lwt.Body.t option)
+      ~(headers: Cohttp.Header.t) ~uri ~method_ () =
+  let (let*) x f = Lwt.bind x f in
 
-  let@ body_str = Cohttp_lwt.Body.to_string body in
+  let* body_str = match body with
+      None -> Lwt.return None
+    | Some body -> Lwt.map Option.some (Cohttp_lwt.Body.to_string body) in
   let current_time = time_now () in
 
   let headers =
     List.fold_left
       (fun header (key,vl) -> Cohttp.Header.add header key vl) headers
     (build_signed_headers ~priv_key ~key_id
-       ~headers:(req_headers headers) ~body_str ~current_time
-       ~method_:(Cohttp.Code.string_of_method method_) ~uri) in
+       ~headers:(req_headers headers) ?body_str ~current_time
+       ~method_:(Cohttp.Code.string_of_method method_) ~uri ()) in
   Lwt.return headers
