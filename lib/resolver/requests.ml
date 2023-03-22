@@ -28,19 +28,19 @@ let signed_post (key_id, priv_key) uri body_str =
     |> Cohttp.Header.of_list in
   req_post ~headers uri body_str
 
-let signed_get (key_id, priv_key) uri =
+let signed_get ?content_type (key_id, priv_key) uri =
   let current_time = Ptime_clock.now () in
   let headers =
     Http_sig.build_signed_headers
       ~current_time ~method_:"GET" 
       ~headers:(Http_sig.StringMap.of_list [
-        "Content-Type", APConstants.ContentType.ld_json_activity_streams
+        "Content-Type", Option.value content_type ~default:APConstants.ContentType.ld_json_activity_streams
       ]) ~key_id ~priv_key ~uri ()
     |> Cohttp.Header.of_list in
   req ~headers uri
 
 let signed_activity_req key url =
-  signed_get key url
+  signed_get ~content_type:APConstants.ContentType.activity_json key url
 
 let activity_req ?(headers=[]) url =
   let activity_header =
