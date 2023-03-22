@@ -24,7 +24,9 @@ end
 
 let sql req op =
   Dream.sql req op
-  |> Lwt_result.map_error (fun err -> `DatabaseError (Caqti_error.show err))
+  |> Lwt_result.map_error (function #Caqti_error.t as err -> `DatabaseError (Caqti_error.show err)
+      | `DatabaseError e -> `DatabaseError e
+      | `ResolverError e -> `ResolverError e)
 
 let current_user req =
   match Dream.session_field req "user" with

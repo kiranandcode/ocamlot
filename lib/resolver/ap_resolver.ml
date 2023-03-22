@@ -98,17 +98,34 @@ let activity_req ?ty ?user ~(into: 'a Decoders_yojson.Safe.Decode.decoder) url =
         return @@ lift_opt ~else_:(fun _ -> "activity req failed even with signed request") data in
   return_ok data
 
-let resolve_public_key ?user url =
+let resolve_public_key ?user url db =
   (* NOTE: Not obvious, but you need to specify accept headers, else
      pleroma will return html *)
   log.debug (fun f -> f "resolve_public_key %s" url);
-  let* actor = activity_req ?user ~into:Activitypub.Decode.person url in
-  let pub_key =
-    actor.public_key.pem
-    |> Cstruct.of_string
-    |> X509.Public_key.decode_pem
-    |> Result.map_err (fun (`Msg err) -> err) in
-  Lwt.return pub_key
+  let user_url = Uri.to_string (Uri.with_fragment (Uri.of_string url) None) in
+  log.debug (fun f -> f "user url is %s" user_url);
+  let* remote_user =
+    Database.RemoteUser.lookup_remote_user_by_url ~url:user_url db
+    |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
+  match remote_user with
+  | None ->
+    log.debug (fun f -> f "remote user not found locally --> having to request data");
+    let* actor = activity_req ?user ~into:Activitypub.Decode.person url
+                 |> map_err (fun err -> `ResolverError err) in
+    let pub_key =
+      actor.public_key.pem
+      |> Cstruct.of_string
+      |> X509.Public_key.decode_pem
+      |> Result.map_err (fun (`Msg m) -> `ResolverError m) in
+    Lwt.return pub_key
+  | Some remote_user ->
+    log.debug (fun f -> f "remote user found locally -- using stored pem");
+    let remote_user_key =
+      remote_user.public_key_pem
+      |> Cstruct.of_string
+      |> X509.Public_key.decode_pem
+      |> Result.map_err (fun (`Msg m) -> `ResolverError m) in
+    Lwt.return remote_user_key
 
 let resolve_remote_user_with_webfinger ?user ~local_lookup ~webfinger_uri db
   : (Database.RemoteUser.t, string) Lwt_result.t =

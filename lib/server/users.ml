@@ -711,8 +711,8 @@ let handle_inbox_post req =
   log.debug (fun f -> f "validating request");
   let* valid_request =
     Http_sig.verify_request
-      ~resolve_public_key:Ap_resolver.resolve_public_key req
-    |> map_err (fun err -> `ResolverError err) in
+      ~resolve_public_key:(fun s -> Web.sql req (Ap_resolver.resolve_public_key s))
+      req in
   log.debug (fun f -> f "request validation completed with result %b" valid_request);
   let* () =
     if valid_request
