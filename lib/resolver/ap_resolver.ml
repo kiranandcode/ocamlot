@@ -54,9 +54,14 @@ let decode_body ?ty ~into:decoder body =
   | Some ty -> Configuration.dump_string ~ty body
   | None -> ()
   end;
-  body
-  |> Activitypub.Decode.(decode_string decoder)
-  |> Lwt.return
+  let res = body |> Activitypub.Decode.(decode_string decoder) in
+  begin match res with
+  | Ok _ -> ()
+  | Error _ ->
+    if Lazy.force Configuration.debug then
+      IO.with_out ~flags:[Open_append; Open_creat] "ocamlot-failed-events.json" (Fun.flip IO.write_line (body ^ "\n"));
+  end;
+  res |> Lwt.return
 
 let resolve_public_key url =
   (* NOTE: Not obvious, but you need to specify accept headers, else
