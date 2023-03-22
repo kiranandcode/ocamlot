@@ -526,10 +526,10 @@ let handle_remote_users_get req =
         |> map_err (fun err -> `DatabaseError (Caqti_error.show err)) in
       return_ok (remote_users, remote_user_count)
     | Some query, Some _ ->
+      let* local_user = Web.current_user req in
       match classify_query query with
       | `Resolve (user, domain) ->
         log.debug (fun f -> f "received explicit search - sending task to worker");
-        let* local_user = Web.current_user req in
         Worker.send_task Worker.(SearchRemoteUser {
           username=user; domain=Some domain; local_user;
         });
@@ -548,7 +548,7 @@ let handle_remote_users_get req =
         | [username] -> 
           log.debug (fun f -> f "implicit search over single parameter - sending task to worker");
           Worker.send_task Worker.(SearchRemoteUser {
-            username; domain=None
+            username; domain=None; local_user;
           });
         | _ -> ()
         end;
