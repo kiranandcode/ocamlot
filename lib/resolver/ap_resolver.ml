@@ -57,6 +57,8 @@ let extract_user_url ~id:to_ db =
 
 let decode_body ?ty ~into:decoder body =
   let* body = Cohttp_lwt.Body.to_string body >> Result.return in
+  log.debug (fun f -> f "decoding body [%a] \"%s...\"" (Option.pp String.pp) ty (String.take 10 body));
+
   begin match ty with
   | Some ty -> Configuration.dump_string ~ty body
   | None -> ()
@@ -75,10 +77,14 @@ let decode_body ?ty ~into:decoder body =
   end |> Lwt.return
 
 let activity_req ?ty ?user ~(into: 'a Decoders_yojson.Safe.Decode.decoder) url =
+  log.debug (fun f -> f "sending a request to %s ==> %a" url Uri.pp (Uri.of_string url));
   let* (_, body) = Requests.activity_req (Uri.of_string url) in
   let* data = decode_body ?ty ~into body in
   let* data = match user with
-    | None -> lift_opt ~else_:(fun _ -> "could not retrieve activity using unsigned req, and no user present") data |> return
+    | None ->
+      lift_opt
+        ~else_:(fun _ -> "could not retrieve activity using unsigned req, and no user present") data
+      |> return
     | Some user ->
       let* (_, body) = Requests.signed_activity_req (local_user_key user) (Uri.of_string url) in
       let* data = decode_body ?ty ~into body in
