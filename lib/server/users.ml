@@ -529,8 +529,9 @@ let handle_remote_users_get req =
       match classify_query query with
       | `Resolve (user, domain) ->
         log.debug (fun f -> f "received explicit search - sending task to worker");
+        let* local_user = Web.current_user req in
         Worker.send_task Worker.(SearchRemoteUser {
-          username=user; domain=Some domain
+          username=user; domain=Some domain; local_user;
         });
         let query = "%" ^ user ^ "%" in
         let* remote_users =

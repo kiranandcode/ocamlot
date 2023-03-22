@@ -67,6 +67,7 @@ type t =
   | SearchRemoteUser of {
       username: string;
       domain: string option;
+      local_user: Database.LocalUser.t option;
     }
 
   (* post by local user *)

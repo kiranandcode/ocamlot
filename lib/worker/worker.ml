@@ -20,7 +20,7 @@ let handle_local_post pool user scope post_to title content_type content in_repl
 
   Lwt.return_ok ()
 
-let handle_search_user pool username domain =
+let handle_search_user pool ~by:local_user username domain =
   log.debug (fun f ->
     f "received search query for user %s(@%a)?"
       username (Option.pp String.pp) domain);
@@ -37,13 +37,13 @@ let handle_search_user pool username domain =
       let domain = instance.Database.RemoteInstance.url in
       (* attempt to resolve the remote user *)
       with_pool pool @@ fun db ->
-      Ap_resolver.resolve_remote_user ~username ~domain db
+      Ap_resolver.resolve_remote_user ?user:local_user ~username ~domain db
       |> lift_resolver_error
     ) instances
   | Some domain ->
     log.debug (fun f ->  f "resolving user %s@%s?" username domain);
     let* _ = with_pool pool @@ fun db ->
-      Ap_resolver.resolve_remote_user ~username ~domain db
+      Ap_resolver.resolve_remote_user ?user:local_user ~username ~domain db
       |> lift_resolver_error in
     log.debug (fun f ->  f "successfully resolved user %s@%s" username domain);
     return_ok ()
@@ -240,8 +240,8 @@ let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) ta
              handle_remote_reboost_of_local_post pool id published target author raw_data
            | HandleRemoteReboostOfRemotePost { id; published; target; author; raw_data } -> 
              handle_remote_reboost_of_remote_post pool id published target author raw_data
-           | SearchRemoteUser {username; domain} ->
-             handle_search_user pool username domain
+           | SearchRemoteUser {username; domain; local_user} ->
+             handle_search_user pool ~by:local_user username domain
            | LocalPost {user; title; content; content_type; scope; post_to; in_reply_to; attachments} -> 
              handle_local_post pool user scope post_to title content_type content in_reply_to attachments
            | FollowRemoteUser {user; username; domain} ->
