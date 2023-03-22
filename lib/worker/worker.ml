@@ -219,7 +219,7 @@ let handle_undo pool author obj =
 
 let worker (pool: (Caqti_lwt.connection, [> Caqti_error.t]) Caqti_lwt.Pool.t) task_in =
   log.debug (fun f -> f "worker now waiting for tasks");
-  Lwt_stream.iter_s
+  Lwt_stream.iter_p
     (fun task ->
        log.debug (fun f -> f "worker woken up with task [%s]" (Task.task_name task));
        try
