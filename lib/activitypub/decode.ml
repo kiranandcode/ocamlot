@@ -303,7 +303,7 @@ module Webfinger = struct
       ostatus_subscribe
     | str when String.equal str Constants.Webfinger.profile_page ->
       profile_page
-    | _ -> failwith "unsupported link relation"
+    | _ -> fail "unsupported link relation"
 
   let query_result =
     let open D in
