@@ -7,9 +7,9 @@ services:
     volumes:
       - 'certs:/certs'
       - '../../:/home/opam/code'
-  redis:
-    image: redis:7.0.9
-    restart: always
+  # redis:
+  #   image: redis:7.0.9
+  #   restart: always
   postgres:
     image: postgres:11.15
     restart: always
@@ -42,24 +42,24 @@ services:
       - 'certs:/certs'
     ports:
       - "4000:443"
-  mastodon:
-    # entrypoint: ["sh", "-c", "sleep 2073600"]
-    build:
-      context: ../../
-      dockerfile: ./tests/integration_tests/mastodon-local.Dockerfile
-    networks:
-      default:
-        aliases:
-          - mastodon.ocamlot.xyz
-    depends_on:
-      - cert-gen
-      - postgres
-      - redis
-    volumes:
-      - './mastodon:/opt/mastodon'
-      - 'certs:/certs'
-    ports:
-      - "3000:443"
+  # mastodon:
+  #   # entrypoint: ["sh", "-c", "sleep 2073600"]
+  #   build:
+  #     context: ../../
+  #     dockerfile: ./tests/integration_tests/mastodon-local.Dockerfile
+  #   networks:
+  #     default:
+  #       aliases:
+  #         - mastodon.ocamlot.xyz
+  #   depends_on:
+  #     - cert-gen
+  #     - postgres
+  #     - redis
+  #   volumes:
+  #     - './mastodon:/opt/mastodon'
+  #     - 'certs:/certs'
+  #   ports:
+  #     - "3000:443"
   ocamlot:
     build:
       context: ../../
