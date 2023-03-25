@@ -2259,7 +2259,7 @@ module Follows = struct
     |> Petrol.find conn
     |> Lwt_result.map (fun (c, ()) -> c)
 
-  let collect_following_for_actor ?(offset=0) ?(limit=10) ?since ~(id:Types.actor_id) conn =
+  let collect_following_for_actor ?offset ?limit ?since ~(id:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Petrol.Postgres in
@@ -2282,8 +2282,8 @@ module Follows = struct
         Follows.pending = false_
       )
     |> Query.order_by Expr.(coalesce [Follows.updated; Follows.created]) ~direction:`DESC
-    |> Query.offset Expr.(i offset)
-    |> Query.limit Expr.(i limit)
+    |> (match offset with None -> Fun.id | Some offset -> Query.offset Expr.(i offset))
+    |> (match limit with None -> Fun.id | Some limit -> Query.limit Expr.(i limit))
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map decode)
@@ -2300,7 +2300,7 @@ module Follows = struct
     |> Petrol.find conn
     |> Lwt_result.map (fun (c, ()) -> c)
 
-  let collect_followers_for_actor ?(offset=0) ?(limit=10) ?since ~(id:Types.actor_id) conn =
+  let collect_followers_for_actor ?offset ?limit ?since ~(id:Types.actor_id) conn =
     let open Lwt_result.Syntax in
     let open Petrol in
     let open Petrol.Postgres in
@@ -2323,8 +2323,8 @@ module Follows = struct
         Follows.pending = false_
       )
     |> Query.order_by Expr.(coalesce [Follows.updated; Follows.created]) ~direction:`DESC
-    |> Query.offset Expr.(i offset)
-    |> Query.limit Expr.(i limit)
+    |> (match offset with None -> Fun.id | Some offset -> Query.offset Expr.(i offset))
+    |> (match limit with None -> Fun.id | Some limit -> Query.limit Expr.(i limit))
     |> Request.make_many
     |> Petrol.collect_list conn
     |> Lwt_result.map (List.map decode)
