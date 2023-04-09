@@ -241,7 +241,7 @@ module Webfinger = struct
         "type" @ t <: ty;
       ]
     | OStatusSubscribe template -> obj [
-      "rel" @ Constants.Webfinger.profile_page <: E.string;
+      "rel" @ Constants.Webfinger.ostatus_rel <: E.string;
       "template" @ template <: E.string;
     ]
 
