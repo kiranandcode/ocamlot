@@ -11,7 +11,7 @@
    test_follow
    test_instance)
  (modules (:standard \ "testing_utils"))
- (libraries http_sig password database testing_utils mirage-crypto-rng.lwt)
+ (libraries http_sig password database testing_utils mirage-crypto-rng mirage-crypto-rng-lwt)
  (deps ../resources/schema.sql)
  (preprocess (pps ppx_deriving.std)))
 
