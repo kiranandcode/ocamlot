@@ -8,7 +8,7 @@
 
    caqti caqti-lwt 
 
-   mirage-crypto-rng.lwt
+   mirage-crypto-rng mirage-crypto-rng-lwt
    ppx_deriving.runtime
 
    petrol

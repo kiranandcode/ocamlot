@@ -18,7 +18,8 @@
    containers
    ptime
 
-   mirage-crypto-rng
+   (mirage-crypto-rng (>= 0.11.0))
+   (mirage-crypto-rng-lwt (>= 0.11.0))
    argon2
 
    cohttp cohttp-lwt cohttp-lwt-unix

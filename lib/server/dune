@@ -13,7 +13,7 @@
 
    dream dream-pure dream.http
 
-   mirage-crypto-rng.lwt mirage-crypto cstruct
+   mirage-crypto-rng mirage-crypto-rng-lwt mirage-crypto cstruct
 
    conan conan.string conan-database fpath
 

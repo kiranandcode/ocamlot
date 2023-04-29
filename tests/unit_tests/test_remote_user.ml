@@ -251,5 +251,5 @@ end
 
 
 let () =
-  Mirage_crypto_rng_lwt.initialize ();
+  Mirage_crypto_rng_lwt.initialize (module Mirage_crypto_rng.Fortuna);
   T.run ()

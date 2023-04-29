@@ -45,7 +45,7 @@ let enforce_domain: Dream.middleware =
 
 
 let run () =
-  let () = Mirage_crypto_rng_lwt.initialize () in
+  let () = Mirage_crypto_rng_lwt.initialize (module Mirage_crypto_rng.Fortuna) in
   if Lazy.force Configuration.debug then begin
     if Lazy.force Configuration.debug_dream_info
     then Dream.initialize_log ~level:`Info ~enable:true ()
